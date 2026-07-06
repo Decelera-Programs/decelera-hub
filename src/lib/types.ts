@@ -40,4 +40,10 @@ export interface Deal {
   channel: Channel;
   weekIndex: number | null;
   weekLabel: string;
+  /**
+   * Heuristic, not a real field: `created_by` no está sincronizado en `historico.deals`,
+   * así que aproximamos "cómo entró" por el prefijo `[LINKEDIN OUTREACH]` en el nombre
+   * (outreach automatizado) vs. sin prefijo (añadido a mano).
+   */
+  sourceMethod: "manual" | "automated";
 }

@@ -77,6 +77,8 @@ export function computeWeek(date: Date | null): WeekBucket {
   return { weekIndex, weekLabel: `Semana ${weekIndex}` };
 }
 
+const AUTOMATED_NAME_PREFIX = "[LINKEDIN OUTREACH]";
+
 export function mapRawDeal(raw: RawDeal): Deal {
   const status = asStatus(raw.status);
   const isDead = status ? DEAD_STATUSES.includes(status) : false;
@@ -84,15 +86,17 @@ export function mapRawDeal(raw: RawDeal): Deal {
   const referenceList = parsePgArray(raw.reference_3);
   const createdAtRaw = raw.created_at_entry ?? raw.created_at_record;
   const { weekIndex, weekLabel } = computeWeek(createdAtRaw ? new Date(createdAtRaw) : null);
+  const name = raw.name ?? "Sin nombre";
 
   return {
     recordId: raw.record_id,
-    name: raw.name ?? "Sin nombre",
+    name,
     stage: raw.stage as Deal["stage"],
     status,
     lastPipelineStage,
     channel: categorizeReference(referenceList[0] ?? null),
     weekIndex,
     weekLabel,
+    sourceMethod: name.startsWith(AUTOMATED_NAME_PREFIX) ? "automated" : "manual",
   };
 }
