@@ -50,15 +50,17 @@ function GoalIndicator({ current, goal }: { current: number; goal: number }) {
   return (
     <span
       title={`Objetivo: ${goal} · ${filled}% conseguido`}
-      className="ml-auto flex shrink-0 cursor-help items-center gap-1.5 text-[10px] font-normal text-[var(--text-muted)]"
+      className="ml-auto flex shrink-0 cursor-help items-center gap-1.5 text-[10px] font-normal tabular-nums text-[var(--text-muted)]"
     >
-      <span className="relative h-1.5 w-10 overflow-hidden rounded-full bg-[var(--gridline)]">
+      <span className="text-right">
+        {current}/{goal}
+      </span>
+      <span className="relative h-1.5 w-10 shrink-0 overflow-hidden rounded-full bg-[var(--gridline)]">
         <span
           className="absolute inset-y-0 left-0 rounded-full"
           style={{ width: `${filled}%`, background: "var(--series-1)" }}
         />
       </span>
-      {current}/{goal}
     </span>
   );
 }
