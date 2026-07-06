@@ -3,9 +3,10 @@
 import { useMemo, useState } from "react";
 import { FunnelTable } from "./FunnelTable";
 import { computeWeek } from "@/lib/transform";
-import type { Deal } from "@/lib/types";
+import type { Deal, StageValue } from "@/lib/types";
 
 type WeekOption = "all" | -1 | number;
+type StageOption = "all" | StageValue;
 
 function weekLabel(option: WeekOption) {
   if (option === "all") return "Total";
@@ -13,10 +14,51 @@ function weekLabel(option: WeekOption) {
   return `Semana ${option}`;
 }
 
-export function FunnelDashboard({ deals }: { deals: Deal[] }) {
-  const [selected, setSelected] = useState<WeekOption>("all");
+const STAGE_LABEL: Record<StageOption, string> = {
+  all: "Todos",
+  "Mexico 2026": "Aplicaciones",
+  "Leads Mexico 2026": "Leads",
+};
 
-  const options = useMemo<WeekOption[]>(() => {
+function TabGroup<T extends string | number>({
+  options,
+  selected,
+  onSelect,
+  label,
+}: {
+  options: T[];
+  selected: T;
+  onSelect: (value: T) => void;
+  label: (value: T) => string;
+}) {
+  return (
+    <div className="flex flex-wrap gap-1 rounded-full border border-[var(--border)] bg-[var(--surface-1)] p-1">
+      {options.map((option) => {
+        const active = option === selected;
+        return (
+          <button
+            key={String(option)}
+            onClick={() => onSelect(option)}
+            className="rounded-full px-3 py-1.5 text-sm font-medium transition-colors"
+            style={
+              active
+                ? { background: "var(--series-1)", color: "#fff" }
+                : { color: "var(--text-secondary)" }
+            }
+          >
+            {label(option)}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+export function FunnelDashboard({ deals }: { deals: Deal[] }) {
+  const [selectedWeek, setSelectedWeek] = useState<WeekOption>("all");
+  const [selectedStage, setSelectedStage] = useState<StageOption>("all");
+
+  const weekOptions = useMemo<WeekOption[]>(() => {
     const currentWeek = Math.max(0, computeWeek(new Date()).weekIndex ?? 0);
     const dataMaxWeek = Math.max(0, ...deals.map((d) => d.weekIndex ?? 0));
     const lastWeek = Math.max(currentWeek, dataMaxWeek, 1);
@@ -25,33 +67,31 @@ export function FunnelDashboard({ deals }: { deals: Deal[] }) {
     return weeks;
   }, [deals]);
 
-  const filtered = selected === "all" ? deals : deals.filter((d) => d.weekIndex === selected);
+  const stageOptions: StageOption[] = ["all", "Mexico 2026", "Leads Mexico 2026"];
+
+  const filtered = deals
+    .filter((d) => selectedWeek === "all" || d.weekIndex === selectedWeek)
+    .filter((d) => selectedStage === "all" || d.stage === selectedStage);
 
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-3">
-        <div className="flex flex-wrap gap-1 rounded-full border border-[var(--border)] bg-[var(--surface-1)] p-1">
-          {options.map((option) => {
-            const active = option === selected;
-            return (
-              <button
-                key={String(option)}
-                onClick={() => setSelected(option)}
-                className="rounded-full px-3 py-1.5 text-sm font-medium transition-colors"
-                style={
-                  active
-                    ? { background: "var(--series-1)", color: "#fff" }
-                    : { color: "var(--text-secondary)" }
-                }
-              >
-                {weekLabel(option)}
-              </button>
-            );
-          })}
-        </div>
+        <TabGroup
+          options={stageOptions}
+          selected={selectedStage}
+          onSelect={setSelectedStage}
+          label={(o) => STAGE_LABEL[o]}
+        />
+        <TabGroup
+          options={weekOptions}
+          selected={selectedWeek}
+          onSelect={setSelectedWeek}
+          label={weekLabel}
+        />
         <p className="text-xs text-[var(--text-muted)]">
-          Semanas contadas desde el inicio de la opencall (29 jun 2026). &ldquo;Total&rdquo; no
-          filtra por fecha.
+          Aplicaciones = stage <em>Mexico 2026</em>, Leads = stage <em>Leads Mexico 2026</em>.
+          Semanas contadas desde el inicio de la opencall (29 jun 2026). &ldquo;Todos&rdquo; /
+          &ldquo;Total&rdquo; no filtran.
         </p>
       </div>
       <FunnelTable deals={filtered} />
