@@ -10,7 +10,6 @@ import type { Deal, StageValue } from "@/lib/types";
 
 type WeekOption = "all" | -1 | number;
 type StageOption = "all" | StageValue;
-type SourceOption = "all" | "manual" | "automated";
 
 function weekLabel(option: WeekOption) {
   if (option === "all") return "Total";
@@ -23,14 +22,6 @@ const STAGE_LABEL: Record<StageOption, string> = {
   "Mexico 2026": "Aplicaciones",
   "Leads Mexico 2026": "Leads",
 };
-
-const SOURCE_LABEL: Record<SourceOption, string> = {
-  all: "Todos los leads",
-  manual: "Manual",
-  automated: "LinkedIn outreach",
-};
-
-const SOURCE_OPTIONS: SourceOption[] = ["all", "manual", "automated"];
 
 function TabGroup<T extends string | number>({
   options,
@@ -69,9 +60,6 @@ function TabGroup<T extends string | number>({
 export function FunnelDashboard({ deals }: { deals: Deal[] }) {
   const [selectedWeek, setSelectedWeek] = useState<WeekOption>("all");
   const [selectedStage, setSelectedStage] = useState<StageOption>("all");
-  const [selectedSource, setSelectedSource] = useState<SourceOption>("all");
-
-  const isLeadsOnly = selectedStage === "Leads Mexico 2026";
 
   const weekOptions = useMemo<WeekOption[]>(() => {
     const currentWeek = Math.max(0, computeWeek(new Date()).weekIndex ?? 0);
@@ -84,15 +72,11 @@ export function FunnelDashboard({ deals }: { deals: Deal[] }) {
 
   const stageOptions: StageOption[] = ["all", "Mexico 2026", "Leads Mexico 2026"];
 
-  // Stage/source filters apply everywhere; the week filter only narrows the table —
+  // Stage filter applies everywhere; the week filter only narrows the table —
   // both trend charts need every week to make sense.
-  const stageSourceFiltered = deals
-    .filter((d) => selectedStage === "all" || d.stage === selectedStage)
-    .filter((d) => !isLeadsOnly || selectedSource === "all" || d.sourceMethod === selectedSource);
+  const stageFiltered = deals.filter((d) => selectedStage === "all" || d.stage === selectedStage);
 
-  const filtered = stageSourceFiltered.filter(
-    (d) => selectedWeek === "all" || d.weekIndex === selectedWeek
-  );
+  const filtered = stageFiltered.filter((d) => selectedWeek === "all" || d.weekIndex === selectedWeek);
 
   return (
     <div className="flex flex-col gap-4">
@@ -100,10 +84,7 @@ export function FunnelDashboard({ deals }: { deals: Deal[] }) {
         <TabGroup
           options={stageOptions}
           selected={selectedStage}
-          onSelect={(stage) => {
-            setSelectedStage(stage);
-            setSelectedSource("all");
-          }}
+          onSelect={setSelectedStage}
           label={(o) => STAGE_LABEL[o]}
         />
         <TabGroup
@@ -112,32 +93,16 @@ export function FunnelDashboard({ deals }: { deals: Deal[] }) {
           onSelect={setSelectedWeek}
           label={weekLabel}
         />
-        {isLeadsOnly && (
-          <TabGroup
-            options={SOURCE_OPTIONS}
-            selected={selectedSource}
-            onSelect={setSelectedSource}
-            label={(o) => SOURCE_LABEL[o]}
-          />
-        )}
       </div>
       <p className="text-xs text-[var(--text-muted)]">
         Aplicaciones = stage <em>Mexico 2026</em>, Leads = stage <em>Leads Mexico 2026</em>.
         Semanas contadas desde el inicio de la opencall (29 jun 2026). &ldquo;Todos&rdquo; /
         &ldquo;Total&rdquo; no filtran.
-        {isLeadsOnly && (
-          <>
-            {" "}
-            Dentro de Leads, Manual / LinkedIn outreach es una aproximación por el prefijo{" "}
-            <code>[LINKEDIN OUTREACH]</code> en el nombre del deal — Attio no nos sincroniza quién
-            creó cada registro, así que no es un dato exacto de autoría.
-          </>
-        )}
       </p>
       <FunnelTable deals={filtered} />
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <ApplicationsOverTimeChart deals={stageSourceFiltered} />
-        <WeeklyVolumeChart deals={stageSourceFiltered} />
+        <ApplicationsOverTimeChart deals={stageFiltered} />
+        <WeeklyVolumeChart deals={stageFiltered} />
       </div>
       <QualitySummary deals={filtered} />
     </div>
