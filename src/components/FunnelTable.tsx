@@ -44,6 +44,25 @@ function StatCell({ count, base }: { count: number; base: number | null }) {
   );
 }
 
+/** Tiny progress-to-goal indicator, tucked into the channel cell instead of a dedicated column. */
+function GoalIndicator({ current, goal }: { current: number; goal: number }) {
+  const filled = Math.min(100, Math.round((current / goal) * 100));
+  return (
+    <span
+      title={`Objetivo: ${goal} · ${filled}% conseguido`}
+      className="ml-auto flex shrink-0 cursor-help items-center gap-1.5 text-[10px] font-normal text-[var(--text-muted)]"
+    >
+      <span className="relative h-1.5 w-10 overflow-hidden rounded-full bg-[var(--gridline)]">
+        <span
+          className="absolute inset-y-0 left-0 rounded-full"
+          style={{ width: `${filled}%`, background: "var(--series-1)" }}
+        />
+      </span>
+      {current}/{goal}
+    </span>
+  );
+}
+
 function ConversionRow({
   row,
   variant = "main",
@@ -92,6 +111,7 @@ function ConversionRow({
             />
           )}
           {row.label}
+          {row.goal !== null && <GoalIndicator current={row.total} goal={row.goal} />}
         </span>
       </td>
       {PIPELINE_ORDER.map((stage, i) => {
@@ -227,7 +247,8 @@ export function FunnelTable({ deals }: { deals: Deal[] }) {
         fila. Las secciones Curado / Masivo son una agrupación aproximada nuestra (no un dato de
         Attio): &ldquo;Outreach&rdquo; se separa en Event y LinkedIn manual (Curado) vs. outbound
         automatizado (Masivo). Las filas con ▸ mezclan más de una fuente — haz clic para
-        desglosarlas.
+        desglosarlas. La barrita junto al nombre del canal es el objetivo 2026 (deals conseguidos
+        ÷ meta).
       </p>
       <ChannelLegend />
     </ChartCard>

@@ -1,9 +1,11 @@
 "use client";
 
-import { Area, AreaChart, CartesianGrid, ReferenceDot, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Area, AreaChart, CartesianGrid, ReferenceDot, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { ChartCard } from "./ChartCard";
-import { buildApplicationsOverTime } from "@/lib/aggregate";
+import { buildApplicationsOverTime, CHANNEL_GOALS } from "@/lib/aggregate";
 import type { Deal } from "@/lib/types";
+
+const TOTAL_GOAL = CHANNEL_GOALS.TOTAL;
 
 function formatDate(iso: string) {
   return new Date(`${iso}T00:00:00Z`).toLocaleDateString("es-ES", {
@@ -36,7 +38,14 @@ export function ApplicationsOverTimeChart({ deals }: { deals: Deal[] }) {
   const last = data[data.length - 1];
 
   return (
-    <ChartCard title="Aplicaciones en el tiempo" subtitle="Total acumulado por día de creación">
+    <ChartCard
+      title="Aplicaciones en el tiempo"
+      subtitle={
+        TOTAL_GOAL
+          ? `Total acumulado por día de creación · meta 2026: ${TOTAL_GOAL}`
+          : "Total acumulado por día de creación"
+      }
+    >
       {data.length === 0 ? (
         <p className="text-sm text-[var(--text-muted)]">
           Ninguno de los deals en este filtro tiene fecha de creación.
@@ -56,12 +65,26 @@ export function ApplicationsOverTimeChart({ deals }: { deals: Deal[] }) {
               />
               <YAxis
                 allowDecimals={false}
+                domain={[0, (dataMax: number) => Math.max(dataMax, TOTAL_GOAL ?? 0)]}
                 tick={{ fill: "var(--text-muted)", fontSize: 12 }}
                 axisLine={false}
                 tickLine={false}
-                width={32}
+                width={40}
               />
               <Tooltip content={<OverTimeTooltip />} cursor={{ stroke: "var(--baseline)" }} />
+              {TOTAL_GOAL && (
+                <ReferenceLine
+                  y={TOTAL_GOAL}
+                  stroke="var(--status-warning)"
+                  strokeDasharray="4 4"
+                  label={{
+                    value: `Meta 2026: ${TOTAL_GOAL}`,
+                    position: "insideBottomRight",
+                    fill: "var(--text-secondary)",
+                    fontSize: 12,
+                  }}
+                />
+              )}
               <Area
                 type="monotone"
                 dataKey="cumulative"

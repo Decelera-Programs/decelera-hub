@@ -46,6 +46,20 @@ export const CONVERSION_ROWS: ConversionRowDef[] = [
   { key: "Otros", label: "Otros", channel: "Otros", group: null, match: (d) => d.channel === "Otros" },
 ];
 
+/**
+ * Objetivos de la hoja de metas que compartió Carlos (columna "Mex '26 Applications").
+ * "Outreach-Masivo" suma sus filas "Outbound linkedin (Maru)" (556) + "Outbound mass
+ * mailing" (250) = 806, porque aquí las llevamos como una sola fila — si quieres verlas
+ * separadas dímelo y desdoblamos la fila. Marketing/Otros no tenían objetivo en la hoja.
+ */
+export const CHANNEL_GOALS: Record<string, number> = {
+  Referral: 220,
+  "Outreach-Event": 20,
+  "Outreach-Curado": 125,
+  "Outreach-Masivo": 806,
+  TOTAL: 1171,
+};
+
 export interface FunnelMatrixRow {
   key: string;
   label: string;
@@ -58,6 +72,8 @@ export interface FunnelMatrixRow {
   total: number;
   /** Breakdown by raw `reference_3` source — only populated when the row mixes 2+ distinct sources. */
   subRows: FunnelMatrixRow[];
+  /** Target from the goals sheet — null when this row has no defined objective. */
+  goal: number | null;
 }
 
 function rank(stage: PipelineStatus | null): number {
@@ -87,6 +103,7 @@ function buildRow(
     tier1: deals.filter((d) => d.formScore.tier === "Tier 1").length,
     total: deals.length,
     subRows: [],
+    goal: CHANNEL_GOALS[key] ?? null,
   };
 }
 
