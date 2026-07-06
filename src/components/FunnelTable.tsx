@@ -26,16 +26,22 @@ const GROUP_HINT: Record<"Curado" | "Masivo", string> = {
 };
 
 const COLUMN_COUNT = 1 + PIPELINE_ORDER.length + 2;
+const OUTCOME_BG = "var(--column-band)";
 
-function formatStageCell(count: number, prevCount: number | null) {
-  if (prevCount === null || prevCount === 0) return String(count);
-  const pct = Math.round((count / prevCount) * 100);
-  return `${count} (${pct}%)`;
+function pct(numerator: number, denominator: number) {
+  if (denominator === 0) return null;
+  return Math.round((numerator / denominator) * 100);
 }
 
-function formatPct(numerator: number, denominator: number) {
-  if (denominator === 0) return "—";
-  return `${Math.round((numerator / denominator) * 100)}%`;
+/** Count with its de-emphasized conversion % beside it — the number is the point, the % is context. */
+function StatCell({ count, base }: { count: number; base: number | null }) {
+  const p = base === null || base === 0 ? null : pct(count, base);
+  return (
+    <>
+      {count}
+      {p !== null && <span className="ml-1 text-[var(--text-muted)]">({p}%)</span>}
+    </>
+  );
 }
 
 function ConversionRow({
@@ -44,34 +50,39 @@ function ConversionRow({
   expandable = false,
   expanded = false,
   onToggle,
+  zebra = false,
 }: {
   row: FunnelMatrixRow;
   variant?: "main" | "sub";
   expandable?: boolean;
   expanded?: boolean;
   onToggle?: () => void;
+  zebra?: boolean;
 }) {
   const isTotal = row.key === "TOTAL";
   const isSub = variant === "sub";
+  const rowBg = isTotal ? "var(--page)" : zebra ? "var(--row-alt)" : undefined;
+
   return (
-    <tr
-      className="border-t border-[var(--gridline)]"
-      style={isTotal ? { background: "var(--page)" } : undefined}
-    >
+    <tr className="border-t border-[var(--gridline)] transition-colors hover:bg-[var(--row-hover)]" style={rowBg ? { background: rowBg } : undefined}>
       <td
-        className={`px-3 py-2.5 font-medium text-[var(--text-primary)] ${isSub ? "pl-8 text-[var(--text-secondary)]" : ""}`}
+        className={`px-3 py-2.5 font-medium text-[var(--text-primary)] ${isSub ? "text-[var(--text-secondary)]" : ""}`}
         style={isTotal ? { fontWeight: 600 } : undefined}
       >
-        <span className="flex items-center gap-1.5">
-          {expandable && (
-            <button
-              onClick={onToggle}
-              aria-label={expanded ? "Colapsar desglose por fuente" : "Ver desglose por fuente"}
-              aria-expanded={expanded}
-              className="flex h-4 w-4 shrink-0 items-center justify-center text-[var(--text-muted)]"
-            >
-              {expanded ? "▾" : "▸"}
-            </button>
+        <span className={`flex items-center gap-1.5 ${isSub ? "pl-8" : ""}`}>
+          {!isSub && (
+            <span className="flex h-4 w-4 shrink-0 items-center justify-center">
+              {expandable && (
+                <button
+                  onClick={onToggle}
+                  aria-label={expanded ? "Colapsar desglose por fuente" : "Ver desglose por fuente"}
+                  aria-expanded={expanded}
+                  className="flex h-4 w-4 items-center justify-center text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+                >
+                  {expanded ? "▾" : "▸"}
+                </button>
+              )}
+            </span>
           )}
           {row.channel && (
             <span
@@ -92,18 +103,21 @@ function ConversionRow({
             className="px-3 py-2.5 text-right tabular-nums text-[var(--text-primary)]"
             style={isTotal ? { fontWeight: 600 } : undefined}
           >
-            {formatStageCell(row.stageCounts[stage], prevCount)}
+            <StatCell count={row.stageCounts[stage]} base={prevCount} />
           </td>
         );
       })}
       <td
         className="border-l border-[var(--gridline)] px-3 py-2.5 text-right tabular-nums text-[var(--text-primary)]"
-        style={isTotal ? { fontWeight: 600 } : undefined}
+        style={{ background: OUTCOME_BG, ...(isTotal ? { fontWeight: 600 } : {}) }}
       >
-        {row.tier1} ({formatPct(row.tier1, row.total)})
+        <StatCell count={row.tier1} base={row.total} />
       </td>
-      <td className="px-3 py-2.5 text-right tabular-nums text-[var(--text-primary)]" style={isTotal ? { fontWeight: 600 } : undefined}>
-        {formatPct(row.stageCounts.Invested, row.total)}
+      <td
+        className="px-3 py-2.5 text-right tabular-nums text-[var(--text-primary)]"
+        style={{ background: OUTCOME_BG, ...(isTotal ? { fontWeight: 600 } : {}) }}
+      >
+        {pct(row.stageCounts.Invested, row.total) ?? "—"}%
       </td>
     </tr>
   );
@@ -126,6 +140,10 @@ export function FunnelTable({ deals }: { deals: Deal[] }) {
       return next;
     });
   }
+
+  const zebraByKey = new Map(
+    sections.flatMap((section) => section.rows).map((row, index) => [row.key, index % 2 === 1])
+  );
 
   return (
     <ChartCard
@@ -151,12 +169,14 @@ export function FunnelTable({ deals }: { deals: Deal[] }) {
               <th
                 title={TIER1_HINT}
                 className="cursor-help border-l border-[var(--gridline)] px-3 py-2 text-right font-medium text-[var(--text-secondary)]"
+                style={{ background: OUTCOME_BG }}
               >
                 Tier 1
               </th>
               <th
                 title={CONVERSION_HINT}
                 className="cursor-help px-3 py-2 text-right font-medium text-[var(--text-secondary)]"
+                style={{ background: OUTCOME_BG }}
               >
                 Conversión a selección
               </th>
@@ -177,6 +197,7 @@ export function FunnelTable({ deals }: { deals: Deal[] }) {
                 {section.rows.map((row) => {
                   const expandable = row.subRows.length > 0;
                   const expanded = expandedKeys.has(row.key);
+                  const zebra = zebraByKey.get(row.key) ?? false;
                   return (
                     <Fragment key={row.key}>
                       <ConversionRow
@@ -184,10 +205,11 @@ export function FunnelTable({ deals }: { deals: Deal[] }) {
                         expandable={expandable}
                         expanded={expanded}
                         onToggle={() => toggle(row.key)}
+                        zebra={zebra}
                       />
                       {expanded &&
                         row.subRows.map((subRow) => (
-                          <ConversionRow key={`${row.key}::${subRow.key}`} row={subRow} variant="sub" />
+                          <ConversionRow key={`${row.key}::${subRow.key}`} row={subRow} variant="sub" zebra={zebra} />
                         ))}
                     </Fragment>
                   );
@@ -201,9 +223,9 @@ export function FunnelTable({ deals }: { deals: Deal[] }) {
       <p className="text-xs text-[var(--text-muted)]">
         Cada celda cuenta startups que llegaron a esa etapa o más allá — incluye a las que después
         murieron, contando hasta dónde llegaron antes de caer. El % es la conversión respecto a la
-        etapa anterior. Tier 1 y Conversión a selección son sobre el total de la fila. Las secciones
-        Curado / Masivo son una agrupación aproximada nuestra (no un dato de Attio):
-        &ldquo;Outreach&rdquo; se separa en Event y LinkedIn manual (Curado) vs. outbound
+        etapa anterior. Tier 1 y Conversión a selección (fondo resaltado) son sobre el total de la
+        fila. Las secciones Curado / Masivo son una agrupación aproximada nuestra (no un dato de
+        Attio): &ldquo;Outreach&rdquo; se separa en Event y LinkedIn manual (Curado) vs. outbound
         automatizado (Masivo). Las filas con ▸ mezclan más de una fuente — haz clic para
         desglosarlas.
       </p>
