@@ -34,17 +34,25 @@ function WeekSelect({
   onSelect: (value: WeekOption) => void;
 }) {
   return (
-    <select
-      value={String(selected)}
-      onChange={(e) => onSelect(e.target.value === "all" ? "all" : Number(e.target.value))}
-      className="rounded-full border border-[var(--border)] bg-[var(--surface-1)] px-3 py-1.5 text-sm font-medium text-[var(--text-secondary)]"
-    >
-      {options.map((option) => (
-        <option key={String(option)} value={String(option)}>
-          {weekLabel(option)}
-        </option>
-      ))}
-    </select>
+    <div className="relative inline-block">
+      <select
+        value={String(selected)}
+        onChange={(e) => onSelect(e.target.value === "all" ? "all" : Number(e.target.value))}
+        className="appearance-none rounded-full border border-[var(--border)] bg-[var(--surface-1)] py-1.5 pl-3 pr-7 text-sm font-medium text-[var(--text-secondary)]"
+      >
+        {options.map((option) => (
+          <option key={String(option)} value={String(option)}>
+            {weekLabel(option)}
+          </option>
+        ))}
+      </select>
+      <span
+        aria-hidden
+        className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-[var(--text-muted)]"
+      >
+        ▾
+      </span>
+    </div>
   );
 }
 
