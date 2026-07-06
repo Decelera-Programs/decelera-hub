@@ -2,7 +2,18 @@ import { ChartCard } from "./ChartCard";
 import { buildFunnelMatrix } from "@/lib/aggregate";
 import { CHANNEL_COLOR } from "@/lib/colors";
 import { PIPELINE_ORDER } from "@/lib/transform";
-import type { Deal } from "@/lib/types";
+import type { Deal, PipelineStatus } from "@/lib/types";
+
+const STAGE_HINT: Record<PipelineStatus, string> = {
+  Contacted: "Primer contacto con la startup",
+  Qualified: "Pasó el primer filtro de calidad",
+  "In play": "En proceso activo de evaluación",
+  "Pre-committee": "Presentada al comité de inversión",
+  Invested: "Decelera invirtió",
+};
+
+const KILLED_HINT = "Descartada después de avanzar en el proceso";
+const NOT_QUALIFIED_HINT = "Descartada antes de avanzar (no pasó el primer filtro)";
 
 function formatStageCell(count: number, prevCount: number | null) {
   if (prevCount === null || prevCount === 0) return String(count);
@@ -28,15 +39,22 @@ export function FunnelTable({ deals }: { deals: Deal[] }) {
               {PIPELINE_ORDER.map((stage) => (
                 <th
                   key={stage}
-                  className="px-3 py-2 text-right font-medium text-[var(--text-secondary)]"
+                  title={STAGE_HINT[stage]}
+                  className="cursor-help px-3 py-2 text-right font-medium text-[var(--text-secondary)]"
                 >
                   {stage}
                 </th>
               ))}
-              <th className="border-l border-[var(--gridline)] px-3 py-2 text-right font-medium text-[var(--status-critical)]">
+              <th
+                title={KILLED_HINT}
+                className="cursor-help border-l border-[var(--gridline)] px-3 py-2 text-right font-medium text-[var(--status-critical)]"
+              >
                 Killed
               </th>
-              <th className="px-3 py-2 text-right font-medium text-[var(--status-critical)]">
+              <th
+                title={NOT_QUALIFIED_HINT}
+                className="cursor-help px-3 py-2 text-right font-medium text-[var(--status-critical)]"
+              >
                 Not qualified
               </th>
             </tr>
@@ -92,10 +110,10 @@ export function FunnelTable({ deals }: { deals: Deal[] }) {
         </table>
       </div>
       <p className="text-xs text-[var(--text-muted)]">
-        Cada celda de etapa cuenta deals que llegaron a esa etapa o más allá (vivos por{" "}
-        <code>status</code>, muertos por su último estado activo en <code>status_6</code>). % =
-        conversión respecto a la etapa anterior en la misma fila. Killed / Not qualified son
-        totales informativos, no forman parte de la cadena de conversión.
+        Cada celda cuenta startups que llegaron a esa etapa o más allá — incluye a las que después
+        murieron, contando hasta dónde llegaron antes de caer. El % es la conversión respecto a la
+        etapa anterior. Killed / Not qualified son totales por canal, no una etapa más del funnel
+        (pasa el cursor por cada columna para ver el detalle).
       </p>
     </ChartCard>
   );

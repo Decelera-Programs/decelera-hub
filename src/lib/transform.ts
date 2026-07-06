@@ -1,4 +1,4 @@
-import type { Channel, Deal, PipelineStatus, RawDeal, StatusValue } from "./types";
+import type { Channel, Deal, PipelineStatus, RawDeal, StatusValue, WeekBucket } from "./types";
 
 /** Parses Postgres text-array literals like `{Other}` or `{"Contacted by LinkedIn"}` into string arrays. */
 export function parsePgArray(raw: string | null): string[] {
@@ -54,11 +54,26 @@ function asPipelineStatus(value: string | null): PipelineStatus | null {
   return (PIPELINE_ORDER as string[]).includes(value) ? (value as PipelineStatus) : null;
 }
 
+/** First Monday of the Mexico 2026 opencall — the "Semana 1" boundary. */
+export const OPEN_CALL_START = Date.UTC(2026, 5, 29);
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+/** Buckets a date into "Pre-opencall" or a 1-indexed week since `OPEN_CALL_START`. */
+export function computeWeek(date: Date | null): WeekBucket {
+  if (!date) return { weekIndex: null, weekLabel: "Sin fecha" };
+  const day = Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+  if (day < OPEN_CALL_START) return { weekIndex: -1, weekLabel: "Pre-opencall" };
+  const weekIndex = Math.floor((day - OPEN_CALL_START) / (7 * MS_PER_DAY)) + 1;
+  return { weekIndex, weekLabel: `Semana ${weekIndex}` };
+}
+
 export function mapRawDeal(raw: RawDeal): Deal {
   const status = asStatus(raw.status);
   const isDead = status ? DEAD_STATUSES.includes(status) : false;
   const lastPipelineStage = isDead ? asPipelineStatus(raw.status_6) : asPipelineStatus(raw.status);
   const referenceList = parsePgArray(raw.reference_3);
+  const createdAtRaw = raw.created_at_entry ?? raw.created_at_record;
+  const { weekIndex, weekLabel } = computeWeek(createdAtRaw ? new Date(createdAtRaw) : null);
 
   return {
     recordId: raw.record_id,
@@ -67,5 +82,7 @@ export function mapRawDeal(raw: RawDeal): Deal {
     status,
     lastPipelineStage,
     channel: categorizeReference(referenceList[0] ?? null),
+    weekIndex,
+    weekLabel,
   };
 }

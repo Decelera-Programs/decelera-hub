@@ -1,29 +1,39 @@
 @import "tailwindcss";
 
 :root {
+  /* Decelera brand tokens (sand/sun/water/sea/night/cloud/sky) */
+  --brand-sand: #faf3dc;
+  --brand-sun: #ffb950;
+  --brand-water: #1fd0ef;
+  --brand-sea: #1158e5;
+  --brand-night: #2d3852;
+  --brand-cloud: #b9c1d4;
+  --brand-sky: #f2f8fa;
+
   /* Page / surfaces */
-  --page: #f9f9f7;
-  --surface-1: #fcfcfb;
-  --border: rgba(11, 11, 11, 0.1);
+  --page: var(--brand-sky);
+  --surface-1: #ffffff;
+  --border: rgba(45, 56, 82, 0.12);
 
   /* Ink */
-  --text-primary: #0b0b0b;
-  --text-secondary: #52514e;
-  --text-muted: #898781;
-  --gridline: #e1e0d9;
-  --baseline: #c3c2b7;
+  --text-primary: var(--brand-night);
+  --text-secondary: #5b6b85;
+  --text-muted: #8a95ab;
+  --gridline: #e3e8f0;
+  --baseline: #c7d0e0;
 
-  /* Categorical (fixed order: Marketing, Referral, Outreach) */
-  --series-1: #2a78d6; /* Marketing */
-  --series-2: #1baf7a; /* Referral */
-  --series-3: #eda100; /* Outreach */
-  --series-other: #bcbab2; /* Otros / de-emphasis */
+  /* Categorical (fixed order: Marketing, Referral, Outreach) — brand hues,
+     deepened from their bright marketing tones so they read as data marks. */
+  --series-1: #1158e5; /* Marketing — brand sea */
+  --series-2: #0b9bb0; /* Referral — brand water, deepened */
+  --series-3: #d9821e; /* Outreach — brand sun, deepened */
+  --series-other: #b9c1d4; /* Otros / de-emphasis — brand cloud */
 
-  /* Status (fixed, reserved meaning) */
-  --status-good: #0ca30c;
-  --status-warning: #fab219;
-  --status-serious: #ec835a;
-  --status-critical: #d03b3b;
+  /* Status (fixed, reserved meaning) — matches the tones already used across
+     Decelera's application forms for validation states. */
+  --status-good: #1e9e52;
+  --status-warning: #dd6b20;
+  --status-critical: #e53e3e;
 
   --background: var(--page);
   --foreground: var(--text-primary);
@@ -32,30 +42,29 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-fustat);
+  --font-title: var(--font-taviraj);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --page: #0d0d0d;
-    --surface-1: #1a1a19;
-    --border: rgba(255, 255, 255, 0.1);
+    --page: #0f1524;
+    --surface-1: #1a2133;
+    --border: rgba(185, 193, 212, 0.14);
 
-    --text-primary: #ffffff;
-    --text-secondary: #c3c2b7;
-    --text-muted: #898781;
-    --gridline: #2c2c2a;
-    --baseline: #383835;
+    --text-primary: #f5f7fa;
+    --text-secondary: var(--brand-cloud);
+    --text-muted: #7c879e;
+    --gridline: #2a3348;
+    --baseline: #3a4360;
 
-    --series-1: #3987e5;
-    --series-2: #199e70;
-    --series-3: #c98500;
-    --series-other: #4a4a47;
+    --series-1: #4c8cff;
+    --series-2: #1497ad;
+    --series-3: #b37f27;
+    --series-other: #4a5568;
 
-    --status-good: #0ca30c;
-    --status-warning: #fab219;
-    --status-serious: #ec835a;
+    --status-good: #4ade80;
+    --status-warning: #f0924a;
     --status-critical: #e66767;
 
     --background: var(--page);
@@ -71,6 +80,12 @@ body {
   background: var(--page);
   color: var(--text-primary);
   font-family: var(--font-sans), system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-title), Georgia, serif;
 }
 
 .card {

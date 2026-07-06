@@ -17,7 +17,12 @@ export interface RawDeal {
   status: string | null;
   status_6: string | null;
   reference_3: string | null;
+  created_at_entry: string | null;
+  created_at_record: string | null;
 }
+
+/** -1 = antes del inicio de la opencall, 1/2/3… = semana N desde el inicio, null = sin fecha. */
+export type WeekBucket = { weekIndex: number | null; weekLabel: string };
 
 export interface Deal {
   recordId: string;
@@ -33,4 +38,6 @@ export interface Deal {
    */
   lastPipelineStage: PipelineStatus | null;
   channel: Channel;
+  weekIndex: number | null;
+  weekLabel: string;
 }
