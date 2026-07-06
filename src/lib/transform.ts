@@ -129,6 +129,7 @@ export function mapRawDeal(raw: RawDeal): Deal {
   const createdAt = createdAtRaw ? new Date(createdAtRaw) : null;
   const { weekIndex, weekLabel } = computeWeek(createdAt);
   const name = raw.name ?? "Sin nombre";
+  const sourceLabel = referenceList[0] ?? null;
 
   return {
     recordId: raw.record_id,
@@ -136,7 +137,8 @@ export function mapRawDeal(raw: RawDeal): Deal {
     stage: raw.stage as Deal["stage"],
     status,
     lastPipelineStage,
-    channel: categorizeReference(referenceList[0] ?? null),
+    channel: categorizeReference(sourceLabel),
+    sourceLabel,
     createdAt,
     weekIndex,
     weekLabel,

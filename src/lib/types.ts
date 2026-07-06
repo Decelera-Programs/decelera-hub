@@ -50,13 +50,16 @@ export interface Deal {
    */
   lastPipelineStage: PipelineStatus | null;
   channel: Channel;
+  /** Raw first value of `reference_3` (e.g. "Event", "Contacted by LinkedIn") — null if missing/unmapped. */
+  sourceLabel: string | null;
   createdAt: Date | null;
   weekIndex: number | null;
   weekLabel: string;
   /**
    * Heuristic, not a real field: `created_by` no está sincronizado en `historico.deals`,
    * así que aproximamos "cómo entró" por el prefijo `[LINKEDIN OUTREACH]` en el nombre
-   * (outreach automatizado) vs. sin prefijo (añadido a mano).
+   * (outreach automatizado) vs. sin prefijo (añadido a mano). Se calcula para todos los
+   * deals, aunque hoy solo se muestra como filtro dentro de Leads.
    */
   sourceMethod: "manual" | "automated";
   formScore: FormScore;

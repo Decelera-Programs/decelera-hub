@@ -15,11 +15,22 @@ const STAGE_HINT: Record<PipelineStatus, string> = {
 
 const KILLED_HINT = "Descartada después de avanzar en el proceso";
 const NOT_QUALIFIED_HINT = "Descartada antes de avanzar (no pasó el primer filtro)";
+const TIER1_HINT = "Startups con Tier 1 en el form score";
+const CONVERSION_HINT = "Invested ÷ total de la fila";
+const GROUP_HINT: Record<"Curado" | "Masivo", string> = {
+  Curado: "Contacto personal/curado: referrals, eventos, LinkedIn manual",
+  Masivo: "Alcance masivo: outbound automatizado, marketing",
+};
 
 function formatStageCell(count: number, prevCount: number | null) {
   if (prevCount === null || prevCount === 0) return String(count);
   const pct = Math.round((count / prevCount) * 100);
   return `${count} (${pct}%)`;
+}
+
+function formatPct(numerator: number, denominator: number) {
+  if (denominator === 0) return "—";
+  return `${Math.round((numerator / denominator) * 100)}%`;
 }
 
 export function FunnelTable({ deals }: { deals: Deal[] }) {
@@ -47,6 +58,18 @@ export function FunnelTable({ deals }: { deals: Deal[] }) {
                 </th>
               ))}
               <th
+                title={TIER1_HINT}
+                className="cursor-help border-l border-[var(--gridline)] px-3 py-2 text-right font-medium text-[var(--text-secondary)]"
+              >
+                Tier 1
+              </th>
+              <th
+                title={CONVERSION_HINT}
+                className="cursor-help px-3 py-2 text-right font-medium text-[var(--text-secondary)]"
+              >
+                Conversión a selección
+              </th>
+              <th
                 title={KILLED_HINT}
                 className="cursor-help border-l border-[var(--gridline)] px-3 py-2 text-right font-medium text-[var(--status-critical)]"
               >
@@ -61,60 +84,88 @@ export function FunnelTable({ deals }: { deals: Deal[] }) {
             </tr>
           </thead>
           <tbody>
-            {rows.map((row) => (
-              <tr
-                key={row.channel}
-                className="border-t border-[var(--gridline)]"
-                style={row.channel === "TOTAL" ? { background: "var(--page)" } : undefined}
-              >
-                <td
-                  className="px-3 py-2.5 font-medium text-[var(--text-primary)]"
-                  style={row.channel === "TOTAL" ? { fontWeight: 600 } : undefined}
+            {rows.map((row) => {
+              const isTotal = row.key === "TOTAL";
+              return (
+                <tr
+                  key={row.key}
+                  className="border-t border-[var(--gridline)]"
+                  style={isTotal ? { background: "var(--page)" } : undefined}
                 >
-                  {row.channel !== "TOTAL" && (
-                    <span
-                      aria-hidden
-                      className="mr-1.5 inline-block h-2 w-2 rounded-full"
-                      style={{ background: CHANNEL_COLOR[row.channel] }}
-                    />
-                  )}
-                  {row.channel}
-                </td>
-                {PIPELINE_ORDER.map((stage, i) => {
-                  const prevStage = i === 0 ? null : PIPELINE_ORDER[i - 1];
-                  const prevCount = prevStage ? row.stageCounts[prevStage] : null;
-                  return (
-                    <td
-                      key={stage}
-                      className="px-3 py-2.5 text-right tabular-nums text-[var(--text-primary)]"
-                      style={row.channel === "TOTAL" ? { fontWeight: 600 } : undefined}
-                    >
-                      {formatStageCell(row.stageCounts[stage], prevCount)}
-                    </td>
-                  );
-                })}
-                <td
-                  className="border-l border-[var(--gridline)] px-3 py-2.5 text-right tabular-nums text-[var(--text-primary)]"
-                  style={row.channel === "TOTAL" ? { fontWeight: 600 } : undefined}
-                >
-                  {row.killed}
-                </td>
-                <td
-                  className="px-3 py-2.5 text-right tabular-nums text-[var(--text-primary)]"
-                  style={row.channel === "TOTAL" ? { fontWeight: 600 } : undefined}
-                >
-                  {row.notQualified}
-                </td>
-              </tr>
-            ))}
+                  <td
+                    className="px-3 py-2.5 font-medium text-[var(--text-primary)]"
+                    style={isTotal ? { fontWeight: 600 } : undefined}
+                  >
+                    <span className="flex items-center gap-1.5">
+                      {row.channel && (
+                        <span
+                          aria-hidden
+                          className="inline-block h-2 w-2 shrink-0 rounded-full"
+                          style={{ background: CHANNEL_COLOR[row.channel] }}
+                        />
+                      )}
+                      {row.label}
+                      {row.group && (
+                        <span
+                          title={GROUP_HINT[row.group]}
+                          className="cursor-help rounded-full border border-[var(--border)] px-1.5 py-0.5 text-[10px] font-medium leading-none text-[var(--text-muted)]"
+                        >
+                          {row.group}
+                        </span>
+                      )}
+                    </span>
+                  </td>
+                  {PIPELINE_ORDER.map((stage, i) => {
+                    const prevStage = i === 0 ? null : PIPELINE_ORDER[i - 1];
+                    const prevCount = prevStage ? row.stageCounts[prevStage] : null;
+                    return (
+                      <td
+                        key={stage}
+                        className="px-3 py-2.5 text-right tabular-nums text-[var(--text-primary)]"
+                        style={isTotal ? { fontWeight: 600 } : undefined}
+                      >
+                        {formatStageCell(row.stageCounts[stage], prevCount)}
+                      </td>
+                    );
+                  })}
+                  <td
+                    className="border-l border-[var(--gridline)] px-3 py-2.5 text-right tabular-nums text-[var(--text-primary)]"
+                    style={isTotal ? { fontWeight: 600 } : undefined}
+                  >
+                    {row.tier1} ({formatPct(row.tier1, row.total)})
+                  </td>
+                  <td
+                    className="px-3 py-2.5 text-right tabular-nums text-[var(--text-primary)]"
+                    style={isTotal ? { fontWeight: 600 } : undefined}
+                  >
+                    {formatPct(row.stageCounts.Invested, row.total)}
+                  </td>
+                  <td
+                    className="border-l border-[var(--gridline)] px-3 py-2.5 text-right tabular-nums text-[var(--text-primary)]"
+                    style={isTotal ? { fontWeight: 600 } : undefined}
+                  >
+                    {row.killed}
+                  </td>
+                  <td
+                    className="px-3 py-2.5 text-right tabular-nums text-[var(--text-primary)]"
+                    style={isTotal ? { fontWeight: 600 } : undefined}
+                  >
+                    {row.notQualified}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
       <p className="text-xs text-[var(--text-muted)]">
         Cada celda cuenta startups que llegaron a esa etapa o más allá — incluye a las que después
         murieron, contando hasta dónde llegaron antes de caer. El % es la conversión respecto a la
-        etapa anterior. Killed / Not qualified son totales por canal, no una etapa más del funnel
-        (pasa el cursor por cada columna para ver el detalle).
+        etapa anterior. Tier 1 y Conversión a selección son sobre el total de la fila. Killed / Not
+        qualified son totales por canal, no una etapa más del funnel (pasa el cursor por cada
+        columna para ver el detalle). &ldquo;Outreach&rdquo; se separa en Curado (Event, contacto
+        manual por LinkedIn) y Masivo (outbound automatizado) — Curado/Masivo es una etiqueta
+        aproximada, no un dato de Attio.
       </p>
       <ChannelLegend />
     </ChartCard>

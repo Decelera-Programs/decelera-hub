@@ -1,13 +1,60 @@
-import { CHANNEL_ORDER } from "./colors";
 import { FORM_DIMENSION_MAX, PIPELINE_ORDER } from "./transform";
 import type { Channel, Deal, PipelineStatus } from "./types";
 
-export type FunnelChannelRow = Channel | "TOTAL";
+export type CurationGroup = "Curado" | "Masivo";
+
+export interface ConversionRowDef {
+  key: string;
+  label: string;
+  /** Which categorical channel color/dot this row borrows for visual continuity with the rest of the dashboard. */
+  channel: Channel;
+  /** null = not confidently classifiable either way (e.g. "Otros"). */
+  group: CurationGroup | null;
+  match: (deal: Deal) => boolean;
+}
+
+/**
+ * Row split for the conversion table specifically. Splits "Outreach" into Event /
+ * manually-contacted LinkedIn ("Curado") vs bulk `[LINKEDIN OUTREACH]` ("Masivo"),
+ * per how Decelera actually works this channel — a curated personal touch vs mass reach.
+ * The other 3 channels stay as single rows, same as everywhere else in the dashboard.
+ */
+export const CONVERSION_ROWS: ConversionRowDef[] = [
+  { key: "Referral", label: "Referral", channel: "Referral", group: "Curado", match: (d) => d.channel === "Referral" },
+  {
+    key: "Outreach-Event",
+    label: "Outreach — Event",
+    channel: "Outreach",
+    group: "Curado",
+    match: (d) => d.channel === "Outreach" && d.sourceLabel === "Event",
+  },
+  {
+    key: "Outreach-Curado",
+    label: "Outreach — LinkedIn curado",
+    channel: "Outreach",
+    group: "Curado",
+    match: (d) => d.channel === "Outreach" && d.sourceLabel !== "Event" && d.sourceMethod === "manual",
+  },
+  {
+    key: "Outreach-Masivo",
+    label: "Outreach — masivo",
+    channel: "Outreach",
+    group: "Masivo",
+    match: (d) => d.channel === "Outreach" && d.sourceLabel !== "Event" && d.sourceMethod === "automated",
+  },
+  { key: "Marketing", label: "Marketing", channel: "Marketing", group: "Masivo", match: (d) => d.channel === "Marketing" },
+  { key: "Otros", label: "Otros", channel: "Otros", group: null, match: (d) => d.channel === "Otros" },
+];
 
 export interface FunnelMatrixRow {
-  channel: FunnelChannelRow;
+  key: string;
+  label: string;
+  channel: Channel | null;
+  group: CurationGroup | null;
   /** Cumulative count of deals that ever reached each pipeline stage or beyond. */
   stageCounts: Record<PipelineStatus, number>;
+  /** How many deals in this row have a "Tier 1" form score. */
+  tier1: number;
   killed: number;
   notQualified: number;
   total: number;
@@ -17,7 +64,13 @@ function rank(stage: PipelineStatus | null): number {
   return stage ? PIPELINE_ORDER.indexOf(stage) : -1;
 }
 
-function buildRow(channel: FunnelChannelRow, deals: Deal[]): FunnelMatrixRow {
+function buildRow(
+  key: string,
+  label: string,
+  channel: Channel | null,
+  group: CurationGroup | null,
+  deals: Deal[]
+): FunnelMatrixRow {
   const stageCounts = Object.fromEntries(
     PIPELINE_ORDER.map((stage) => [
       stage,
@@ -26,24 +79,31 @@ function buildRow(channel: FunnelChannelRow, deals: Deal[]): FunnelMatrixRow {
   ) as Record<PipelineStatus, number>;
 
   return {
+    key,
+    label,
     channel,
+    group,
     stageCounts,
+    tier1: deals.filter((d) => d.formScore.tier === "Tier 1").length,
     killed: deals.filter((d) => d.status === "Killed").length,
     notQualified: deals.filter((d) => d.status === "Not qualified").length,
     total: deals.length,
   };
 }
 
-/** Funnel matrix: one row per channel (+ TOTAL), one column per live pipeline stage, plus Killed/Not qualified totals. */
+/** Funnel matrix: one row per conversion-table channel split (+ TOTAL), one column per live pipeline stage, plus Tier 1 and Killed/Not qualified totals. */
 export function buildFunnelMatrix(deals: Deal[]): FunnelMatrixRow[] {
-  const rows = CHANNEL_ORDER.map((channel) =>
+  const rows = CONVERSION_ROWS.map((def) =>
     buildRow(
-      channel,
-      deals.filter((d) => d.channel === channel)
+      def.key,
+      def.label,
+      def.channel,
+      def.group,
+      deals.filter(def.match)
     )
   ).filter((row) => row.total > 0);
 
-  rows.push(buildRow("TOTAL", deals));
+  rows.push(buildRow("TOTAL", "Total", null, null, deals));
   return rows;
 }
 
