@@ -76,6 +76,26 @@ export const CHANNEL_GOALS: Record<string, number> = {
   TOTAL: 1171,
 };
 
+/** Objetivo de Tier 1 por fila — la cifra entre paréntesis junto a "Applications" en la hoja. */
+export const TIER1_GOALS: Record<string, number> = {
+  Referral: 55,
+  "Outreach-Event": 4,
+  "Outreach-Curado": 13,
+  "Outreach-Masivo": 21,
+  "Outreach-MassMailing": 3,
+  TOTAL: 96,
+};
+
+/** Objetivo de "Selected" (= Invested aquí) por fila. */
+export const SELECTED_GOALS: Record<string, number> = {
+  Referral: 13,
+  "Outreach-Event": 2,
+  "Outreach-Curado": 5,
+  "Outreach-Masivo": 2,
+  "Outreach-MassMailing": 1,
+  TOTAL: 23,
+};
+
 export interface FunnelMatrixRow {
   key: string;
   label: string;
@@ -90,6 +110,8 @@ export interface FunnelMatrixRow {
   subRows: FunnelMatrixRow[];
   /** Target from the goals sheet — null when this row has no defined objective. */
   goal: number | null;
+  tier1Goal: number | null;
+  selectedGoal: number | null;
 }
 
 function rank(stage: PipelineStatus | null): number {
@@ -120,6 +142,8 @@ function buildRow(
     total: deals.length,
     subRows: [],
     goal: CHANNEL_GOALS[key] ?? null,
+    tier1Goal: TIER1_GOALS[key] ?? null,
+    selectedGoal: SELECTED_GOALS[key] ?? null,
   };
 }
 

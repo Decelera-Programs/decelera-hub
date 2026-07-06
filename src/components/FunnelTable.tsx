@@ -44,6 +44,28 @@ function StatCell({ count, base }: { count: number; base: number | null }) {
   );
 }
 
+/** Small dot comparing an achieved rate against its target rate (goalCount ÷ goalBase). */
+function RateDot({
+  actual,
+  goalCount,
+  goalBase,
+}: {
+  actual: number | null;
+  goalCount: number | null;
+  goalBase: number | null;
+}) {
+  if (actual === null || goalCount === null || goalBase === null || goalBase === 0) return null;
+  const targetPct = Math.round((goalCount / goalBase) * 100);
+  const met = actual >= targetPct;
+  return (
+    <span
+      title={`Meta: ${targetPct}% (${goalCount}/${goalBase})`}
+      className="ml-1.5 inline-block h-1.5 w-1.5 shrink-0 cursor-help rounded-full align-middle"
+      style={{ background: met ? "var(--status-good)" : "var(--status-warning)" }}
+    />
+  );
+}
+
 /** Tiny progress-to-goal indicator, tucked into the channel cell instead of a dedicated column. */
 function GoalIndicator({ current, goal }: { current: number; goal: number }) {
   const filled = Math.min(100, Math.round((current / goal) * 100));
@@ -134,12 +156,18 @@ function ConversionRow({
         style={{ background: OUTCOME_BG, ...(isTotal ? { fontWeight: 600 } : {}) }}
       >
         <StatCell count={row.tier1} base={row.total} />
+        <RateDot actual={pct(row.tier1, row.total)} goalCount={row.tier1Goal} goalBase={row.goal} />
       </td>
       <td
         className="px-3 py-2.5 text-right tabular-nums text-[var(--text-primary)]"
         style={{ background: OUTCOME_BG, ...(isTotal ? { fontWeight: 600 } : {}) }}
       >
         {pct(row.stageCounts.Invested, row.total) ?? "—"}%
+        <RateDot
+          actual={pct(row.stageCounts.Invested, row.total)}
+          goalCount={row.selectedGoal}
+          goalBase={row.goal}
+        />
       </td>
     </tr>
   );
@@ -250,7 +278,8 @@ export function FunnelTable({ deals }: { deals: Deal[] }) {
         Attio): &ldquo;Outreach&rdquo; se separa en Event y LinkedIn manual (Curado) vs. LinkedIn
         masivo y mass mailing (Masivo). Las filas con ▸ mezclan más de una fuente — haz clic para
         desglosarlas. La barrita junto al nombre del canal es el objetivo 2026 (deals conseguidos
-        ÷ meta).
+        ÷ meta). El puntito en Tier 1 / Conversión a selección compara la tasa actual contra la
+        tasa objetivo (verde = igual o por encima, ámbar = por debajo).
       </p>
       <ChannelLegend />
     </ChartCard>
