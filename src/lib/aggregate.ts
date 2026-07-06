@@ -58,6 +58,8 @@ export interface FunnelMatrixRow {
   killed: number;
   notQualified: number;
   total: number;
+  /** Breakdown by raw `reference_3` source — only populated when the row mixes 2+ distinct sources. */
+  subRows: FunnelMatrixRow[];
 }
 
 function rank(stage: PipelineStatus | null): number {
@@ -88,20 +90,35 @@ function buildRow(
     killed: deals.filter((d) => d.status === "Killed").length,
     notQualified: deals.filter((d) => d.status === "Not qualified").length,
     total: deals.length,
+    subRows: [],
   };
+}
+
+/** Splits a row's deals by raw `sourceLabel` — only worth showing when there's more than one distinct source. */
+function buildSourceSubRows(channel: Channel | null, deals: Deal[]): FunnelMatrixRow[] {
+  const bySource = new Map<string, Deal[]>();
+  for (const deal of deals) {
+    const source = deal.sourceLabel ?? "Sin fuente";
+    const group = bySource.get(source);
+    if (group) group.push(deal);
+    else bySource.set(source, [deal]);
+  }
+
+  if (bySource.size < 2) return [];
+
+  return Array.from(bySource.entries())
+    .map(([source, sourceDeals]) => buildRow(source, source, channel, null, sourceDeals))
+    .sort((a, b) => b.total - a.total);
 }
 
 /** Funnel matrix: one row per conversion-table channel split (+ TOTAL), one column per live pipeline stage, plus Tier 1 and Killed/Not qualified totals. */
 export function buildFunnelMatrix(deals: Deal[]): FunnelMatrixRow[] {
-  const rows = CONVERSION_ROWS.map((def) =>
-    buildRow(
-      def.key,
-      def.label,
-      def.channel,
-      def.group,
-      deals.filter(def.match)
-    )
-  ).filter((row) => row.total > 0);
+  const rows = CONVERSION_ROWS.map((def) => {
+    const rowDeals = deals.filter(def.match);
+    const row = buildRow(def.key, def.label, def.channel, def.group, rowDeals);
+    row.subRows = buildSourceSubRows(def.channel, rowDeals);
+    return row;
+  }).filter((row) => row.total > 0);
 
   rows.push(buildRow("TOTAL", "Total", null, null, deals));
   return rows;

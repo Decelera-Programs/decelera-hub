@@ -1,4 +1,6 @@
-import { Fragment } from "react";
+"use client";
+
+import { Fragment, useState } from "react";
 import { ChannelLegend } from "./ChannelLegend";
 import { ChartCard } from "./ChartCard";
 import { buildFunnelMatrix } from "@/lib/aggregate";
@@ -38,12 +40,41 @@ function formatPct(numerator: number, denominator: number) {
   return `${Math.round((numerator / denominator) * 100)}%`;
 }
 
-function ConversionRow({ row }: { row: FunnelMatrixRow }) {
+function ConversionRow({
+  row,
+  variant = "main",
+  expandable = false,
+  expanded = false,
+  onToggle,
+}: {
+  row: FunnelMatrixRow;
+  variant?: "main" | "sub";
+  expandable?: boolean;
+  expanded?: boolean;
+  onToggle?: () => void;
+}) {
   const isTotal = row.key === "TOTAL";
+  const isSub = variant === "sub";
   return (
-    <tr className="border-t border-[var(--gridline)]" style={isTotal ? { background: "var(--page)" } : undefined}>
-      <td className="px-3 py-2.5 font-medium text-[var(--text-primary)]" style={isTotal ? { fontWeight: 600 } : undefined}>
+    <tr
+      className="border-t border-[var(--gridline)]"
+      style={isTotal ? { background: "var(--page)" } : undefined}
+    >
+      <td
+        className={`px-3 py-2.5 font-medium text-[var(--text-primary)] ${isSub ? "pl-8 text-[var(--text-secondary)]" : ""}`}
+        style={isTotal ? { fontWeight: 600 } : undefined}
+      >
         <span className="flex items-center gap-1.5">
+          {expandable && (
+            <button
+              onClick={onToggle}
+              aria-label={expanded ? "Colapsar desglose por fuente" : "Ver desglose por fuente"}
+              aria-expanded={expanded}
+              className="flex h-4 w-4 shrink-0 items-center justify-center text-[var(--text-muted)]"
+            >
+              {expanded ? "▾" : "▸"}
+            </button>
+          )}
           {row.channel && (
             <span
               aria-hidden
@@ -90,12 +121,22 @@ function ConversionRow({ row }: { row: FunnelMatrixRow }) {
 }
 
 export function FunnelTable({ deals }: { deals: Deal[] }) {
+  const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set());
   const rows = buildFunnelMatrix(deals);
   const totalRow = rows.find((row) => row.key === "TOTAL");
   const sections = GROUP_ORDER.map((group) => ({
     group,
     rows: rows.filter((row) => row.key !== "TOTAL" && row.group === group),
   })).filter((section) => section.rows.length > 0);
+
+  function toggle(key: string) {
+    setExpandedKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
 
   return (
     <ChartCard
@@ -156,9 +197,24 @@ export function FunnelTable({ deals }: { deals: Deal[] }) {
                     {section.group ?? "Sin clasificar"}
                   </td>
                 </tr>
-                {section.rows.map((row) => (
-                  <ConversionRow key={row.key} row={row} />
-                ))}
+                {section.rows.map((row) => {
+                  const expandable = row.subRows.length > 0;
+                  const expanded = expandedKeys.has(row.key);
+                  return (
+                    <Fragment key={row.key}>
+                      <ConversionRow
+                        row={row}
+                        expandable={expandable}
+                        expanded={expanded}
+                        onToggle={() => toggle(row.key)}
+                      />
+                      {expanded &&
+                        row.subRows.map((subRow) => (
+                          <ConversionRow key={`${row.key}::${subRow.key}`} row={subRow} variant="sub" />
+                        ))}
+                    </Fragment>
+                  );
+                })}
               </Fragment>
             ))}
             {totalRow && <ConversionRow key={totalRow.key} row={totalRow} />}
@@ -172,7 +228,8 @@ export function FunnelTable({ deals }: { deals: Deal[] }) {
         qualified son totales por canal, no una etapa más del funnel (pasa el cursor por cada
         columna para ver el detalle). Las secciones Curado / Masivo son una agrupación aproximada
         nuestra (no un dato de Attio): &ldquo;Outreach&rdquo; se separa en Event y LinkedIn manual
-        (Curado) vs. outbound automatizado (Masivo).
+        (Curado) vs. outbound automatizado (Masivo). Las filas con ▸ mezclan más de una fuente —
+        haz clic para desglosarlas.
       </p>
       <ChannelLegend />
     </ChartCard>
