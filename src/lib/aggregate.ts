@@ -47,15 +47,28 @@ export function buildFunnelMatrix(deals: Deal[]): FunnelMatrixRow[] {
   return rows;
 }
 
-export interface FunnelShapePoint {
-  stage: PipelineStatus;
-  count: number;
+export interface ApplicationsOverTimePoint {
+  date: string;
+  newCount: number;
+  cumulative: number;
 }
 
-/** Overall cumulative funnel shape (all channels combined) — same numbers as the TOTAL row. */
-export function buildFunnelShape(deals: Deal[]): FunnelShapePoint[] {
-  const totalRow = buildRow("TOTAL", deals);
-  return PIPELINE_ORDER.map((stage) => ({ stage, count: totalRow.stageCounts[stage] }));
+/** Daily new + running-total count of deals, ordered by creation date — excludes deals with no date. */
+export function buildApplicationsOverTime(deals: Deal[]): ApplicationsOverTimePoint[] {
+  const byDay = new Map<string, number>();
+  for (const deal of deals) {
+    if (!deal.createdAt) continue;
+    const day = deal.createdAt.toISOString().slice(0, 10);
+    byDay.set(day, (byDay.get(day) ?? 0) + 1);
+  }
+
+  const days = Array.from(byDay.keys()).sort();
+  let cumulative = 0;
+  return days.map((date) => {
+    const newCount = byDay.get(date)!;
+    cumulative += newCount;
+    return { date, newCount, cumulative };
+  });
 }
 
 export type WeeklyVolumePoint = { weekLabel: string; weekIndex: number } & Record<Channel, number>;

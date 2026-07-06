@@ -126,7 +126,8 @@ export function mapRawDeal(raw: RawDeal): Deal {
   const lastPipelineStage = isDead ? asPipelineStatus(raw.status_6) : asPipelineStatus(raw.status);
   const referenceList = parsePgArray(raw.reference_3);
   const createdAtRaw = raw.created_at_entry ?? raw.created_at_record;
-  const { weekIndex, weekLabel } = computeWeek(createdAtRaw ? new Date(createdAtRaw) : null);
+  const createdAt = createdAtRaw ? new Date(createdAtRaw) : null;
+  const { weekIndex, weekLabel } = computeWeek(createdAt);
   const name = raw.name ?? "Sin nombre";
 
   return {
@@ -136,6 +137,7 @@ export function mapRawDeal(raw: RawDeal): Deal {
     status,
     lastPipelineStage,
     channel: categorizeReference(referenceList[0] ?? null),
+    createdAt,
     weekIndex,
     weekLabel,
     sourceMethod: name.startsWith(AUTOMATED_NAME_PREFIX) ? "automated" : "manual",

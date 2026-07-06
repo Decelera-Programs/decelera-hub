@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { FunnelShapeChart } from "./FunnelShapeChart";
+import { ApplicationsOverTimeChart } from "./ApplicationsOverTimeChart";
 import { FunnelTable } from "./FunnelTable";
 import { QualitySummary } from "./QualitySummary";
 import { WeeklyVolumeChart } from "./WeeklyVolumeChart";
@@ -84,8 +84,8 @@ export function FunnelDashboard({ deals }: { deals: Deal[] }) {
 
   const stageOptions: StageOption[] = ["all", "Mexico 2026", "Leads Mexico 2026"];
 
-  // Stage/source filters apply everywhere; the week filter only narrows the table
-  // and the funnel shape — the weekly trend chart needs every week to make sense.
+  // Stage/source filters apply everywhere; the week filter only narrows the table —
+  // both trend charts need every week to make sense.
   const stageSourceFiltered = deals
     .filter((d) => selectedStage === "all" || d.stage === selectedStage)
     .filter((d) => !isLeadsOnly || selectedSource === "all" || d.sourceMethod === selectedSource);
@@ -136,7 +136,7 @@ export function FunnelDashboard({ deals }: { deals: Deal[] }) {
       </p>
       <FunnelTable deals={filtered} />
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <FunnelShapeChart deals={filtered} />
+        <ApplicationsOverTimeChart deals={stageSourceFiltered} />
         <WeeklyVolumeChart deals={stageSourceFiltered} />
       </div>
       <QualitySummary deals={filtered} />

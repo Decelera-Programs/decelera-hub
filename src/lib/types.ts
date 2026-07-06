@@ -50,6 +50,7 @@ export interface Deal {
    */
   lastPipelineStage: PipelineStatus | null;
   channel: Channel;
+  createdAt: Date | null;
   weekIndex: number | null;
   weekLabel: string;
   /**
