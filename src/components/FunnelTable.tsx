@@ -245,8 +245,8 @@ export function FunnelTable({ deals }: { deals: Deal[] }) {
         murieron, contando hasta dónde llegaron antes de caer. El % es la conversión respecto a la
         etapa anterior. Tier 1 y Conversión a selección (fondo resaltado) son sobre el total de la
         fila. Las secciones Curado / Masivo son una agrupación aproximada nuestra (no un dato de
-        Attio): &ldquo;Outreach&rdquo; se separa en Event y LinkedIn manual (Curado) vs. outbound
-        automatizado (Masivo). Las filas con ▸ mezclan más de una fuente — haz clic para
+        Attio): &ldquo;Outreach&rdquo; se separa en Event y LinkedIn manual (Curado) vs. LinkedIn
+        masivo y mass mailing (Masivo). Las filas con ▸ mezclan más de una fuente — haz clic para
         desglosarlas. La barrita junto al nombre del canal es el objetivo 2026 (deals conseguidos
         ÷ meta).
       </p>

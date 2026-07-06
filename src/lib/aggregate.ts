@@ -14,10 +14,12 @@ export interface ConversionRowDef {
 }
 
 /**
- * Row split for the conversion table specifically. Splits "Outreach" into Event /
- * manually-contacted LinkedIn ("Curado") vs bulk `[LINKEDIN OUTREACH]` ("Masivo"),
- * per how Decelera actually works this channel — a curated personal touch vs mass reach.
- * The other 3 channels stay as single rows, same as everywhere else in the dashboard.
+ * Row split for the conversion table specifically. Splits "Outreach" into Event / manually-
+ * contacted LinkedIn ("Curado") vs. two mass channels ("Masivo"): bulk `[LINKEDIN OUTREACH]`
+ * (Maru) and mass mailing (`reference_3` = "Mail from Decelera Team"). Mass mailing is checked
+ * by source label, not `sourceMethod`, since that flag is a LinkedIn-name-prefix heuristic and
+ * would never catch a mailing campaign. The other 3 channels stay as single rows, same as
+ * everywhere else in the dashboard.
  */
 export const CONVERSION_ROWS: ConversionRowDef[] = [
   { key: "Referral", label: "Referral", channel: "Referral", group: "Curado", match: (d) => d.channel === "Referral" },
@@ -29,18 +31,33 @@ export const CONVERSION_ROWS: ConversionRowDef[] = [
     match: (d) => d.channel === "Outreach" && d.sourceLabel === "Event",
   },
   {
+    key: "Outreach-MassMailing",
+    label: "Outreach — Mass mailing",
+    channel: "Outreach",
+    group: "Masivo",
+    match: (d) => d.channel === "Outreach" && d.sourceLabel === "Mail from Decelera Team",
+  },
+  {
     key: "Outreach-Curado",
     label: "Outreach — LinkedIn curado",
     channel: "Outreach",
     group: "Curado",
-    match: (d) => d.channel === "Outreach" && d.sourceLabel !== "Event" && d.sourceMethod === "manual",
+    match: (d) =>
+      d.channel === "Outreach" &&
+      d.sourceLabel !== "Event" &&
+      d.sourceLabel !== "Mail from Decelera Team" &&
+      d.sourceMethod === "manual",
   },
   {
     key: "Outreach-Masivo",
-    label: "Outreach — masivo",
+    label: "Outreach — LinkedIn masivo",
     channel: "Outreach",
     group: "Masivo",
-    match: (d) => d.channel === "Outreach" && d.sourceLabel !== "Event" && d.sourceMethod === "automated",
+    match: (d) =>
+      d.channel === "Outreach" &&
+      d.sourceLabel !== "Event" &&
+      d.sourceLabel !== "Mail from Decelera Team" &&
+      d.sourceMethod === "automated",
   },
   { key: "Marketing", label: "Marketing", channel: "Marketing", group: "Masivo", match: (d) => d.channel === "Marketing" },
   { key: "Otros", label: "Otros", channel: "Otros", group: null, match: (d) => d.channel === "Otros" },
@@ -48,15 +65,14 @@ export const CONVERSION_ROWS: ConversionRowDef[] = [
 
 /**
  * Objetivos de la hoja de metas que compartió Carlos (columna "Mex '26 Applications").
- * "Outreach-Masivo" suma sus filas "Outbound linkedin (Maru)" (556) + "Outbound mass
- * mailing" (250) = 806, porque aquí las llevamos como una sola fila — si quieres verlas
- * separadas dímelo y desdoblamos la fila. Marketing/Otros no tenían objetivo en la hoja.
+ * Marketing/Otros no tenían objetivo en la hoja.
  */
 export const CHANNEL_GOALS: Record<string, number> = {
   Referral: 220,
   "Outreach-Event": 20,
   "Outreach-Curado": 125,
-  "Outreach-Masivo": 806,
+  "Outreach-Masivo": 556,
+  "Outreach-MassMailing": 250,
   TOTAL: 1171,
 };
 
