@@ -24,6 +24,30 @@ const STAGE_LABEL: Record<StageOption, string> = {
   "Leads Mexico 2026": "Leads",
 };
 
+function WeekSelect({
+  options,
+  selected,
+  onSelect,
+}: {
+  options: WeekOption[];
+  selected: WeekOption;
+  onSelect: (value: WeekOption) => void;
+}) {
+  return (
+    <select
+      value={String(selected)}
+      onChange={(e) => onSelect(e.target.value === "all" ? "all" : Number(e.target.value))}
+      className="rounded-full border border-[var(--border)] bg-[var(--surface-1)] px-3 py-1.5 text-sm font-medium text-[var(--text-secondary)]"
+    >
+      {options.map((option) => (
+        <option key={String(option)} value={String(option)}>
+          {weekLabel(option)}
+        </option>
+      ))}
+    </select>
+  );
+}
+
 function TabGroup<T extends string | number>({
   options,
   selected,
@@ -89,12 +113,7 @@ export function FunnelDashboard({ deals }: { deals: Deal[] }) {
           onSelect={setSelectedStage}
           label={(o) => STAGE_LABEL[o]}
         />
-        <TabGroup
-          options={weekOptions}
-          selected={selectedWeek}
-          onSelect={setSelectedWeek}
-          label={weekLabel}
-        />
+        <WeekSelect options={weekOptions} selected={selectedWeek} onSelect={setSelectedWeek} />
       </div>
       <p className="text-xs text-[var(--text-muted)]">
         Aplicaciones = stage <em>Mexico 2026</em>, Leads = stage <em>Leads Mexico 2026</em>.
