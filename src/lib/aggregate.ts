@@ -46,3 +46,38 @@ export function buildFunnelMatrix(deals: Deal[]): FunnelMatrixRow[] {
   rows.push(buildRow("TOTAL", deals));
   return rows;
 }
+
+export interface FunnelShapePoint {
+  stage: PipelineStatus;
+  count: number;
+}
+
+/** Overall cumulative funnel shape (all channels combined) — same numbers as the TOTAL row. */
+export function buildFunnelShape(deals: Deal[]): FunnelShapePoint[] {
+  const totalRow = buildRow("TOTAL", deals);
+  return PIPELINE_ORDER.map((stage) => ({ stage, count: totalRow.stageCounts[stage] }));
+}
+
+export type WeeklyVolumePoint = { weekLabel: string; weekIndex: number } & Record<Channel, number>;
+
+/** Deals created per week bucket, split by channel — excludes deals with no created-at date. */
+export function buildWeeklyVolume(deals: Deal[]): WeeklyVolumePoint[] {
+  const byWeek = new Map<number, WeeklyVolumePoint>();
+  for (const deal of deals) {
+    if (deal.weekIndex === null) continue;
+    let point = byWeek.get(deal.weekIndex);
+    if (!point) {
+      point = {
+        weekLabel: deal.weekLabel,
+        weekIndex: deal.weekIndex,
+        Marketing: 0,
+        Referral: 0,
+        Outreach: 0,
+        Otros: 0,
+      };
+      byWeek.set(deal.weekIndex, point);
+    }
+    point[deal.channel] += 1;
+  }
+  return Array.from(byWeek.values()).sort((a, b) => a.weekIndex - b.weekIndex);
+}
