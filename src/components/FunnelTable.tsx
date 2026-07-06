@@ -17,8 +17,6 @@ const STAGE_HINT: Record<PipelineStatus, string> = {
   Invested: "Decelera invirtió",
 };
 
-const KILLED_HINT = "Descartada después de avanzar en el proceso";
-const NOT_QUALIFIED_HINT = "Descartada antes de avanzar (no pasó el primer filtro)";
 const TIER1_HINT = "Startups con Tier 1 en el form score";
 const CONVERSION_HINT = "Invested ÷ total de la fila";
 const GROUP_ORDER = ["Curado", "Masivo", null] as const;
@@ -27,7 +25,7 @@ const GROUP_HINT: Record<"Curado" | "Masivo", string> = {
   Masivo: "Alcance masivo: outbound automatizado, marketing",
 };
 
-const COLUMN_COUNT = 1 + PIPELINE_ORDER.length + 4;
+const COLUMN_COUNT = 1 + PIPELINE_ORDER.length + 2;
 
 function formatStageCell(count: number, prevCount: number | null) {
   if (prevCount === null || prevCount === 0) return String(count);
@@ -107,15 +105,6 @@ function ConversionRow({
       <td className="px-3 py-2.5 text-right tabular-nums text-[var(--text-primary)]" style={isTotal ? { fontWeight: 600 } : undefined}>
         {formatPct(row.stageCounts.Invested, row.total)}
       </td>
-      <td
-        className="border-l border-[var(--gridline)] px-3 py-2.5 text-right tabular-nums text-[var(--text-primary)]"
-        style={isTotal ? { fontWeight: 600 } : undefined}
-      >
-        {row.killed}
-      </td>
-      <td className="px-3 py-2.5 text-right tabular-nums text-[var(--text-primary)]" style={isTotal ? { fontWeight: 600 } : undefined}>
-        {row.notQualified}
-      </td>
     </tr>
   );
 }
@@ -171,18 +160,6 @@ export function FunnelTable({ deals }: { deals: Deal[] }) {
               >
                 Conversión a selección
               </th>
-              <th
-                title={KILLED_HINT}
-                className="cursor-help border-l border-[var(--gridline)] px-3 py-2 text-right font-medium text-[var(--status-critical)]"
-              >
-                Killed
-              </th>
-              <th
-                title={NOT_QUALIFIED_HINT}
-                className="cursor-help px-3 py-2 text-right font-medium text-[var(--status-critical)]"
-              >
-                Not qualified
-              </th>
             </tr>
           </thead>
           <tbody>
@@ -224,12 +201,11 @@ export function FunnelTable({ deals }: { deals: Deal[] }) {
       <p className="text-xs text-[var(--text-muted)]">
         Cada celda cuenta startups que llegaron a esa etapa o más allá — incluye a las que después
         murieron, contando hasta dónde llegaron antes de caer. El % es la conversión respecto a la
-        etapa anterior. Tier 1 y Conversión a selección son sobre el total de la fila. Killed / Not
-        qualified son totales por canal, no una etapa más del funnel (pasa el cursor por cada
-        columna para ver el detalle). Las secciones Curado / Masivo son una agrupación aproximada
-        nuestra (no un dato de Attio): &ldquo;Outreach&rdquo; se separa en Event y LinkedIn manual
-        (Curado) vs. outbound automatizado (Masivo). Las filas con ▸ mezclan más de una fuente —
-        haz clic para desglosarlas.
+        etapa anterior. Tier 1 y Conversión a selección son sobre el total de la fila. Las secciones
+        Curado / Masivo son una agrupación aproximada nuestra (no un dato de Attio):
+        &ldquo;Outreach&rdquo; se separa en Event y LinkedIn manual (Curado) vs. outbound
+        automatizado (Masivo). Las filas con ▸ mezclan más de una fuente — haz clic para
+        desglosarlas.
       </p>
       <ChannelLegend />
     </ChartCard>

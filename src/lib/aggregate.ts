@@ -55,8 +55,6 @@ export interface FunnelMatrixRow {
   stageCounts: Record<PipelineStatus, number>;
   /** How many deals in this row have a "Tier 1" form score. */
   tier1: number;
-  killed: number;
-  notQualified: number;
   total: number;
   /** Breakdown by raw `reference_3` source — only populated when the row mixes 2+ distinct sources. */
   subRows: FunnelMatrixRow[];
@@ -87,8 +85,6 @@ function buildRow(
     group,
     stageCounts,
     tier1: deals.filter((d) => d.formScore.tier === "Tier 1").length,
-    killed: deals.filter((d) => d.status === "Killed").length,
-    notQualified: deals.filter((d) => d.status === "Not qualified").length,
     total: deals.length,
     subRows: [],
   };
@@ -111,7 +107,7 @@ function buildSourceSubRows(channel: Channel | null, deals: Deal[]): FunnelMatri
     .sort((a, b) => b.total - a.total);
 }
 
-/** Funnel matrix: one row per conversion-table channel split (+ TOTAL), one column per live pipeline stage, plus Tier 1 and Killed/Not qualified totals. */
+/** Funnel matrix: one row per conversion-table channel split (+ TOTAL), one column per live pipeline stage, plus Tier 1 and conversion-to-selection totals. */
 export function buildFunnelMatrix(deals: Deal[]): FunnelMatrixRow[] {
   const rows = CONVERSION_ROWS.map((def) => {
     const rowDeals = deals.filter(def.match);
