@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { FunnelShapeChart } from "./FunnelShapeChart";
 import { FunnelTable } from "./FunnelTable";
+import { QualitySummary } from "./QualitySummary";
 import { WeeklyVolumeChart } from "./WeeklyVolumeChart";
 import { computeWeek } from "@/lib/transform";
 import type { Deal, StageValue } from "@/lib/types";
@@ -138,6 +139,7 @@ export function FunnelDashboard({ deals }: { deals: Deal[] }) {
         <FunnelShapeChart deals={filtered} />
         <WeeklyVolumeChart deals={stageSourceFiltered} />
       </div>
+      <QualitySummary deals={filtered} />
     </div>
   );
 }

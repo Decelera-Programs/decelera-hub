@@ -19,10 +19,22 @@ export interface RawDeal {
   reference_3: string | null;
   created_at_entry: string | null;
   created_at_record: string | null;
+  form_sumary: string | null;
+  green_flags_form: string | null;
 }
 
 /** -1 = antes del inicio de la opencall, 1/2/3… = semana N desde el inicio, null = sin fecha. */
 export type WeekBucket = { weekIndex: number | null; weekLabel: string };
+
+/** Parsed from `form_sumary` (e.g. "Team: 17 / 35\nMarket: 3 / 10\n..."). Null fields = no form yet. */
+export interface FormScore {
+  team: number | null;
+  market: number | null;
+  product: number | null;
+  traction: number | null;
+  total: number | null;
+  tier: string | null;
+}
 
 export interface Deal {
   recordId: string;
@@ -46,4 +58,6 @@ export interface Deal {
    * (outreach automatizado) vs. sin prefijo (añadido a mano).
    */
   sourceMethod: "manual" | "automated";
+  formScore: FormScore;
+  greenFlags: string[];
 }

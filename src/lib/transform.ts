@@ -1,4 +1,4 @@
-import type { Channel, Deal, PipelineStatus, RawDeal, StatusValue, WeekBucket } from "./types";
+import type { Channel, Deal, FormScore, PipelineStatus, RawDeal, StatusValue, WeekBucket } from "./types";
 
 /** Parses Postgres text-array literals like `{Other}` or `{"Contacted by LinkedIn"}` into string arrays. */
 export function parsePgArray(raw: string | null): string[] {
@@ -79,6 +79,47 @@ export function computeWeek(date: Date | null): WeekBucket {
 
 const AUTOMATED_NAME_PREFIX = "[LINKEDIN OUTREACH]";
 
+/** Max points per dimension in `form_sumary` (Team/35, Market/10, Product/20, Traction/20, Total/85). */
+export const FORM_DIMENSION_MAX = { team: 35, market: 10, product: 20, traction: 20, total: 85 } as const;
+
+const EMPTY_FORM_SCORE: FormScore = {
+  team: null,
+  market: null,
+  product: null,
+  traction: null,
+  total: null,
+  tier: null,
+};
+
+/** Parses the fixed-format `form_sumary` block (see `FORM_DIMENSION_MAX` for the scale). */
+export function parseFormSummary(raw: string | null): FormScore {
+  if (!raw) return EMPTY_FORM_SCORE;
+
+  const grab = (label: string) => {
+    const match = raw.match(new RegExp(`${label}:\\s*(\\d+(?:\\.\\d+)?)\\s*/`, "i"));
+    return match ? Number(match[1]) : null;
+  };
+  const tierMatch = raw.match(/Tier:\s*(.+)/i);
+
+  return {
+    team: grab("Team"),
+    market: grab("Market"),
+    product: grab("Product"),
+    traction: grab("Traction"),
+    total: grab("Total"),
+    tier: tierMatch ? tierMatch[1].trim() : null,
+  };
+}
+
+/** Splits a `🟢 flag one\n🟢 flag two` block into plain-text flags. */
+export function parseFlagList(raw: string | null): string[] {
+  if (!raw) return [];
+  return raw
+    .split("\n")
+    .map((line) => line.replace(/^\p{Extended_Pictographic}\s*/u, "").trim())
+    .filter(Boolean);
+}
+
 export function mapRawDeal(raw: RawDeal): Deal {
   const status = asStatus(raw.status);
   const isDead = status ? DEAD_STATUSES.includes(status) : false;
@@ -98,5 +139,7 @@ export function mapRawDeal(raw: RawDeal): Deal {
     weekIndex,
     weekLabel,
     sourceMethod: name.startsWith(AUTOMATED_NAME_PREFIX) ? "automated" : "manual",
+    formScore: parseFormSummary(raw.form_sumary),
+    greenFlags: parseFlagList(raw.green_flags_form),
   };
 }

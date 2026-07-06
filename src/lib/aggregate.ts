@@ -1,5 +1,5 @@
 import { CHANNEL_ORDER } from "./colors";
-import { PIPELINE_ORDER } from "./transform";
+import { FORM_DIMENSION_MAX, PIPELINE_ORDER } from "./transform";
 import type { Channel, Deal, PipelineStatus } from "./types";
 
 export type FunnelChannelRow = Channel | "TOTAL";
@@ -80,4 +80,72 @@ export function buildWeeklyVolume(deals: Deal[]): WeeklyVolumePoint[] {
     point[deal.channel] += 1;
   }
   return Array.from(byWeek.values()).sort((a, b) => a.weekIndex - b.weekIndex);
+}
+
+function average(values: number[]): number {
+  return values.reduce((sum, v) => sum + v, 0) / values.length;
+}
+
+export interface DimensionScore {
+  dimension: "Team" | "Market" | "Product" | "Traction";
+  avgPct: number;
+  max: number;
+}
+
+export interface QualitySummary {
+  /** How many of the filtered deals actually have a scored form (Leads never do). */
+  sampleSize: number;
+  avgTotalPct: number | null;
+  dimensions: DimensionScore[];
+  tierCounts: { tier: string; count: number }[];
+  topGreenFlags: { flag: string; count: number; pct: number }[];
+}
+
+const DIMENSIONS: { label: DimensionScore["dimension"]; key: "team" | "market" | "product" | "traction" }[] = [
+  { label: "Team", key: "team" },
+  { label: "Market", key: "market" },
+  { label: "Product", key: "product" },
+  { label: "Traction", key: "traction" },
+];
+
+/** Form-quality summary (score breakdown + green flags) for whichever deals have a scored form. */
+export function buildQualitySummary(deals: Deal[]): QualitySummary {
+  const scored = deals.filter((d) => d.formScore.total !== null);
+  const sampleSize = scored.length;
+
+  const dimensions = DIMENSIONS.map(({ label, key }) => {
+    const max = FORM_DIMENSION_MAX[key];
+    const values = scored.map((d) => d.formScore[key]).filter((v): v is number => v !== null);
+    const avgPct = values.length > 0 ? Math.round((average(values) / max) * 100) : 0;
+    return { dimension: label, avgPct, max };
+  });
+
+  const totals = scored.map((d) => d.formScore.total).filter((v): v is number => v !== null);
+  const avgTotalPct = totals.length > 0 ? Math.round((average(totals) / FORM_DIMENSION_MAX.total) * 100) : null;
+
+  const tierCounts = new Map<string, number>();
+  for (const deal of scored) {
+    const tier = deal.formScore.tier ?? "Sin tier";
+    tierCounts.set(tier, (tierCounts.get(tier) ?? 0) + 1);
+  }
+
+  const flagCounts = new Map<string, number>();
+  for (const deal of scored) {
+    for (const flag of deal.greenFlags) flagCounts.set(flag, (flagCounts.get(flag) ?? 0) + 1);
+  }
+
+  const topGreenFlags = Array.from(flagCounts.entries())
+    .map(([flag, count]) => ({ flag, count, pct: sampleSize > 0 ? Math.round((count / sampleSize) * 100) : 0 }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 8);
+
+  return {
+    sampleSize,
+    avgTotalPct,
+    dimensions,
+    tierCounts: Array.from(tierCounts.entries())
+      .map(([tier, count]) => ({ tier, count }))
+      .sort((a, b) => b.count - a.count),
+    topGreenFlags,
+  };
 }
