@@ -1,3 +1,4 @@
+import { ChannelLegend } from "./ChannelLegend";
 import { ChartCard } from "./ChartCard";
 import { buildFunnelMatrix } from "@/lib/aggregate";
 import { CHANNEL_COLOR } from "@/lib/colors";
@@ -115,6 +116,7 @@ export function FunnelTable({ deals }: { deals: Deal[] }) {
         etapa anterior. Killed / Not qualified son totales por canal, no una etapa más del funnel
         (pasa el cursor por cada columna para ver el detalle).
       </p>
+      <ChannelLegend />
     </ChartCard>
   );
 }

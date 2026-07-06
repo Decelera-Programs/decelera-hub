@@ -9,7 +9,7 @@ export function parsePgArray(raw: string | null): string[] {
   return matches.map((m) => m.replace(/^"|"$/g, "").trim()).filter(Boolean);
 }
 
-const REFERENCE_CHANNEL_MAP: Record<string, Channel> = {
+export const REFERENCE_CHANNEL_MAP: Record<string, Channel> = {
   "Contacted by LinkedIn": "Outreach",
   Outbound: "Outreach",
   Event: "Outreach",
@@ -31,6 +31,16 @@ const REFERENCE_CHANNEL_MAP: Record<string, Channel> = {
 export function categorizeReference(reference: string | null): Channel {
   if (!reference) return "Otros";
   return REFERENCE_CHANNEL_MAP[reference] ?? "Otros";
+}
+
+/** Groups the raw Attio source labels by the channel they roll up into, for display in a legend. */
+export function buildChannelSources(): Record<Channel, string[]> {
+  const grouped: Record<Channel, string[]> = { Marketing: [], Referral: [], Outreach: [], Otros: [] };
+  for (const [source, channel] of Object.entries(REFERENCE_CHANNEL_MAP)) {
+    grouped[channel].push(source);
+  }
+  grouped.Otros.push("Sin fuente / no mapeada");
+  return grouped;
 }
 
 export const PIPELINE_ORDER: PipelineStatus[] = [
