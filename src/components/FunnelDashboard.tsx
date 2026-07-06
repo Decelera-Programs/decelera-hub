@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { ApplicationsOverTimeChart } from "./ApplicationsOverTimeChart";
 import { FunnelTable } from "./FunnelTable";
 import { QualitySummary } from "./QualitySummary";
+import { SummaryKpis } from "./SummaryKpis";
 import { WeeklyVolumeChart } from "./WeeklyVolumeChart";
 import { computeWeek } from "@/lib/transform";
 import type { Deal, StageValue } from "@/lib/types";
@@ -80,6 +81,7 @@ export function FunnelDashboard({ deals }: { deals: Deal[] }) {
 
   return (
     <div className="flex flex-col gap-4">
+      <SummaryKpis deals={filtered} />
       <div className="flex flex-wrap items-center gap-3">
         <TabGroup
           options={stageOptions}
