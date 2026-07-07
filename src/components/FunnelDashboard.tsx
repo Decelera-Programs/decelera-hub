@@ -111,6 +111,10 @@ export function FunnelDashboard({ deals }: { deals: Deal[] }) {
 
   const filtered = stageFiltered.filter((d) => selectedWeek === "all" || d.weekIndex === selectedWeek);
 
+  // Goals were set for the whole channel (Leads + Aplicaciones combined) — showing them
+  // against a narrower stage filter would compare a partial count to the full target.
+  const showGoals = selectedStage === "all";
+
   return (
     <div className="flex flex-col gap-4">
       <SummaryKpis deals={filtered} />
@@ -128,9 +132,9 @@ export function FunnelDashboard({ deals }: { deals: Deal[] }) {
         Semanas contadas desde el inicio de la opencall (29 jun 2026). &ldquo;Todos&rdquo; /
         &ldquo;Total&rdquo; no filtran.
       </p>
-      <FunnelTable deals={filtered} />
+      <FunnelTable deals={filtered} showGoals={showGoals} />
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <ApplicationsOverTimeChart deals={stageFiltered} />
+        <ApplicationsOverTimeChart deals={stageFiltered} showGoal={showGoals} />
         <WeeklyVolumeChart deals={stageFiltered} />
       </div>
       <QualitySummary deals={filtered} />

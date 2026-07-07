@@ -96,6 +96,7 @@ function ConversionRow({
   expanded = false,
   onToggle,
   zebra = false,
+  showGoals = false,
 }: {
   row: FunnelMatrixRow;
   variant?: "main" | "sub";
@@ -103,6 +104,7 @@ function ConversionRow({
   expanded?: boolean;
   onToggle?: () => void;
   zebra?: boolean;
+  showGoals?: boolean;
 }) {
   const isTotal = row.key === "TOTAL";
   const isSub = variant === "sub";
@@ -137,7 +139,7 @@ function ConversionRow({
             />
           )}
           {row.label}
-          {row.goal !== null && <GoalIndicator current={row.total} goal={row.goal} />}
+          {showGoals && row.goal !== null && <GoalIndicator current={row.total} goal={row.goal} />}
         </span>
       </td>
       {PIPELINE_ORDER.map((stage, i) => {
@@ -158,24 +160,28 @@ function ConversionRow({
         style={{ background: OUTCOME_BG, ...(isTotal ? { fontWeight: 600 } : {}) }}
       >
         <StatCell count={row.tier1} base={row.total} />
-        <TargetPct actual={pct(row.tier1, row.total)} goalCount={row.tier1Goal} goalBase={row.goal} />
+        {showGoals && (
+          <TargetPct actual={pct(row.tier1, row.total)} goalCount={row.tier1Goal} goalBase={row.goal} />
+        )}
       </td>
       <td
         className="px-3 py-2.5 text-right tabular-nums text-[var(--text-primary)]"
         style={{ background: OUTCOME_BG, ...(isTotal ? { fontWeight: 600 } : {}) }}
       >
         {pct(row.stageCounts.Invested, row.total) ?? "—"}%
-        <TargetPct
-          actual={pct(row.stageCounts.Invested, row.total)}
-          goalCount={row.selectedGoal}
-          goalBase={row.goal}
-        />
+        {showGoals && (
+          <TargetPct
+            actual={pct(row.stageCounts.Invested, row.total)}
+            goalCount={row.selectedGoal}
+            goalBase={row.goal}
+          />
+        )}
       </td>
     </tr>
   );
 }
 
-export function FunnelTable({ deals }: { deals: Deal[] }) {
+export function FunnelTable({ deals, showGoals = false }: { deals: Deal[]; showGoals?: boolean }) {
   const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set());
   const rows = buildFunnelMatrix(deals);
   const totalRow = rows.find((row) => row.key === "TOTAL");
@@ -258,17 +264,24 @@ export function FunnelTable({ deals }: { deals: Deal[] }) {
                         expanded={expanded}
                         onToggle={() => toggle(row.key)}
                         zebra={zebra}
+                        showGoals={showGoals}
                       />
                       {expanded &&
                         row.subRows.map((subRow) => (
-                          <ConversionRow key={`${row.key}::${subRow.key}`} row={subRow} variant="sub" zebra={zebra} />
+                          <ConversionRow
+                            key={`${row.key}::${subRow.key}`}
+                            row={subRow}
+                            variant="sub"
+                            zebra={zebra}
+                            showGoals={showGoals}
+                          />
                         ))}
                     </Fragment>
                   );
                 })}
               </Fragment>
             ))}
-            {totalRow && <ConversionRow key={totalRow.key} row={totalRow} />}
+            {totalRow && <ConversionRow key={totalRow.key} row={totalRow} showGoals={showGoals} />}
           </tbody>
         </table>
       </div>
@@ -279,9 +292,16 @@ export function FunnelTable({ deals }: { deals: Deal[] }) {
         fila. Las secciones Curado / Masivo son una agrupación aproximada nuestra (no un dato de
         Attio): &ldquo;Outreach&rdquo; se separa en Event y LinkedIn manual (Curado) vs. LinkedIn
         masivo y mass mailing (Masivo). Las filas con ▸ mezclan más de una fuente — haz clic para
-        desglosarlas. La barrita junto al nombre del canal es el objetivo 2026 (deals conseguidos
-        ÷ meta). En Tier 1 / Conversión a selección, el % en verde o rojo junto al actual es la
-        meta 2026 (verde = la igualamos o superamos, rojo = vamos por debajo).
+        desglosarlas.
+        {showGoals && (
+          <>
+            {" "}
+            La barrita junto al nombre del canal es el objetivo 2026 (deals conseguidos ÷ meta). En
+            Tier 1 / Conversión a selección, el % en verde o rojo junto al actual es la meta 2026
+            (verde = la igualamos o superamos, rojo = vamos por debajo). Los objetivos solo se
+            muestran en &ldquo;Todos&rdquo; porque se definieron para Leads + Aplicaciones juntos.
+          </>
+        )}
       </p>
       <ChannelLegend />
     </ChartCard>

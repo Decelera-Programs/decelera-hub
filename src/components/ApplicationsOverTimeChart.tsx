@@ -33,16 +33,23 @@ function OverTimeTooltip({
   );
 }
 
-export function ApplicationsOverTimeChart({ deals }: { deals: Deal[] }) {
+export function ApplicationsOverTimeChart({
+  deals,
+  showGoal = false,
+}: {
+  deals: Deal[];
+  showGoal?: boolean;
+}) {
   const data = buildApplicationsOverTime(deals);
   const last = data[data.length - 1];
+  const goal = showGoal ? TOTAL_GOAL : null;
 
   return (
     <ChartCard
       title="Aplicaciones en el tiempo"
       subtitle={
-        TOTAL_GOAL
-          ? `Total acumulado por día de creación · meta 2026: ${TOTAL_GOAL}`
+        goal
+          ? `Total acumulado por día de creación · meta 2026: ${goal}`
           : "Total acumulado por día de creación"
       }
     >
@@ -65,20 +72,20 @@ export function ApplicationsOverTimeChart({ deals }: { deals: Deal[] }) {
               />
               <YAxis
                 allowDecimals={false}
-                domain={[0, (dataMax: number) => Math.max(dataMax, TOTAL_GOAL ?? 0)]}
+                domain={[0, (dataMax: number) => Math.max(dataMax, goal ?? 0)]}
                 tick={{ fill: "var(--text-muted)", fontSize: 12 }}
                 axisLine={false}
                 tickLine={false}
                 width={40}
               />
               <Tooltip content={<OverTimeTooltip />} cursor={{ stroke: "var(--baseline)" }} />
-              {TOTAL_GOAL && (
+              {goal && (
                 <ReferenceLine
-                  y={TOTAL_GOAL}
+                  y={goal}
                   stroke="var(--status-warning)"
                   strokeDasharray="4 4"
                   label={{
-                    value: `Meta 2026: ${TOTAL_GOAL}`,
+                    value: `Meta 2026: ${goal}`,
                     position: "insideBottomRight",
                     fill: "var(--text-secondary)",
                     fontSize: 12,
