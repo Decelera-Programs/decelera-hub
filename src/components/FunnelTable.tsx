@@ -44,8 +44,8 @@ function StatCell({ count, base }: { count: number; base: number | null }) {
   );
 }
 
-/** Small dot comparing an achieved rate against its target rate (goalCount ÷ goalBase). */
-function RateDot({
+/** Target rate (goalCount ÷ goalBase) shown next to the achieved rate, colored by whether we're meeting it. */
+function TargetPct({
   actual,
   goalCount,
   goalBase,
@@ -60,9 +60,11 @@ function RateDot({
   return (
     <span
       title={`Meta: ${targetPct}% (${goalCount}/${goalBase})`}
-      className="ml-1.5 inline-block h-1.5 w-1.5 shrink-0 cursor-help rounded-full align-middle"
-      style={{ background: met ? "var(--status-good)" : "var(--status-warning)" }}
-    />
+      className="ml-1.5 cursor-help font-medium"
+      style={{ color: met ? "var(--status-good)" : "var(--status-critical)" }}
+    >
+      {targetPct}%
+    </span>
   );
 }
 
@@ -156,14 +158,14 @@ function ConversionRow({
         style={{ background: OUTCOME_BG, ...(isTotal ? { fontWeight: 600 } : {}) }}
       >
         <StatCell count={row.tier1} base={row.total} />
-        <RateDot actual={pct(row.tier1, row.total)} goalCount={row.tier1Goal} goalBase={row.goal} />
+        <TargetPct actual={pct(row.tier1, row.total)} goalCount={row.tier1Goal} goalBase={row.goal} />
       </td>
       <td
         className="px-3 py-2.5 text-right tabular-nums text-[var(--text-primary)]"
         style={{ background: OUTCOME_BG, ...(isTotal ? { fontWeight: 600 } : {}) }}
       >
         {pct(row.stageCounts.Invested, row.total) ?? "—"}%
-        <RateDot
+        <TargetPct
           actual={pct(row.stageCounts.Invested, row.total)}
           goalCount={row.selectedGoal}
           goalBase={row.goal}
@@ -278,8 +280,8 @@ export function FunnelTable({ deals }: { deals: Deal[] }) {
         Attio): &ldquo;Outreach&rdquo; se separa en Event y LinkedIn manual (Curado) vs. LinkedIn
         masivo y mass mailing (Masivo). Las filas con ▸ mezclan más de una fuente — haz clic para
         desglosarlas. La barrita junto al nombre del canal es el objetivo 2026 (deals conseguidos
-        ÷ meta). El puntito en Tier 1 / Conversión a selección compara la tasa actual contra la
-        tasa objetivo (verde = igual o por encima, ámbar = por debajo).
+        ÷ meta). En Tier 1 / Conversión a selección, el % en verde o rojo junto al actual es la
+        meta 2026 (verde = la igualamos o superamos, rojo = vamos por debajo).
       </p>
       <ChannelLegend />
     </ChartCard>
