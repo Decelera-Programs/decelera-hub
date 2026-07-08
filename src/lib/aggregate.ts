@@ -15,11 +15,10 @@ export interface ConversionRowDef {
 
 /**
  * Row split for the conversion table specifically. Splits "Outreach" into Event / manually-
- * contacted LinkedIn ("Curado") vs. two mass channels ("Masivo"): bulk `[LINKEDIN OUTREACH]`
- * (Maru) and mass mailing (`reference_3` = "Mail from Decelera Team"). Mass mailing is checked
- * by source label, not `sourceMethod`, since that flag is a LinkedIn-name-prefix heuristic and
- * would never catch a mailing campaign. The other 3 channels stay as single rows, same as
- * everywhere else in the dashboard.
+ * contacted LinkedIn ("Curado") vs. two mass channels ("Masivo"): bulk LinkedIn outreach
+ * (`reference_3` = "Maru") and mass mailing (`reference_3` = "Mail from Decelera Team"). Both
+ * are matched by their own `reference_3` tag in Attio now, not a heuristic. The other 3
+ * channels stay as single rows, same as everywhere else in the dashboard.
  */
 export const CONVERSION_ROWS: ConversionRowDef[] = [
   { key: "Referral", label: "Referral", channel: "Referral", group: "Curado", match: (d) => d.channel === "Referral" },
@@ -38,6 +37,13 @@ export const CONVERSION_ROWS: ConversionRowDef[] = [
     match: (d) => d.channel === "Outreach" && d.sourceLabel === "Mail from Decelera Team",
   },
   {
+    key: "Outreach-Masivo",
+    label: "Outreach — LinkedIn masivo (Maru)",
+    channel: "Outreach",
+    group: "Masivo",
+    match: (d) => d.channel === "Outreach" && d.sourceLabel === "Maru",
+  },
+  {
     key: "Outreach-Curado",
     label: "Outreach — LinkedIn curado",
     channel: "Outreach",
@@ -46,18 +52,7 @@ export const CONVERSION_ROWS: ConversionRowDef[] = [
       d.channel === "Outreach" &&
       d.sourceLabel !== "Event" &&
       d.sourceLabel !== "Mail from Decelera Team" &&
-      d.sourceMethod === "manual",
-  },
-  {
-    key: "Outreach-Masivo",
-    label: "Outreach — LinkedIn masivo",
-    channel: "Outreach",
-    group: "Masivo",
-    match: (d) =>
-      d.channel === "Outreach" &&
-      d.sourceLabel !== "Event" &&
-      d.sourceLabel !== "Mail from Decelera Team" &&
-      d.sourceMethod === "automated",
+      d.sourceLabel !== "Maru",
   },
   { key: "Marketing", label: "Marketing", channel: "Marketing", group: "Masivo", match: (d) => d.channel === "Marketing" },
   { key: "Otros", label: "Otros", channel: "Otros", group: null, match: (d) => d.channel === "Otros" },

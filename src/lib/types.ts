@@ -55,13 +55,6 @@ export interface Deal {
   createdAt: Date | null;
   weekIndex: number | null;
   weekLabel: string;
-  /**
-   * Heuristic, not a real field: `created_by` no está sincronizado en `historico.deals`,
-   * así que aproximamos "cómo entró" por el prefijo `[LINKEDIN OUTREACH]` en el nombre
-   * (outreach automatizado) vs. sin prefijo (añadido a mano). Se calcula para todos los
-   * deals, aunque hoy solo se muestra como filtro dentro de Leads.
-   */
-  sourceMethod: "manual" | "automated";
   formScore: FormScore;
   greenFlags: string[];
 }

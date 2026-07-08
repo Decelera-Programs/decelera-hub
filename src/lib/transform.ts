@@ -15,6 +15,7 @@ export const REFERENCE_CHANNEL_MAP: Record<string, Channel> = {
   Event: "Outreach",
   "Decelera Team": "Outreach",
   "Mail from Decelera Team": "Outreach",
+  Maru: "Outreach",
   Referral: "Referral",
   Investor: "Referral",
   Portfolio: "Referral",
@@ -76,8 +77,6 @@ export function computeWeek(date: Date | null): WeekBucket {
   const weekIndex = Math.floor((day - OPEN_CALL_START) / (7 * MS_PER_DAY)) + 1;
   return { weekIndex, weekLabel: `Semana ${weekIndex}` };
 }
-
-const AUTOMATED_NAME_PREFIX = "[LINKEDIN OUTREACH]";
 
 /** Max points per dimension in `form_sumary` (Team/35, Market/10, Product/20, Traction/20, Total/85). */
 export const FORM_DIMENSION_MAX = { team: 35, market: 10, product: 20, traction: 20, total: 85 } as const;
@@ -142,7 +141,6 @@ export function mapRawDeal(raw: RawDeal): Deal {
     createdAt,
     weekIndex,
     weekLabel,
-    sourceMethod: name.startsWith(AUTOMATED_NAME_PREFIX) ? "automated" : "manual",
     formScore: parseFormSummary(raw.form_sumary),
     greenFlags: parseFlagList(raw.green_flags_form),
   };
