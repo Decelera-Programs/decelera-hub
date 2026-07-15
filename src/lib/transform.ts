@@ -67,7 +67,9 @@ function asPipelineStatus(value: string | null): PipelineStatus | null {
 
 /** First Monday of the Mexico 2026 opencall — the "Semana 1" boundary. */
 export const OPEN_CALL_START = Date.UTC(2026, 5, 29);
-const MS_PER_DAY = 24 * 60 * 60 * 1000;
+/** Deadline to hit the applications goal (`CHANNEL_GOALS.TOTAL`) — falls in Semana 12. */
+export const APPLICATIONS_DEADLINE = Date.UTC(2026, 8, 15);
+export const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 /** Buckets a date into "Pre-opencall" or a 1-indexed week since `OPEN_CALL_START`. */
 export function computeWeek(date: Date | null): WeekBucket {

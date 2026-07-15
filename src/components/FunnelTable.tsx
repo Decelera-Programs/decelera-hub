@@ -3,7 +3,7 @@
 import { Fragment, useState } from "react";
 import { ChannelLegend } from "./ChannelLegend";
 import { ChartCard } from "./ChartCard";
-import { buildFunnelMatrix } from "@/lib/aggregate";
+import { buildFunnelMatrix, CHANNEL_EFFICIENCY_BENCHMARK_PCT, MIN_SAMPLE_FOR_EFFICIENCY } from "@/lib/aggregate";
 import type { FunnelMatrixRow } from "@/lib/aggregate";
 import { CHANNEL_COLOR } from "@/lib/colors";
 import { PIPELINE_ORDER } from "@/lib/transform";
@@ -19,13 +19,15 @@ const STAGE_HINT: Record<PipelineStatus, string> = {
 
 const TIER1_HINT = "Startups con Tier 1 en el form score";
 const CONVERSION_HINT = "Invested ÷ total de la fila";
-const GROUP_ORDER = ["Curado", "Masivo", null] as const;
-const GROUP_HINT: Record<"Curado" | "Masivo", string> = {
-  Curado: "Contacto personal/curado: referrals, eventos, LinkedIn manual",
-  Masivo: "Alcance masivo: outbound automatizado, marketing",
+const EFFICIENCY_HINT = "In play ÷ Contacted — verde/rojo contra el benchmark, gris si hay muy pocos datos";
+const GROUP_ORDER = ["Curated", "Mass", "Inbound", null] as const;
+const GROUP_HINT: Record<"Curated" | "Mass" | "Inbound", string> = {
+  Curated: "Contacto personal/curado: referrals, eventos, LinkedIn manual",
+  Mass: "Alcance masivo automatizado: mass mailing, LinkedIn masivo (Maru)",
+  Inbound: "Llegaron solos: social media, newsletter, búsqueda — Attio no distingue la plataforma exacta todavía",
 };
 
-const COLUMN_COUNT = 1 + PIPELINE_ORDER.length + 2;
+const COLUMN_COUNT = 1 + PIPELINE_ORDER.length + 3;
 const OUTCOME_BG = "var(--column-band)";
 
 function pct(numerator: number, denominator: number) {
@@ -64,6 +66,34 @@ function TargetPct({
       style={{ color: met ? "var(--status-good)" : "var(--status-critical)" }}
     >
       {targetPct}%
+    </span>
+  );
+}
+
+/** In play ÷ Contacted, colored against the benchmark — gray "n bajo" under the reliability floor. */
+function EfficiencyPct({ contacted, inPlay }: { contacted: number; inPlay: number }) {
+  if (contacted < MIN_SAMPLE_FOR_EFFICIENCY) {
+    return (
+      <span className="italic text-[var(--text-muted)]" title={`Menos de ${MIN_SAMPLE_FOR_EFFICIENCY} contactadas — no es una tasa fiable todavía`}>
+        n bajo
+      </span>
+    );
+  }
+  const p = pct(inPlay, contacted);
+  if (p === null) return <span className="text-[var(--text-muted)]">—</span>;
+  const { color, bg } =
+    CHANNEL_EFFICIENCY_BENCHMARK_PCT === null
+      ? { color: "var(--text-secondary)", bg: "var(--gridline)" }
+      : p >= CHANNEL_EFFICIENCY_BENCHMARK_PCT
+        ? { color: "var(--status-good)", bg: "var(--pill-good-bg)" }
+        : { color: "var(--status-critical)", bg: "var(--pill-critical-bg)" };
+  return (
+    <span
+      className="inline-flex cursor-help rounded-full px-2.5 py-1 text-xs font-semibold"
+      style={{ color, background: bg }}
+      title={CHANNEL_EFFICIENCY_BENCHMARK_PCT !== null ? `Benchmark: ${CHANNEL_EFFICIENCY_BENCHMARK_PCT}%` : "Benchmark pendiente"}
+    >
+      {p}%
     </span>
   );
 }
@@ -156,7 +186,13 @@ function ConversionRow({
         );
       })}
       <td
-        className="border-l border-[var(--gridline)] px-3 py-2.5 text-right tabular-nums text-[var(--text-primary)]"
+        className="border-l border-[var(--gridline)] px-3 py-2.5 text-right tabular-nums"
+        style={{ background: OUTCOME_BG, ...(isTotal ? { fontWeight: 600 } : {}) }}
+      >
+        <EfficiencyPct contacted={row.stageCounts.Contacted} inPlay={row.stageCounts["In play"]} />
+      </td>
+      <td
+        className="px-3 py-2.5 text-right tabular-nums text-[var(--text-primary)]"
         style={{ background: OUTCOME_BG, ...(isTotal ? { fontWeight: 600 } : {}) }}
       >
         <StatCell count={row.tier1} base={row.total} />
@@ -208,6 +244,16 @@ export function FunnelTable({ deals, showGoals = false }: { deals: Deal[]; showG
       title="Funnel por canal de entrada"
       subtitle={`Conversión acumulada por etapa · ${deals.length} deals`}
     >
+      <div
+        className="flex items-start gap-2 rounded-xl border px-4 py-3 text-sm"
+        style={{ background: "var(--warning-bg)", borderColor: "var(--warning-border)", color: "var(--warning-fg)" }}
+      >
+        <span aria-hidden>⚠</span>
+        <p>
+          Por debajo de n={MIN_SAMPLE_FOR_EFFICIENCY} las conversiones se muestran en gris — son
+          anécdotas, no tasas. La comparativa de canal es fiable solo al cierre.
+        </p>
+      </div>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[720px] border-separate border-spacing-0 text-sm">
           <thead>
@@ -225,8 +271,15 @@ export function FunnelTable({ deals, showGoals = false }: { deals: Deal[]; showG
                 </th>
               ))}
               <th
-                title={TIER1_HINT}
+                title={EFFICIENCY_HINT}
                 className="cursor-help border-l border-[var(--gridline)] px-3 py-2 text-right font-medium text-[var(--text-secondary)]"
+                style={{ background: OUTCOME_BG }}
+              >
+                Efic. In play/Contacted
+              </th>
+              <th
+                title={TIER1_HINT}
+                className="cursor-help px-3 py-2 text-right font-medium text-[var(--text-secondary)]"
                 style={{ background: OUTCOME_BG }}
               >
                 Tier 1
@@ -288,11 +341,14 @@ export function FunnelTable({ deals, showGoals = false }: { deals: Deal[]; showG
       <p className="text-xs text-[var(--text-muted)]">
         Cada celda cuenta startups que llegaron a esa etapa o más allá — incluye a las que después
         murieron, contando hasta dónde llegaron antes de caer. El % es la conversión respecto a la
-        etapa anterior. Tier 1 y Conversión a selección (fondo resaltado) son sobre el total de la
-        fila. Las secciones Curado / Masivo son una agrupación aproximada nuestra (no un dato de
-        Attio): &ldquo;Outreach&rdquo; se separa en Event y LinkedIn manual (Curado) vs. LinkedIn
-        masivo y mass mailing (Masivo). Las filas con ▸ mezclan más de una fuente — haz clic para
-        desglosarlas.
+        etapa anterior. Efic. In play/Contacted, Tier 1 y Conversión a selección (fondo resaltado)
+        son sobre el total de la fila; con menos de {MIN_SAMPLE_FOR_EFFICIENCY} contactadas, la
+        eficiencia se muestra en gris (&ldquo;n bajo&rdquo;) porque no es una tasa fiable todavía.
+        Curated / Mass / Inbound son una agrupación direccional nuestra (no un dato de Attio):
+        Curated = contacto personal (referrals, eventos, LinkedIn manual), Mass = alcance masivo
+        automatizado (mass mailing, LinkedIn vía Maru), Inbound = llegaron solos — Attio no
+        distingue todavía si fue newsletter, LinkedIn, Instagram o web, todo cae en el mismo valor.
+        Las filas con ▸ mezclan más de una fuente — haz clic para desglosarlas.
         {showGoals && (
           <>
             {" "}

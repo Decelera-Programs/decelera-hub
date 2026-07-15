@@ -1,95 +1,101 @@
-import { FORM_DIMENSION_MAX, PIPELINE_ORDER } from "./transform";
+import { APPLICATIONS_DEADLINE, MS_PER_DAY, OPEN_CALL_START, PIPELINE_ORDER } from "./transform";
 import type { Channel, Deal, PipelineStatus } from "./types";
 
-export type CurationGroup = "Curado" | "Masivo";
+export type CurationGroup = "Curated" | "Mass" | "Inbound";
 
 export interface ConversionRowDef {
   key: string;
   label: string;
   /** Which categorical channel color/dot this row borrows for visual continuity with the rest of the dashboard. */
   channel: Channel;
-  /** null = not confidently classifiable either way (e.g. "Otros"). */
+  /** null = not confidently classifiable (goes in "Sin clasificar"). */
   group: CurationGroup | null;
   match: (deal: Deal) => boolean;
 }
 
 /**
- * Row split for the conversion table specifically. Splits "Outreach" into Event / manually-
- * contacted LinkedIn ("Curado") vs. two mass channels ("Masivo"): bulk LinkedIn outreach
- * (`reference_3` = "Maru") and mass mailing (`reference_3` = "Mail from Decelera Team"). Both
- * are matched by their own `reference_3` tag in Attio now, not a heuristic. The other 3
- * channels stay as single rows, same as everywhere else in the dashboard.
+ * Row split for the conversion table: 3 direccional channels (Curated = personal/manual touch,
+ * Mass = automated bulk outreach, Inbound = they came to us) with named subchannels under
+ * Curated/Mass. Inbound and "Sin clasificar" stay as single rows — Attio's `reference_3` picklist
+ * doesn't currently distinguish Newsletter/LinkedIn/Instagram/Web within inbound (they're all one
+ * "Social media (LinkedIn, X, Instagram...)" value, or a generic "Inbound"/"Google"), so a literal
+ * per-platform split isn't possible yet. Click-to-expand on those rows still shows whatever raw
+ * `reference_3` values exist underneath, via the generic source-breakdown below.
  */
 export const CONVERSION_ROWS: ConversionRowDef[] = [
-  { key: "Referral", label: "Referral", channel: "Referral", group: "Curado", match: (d) => d.channel === "Referral" },
+  { key: "Referrals", label: "Referrals", channel: "Referral", group: "Curated", match: (d) => d.channel === "Referral" },
   {
-    key: "Outreach-Event",
-    label: "Outreach — Event",
+    key: "LinkedIn",
+    label: "LinkedIn",
     channel: "Outreach",
-    group: "Curado",
-    match: (d) => d.channel === "Outreach" && d.sourceLabel === "Event",
+    group: "Curated",
+    match: (d) => d.sourceLabel === "Contacted by LinkedIn" || d.sourceLabel === "Decelera Team",
   },
   {
-    key: "Outreach-MassMailing",
-    label: "Outreach — Mass mailing",
+    key: "Events",
+    label: "Events",
     channel: "Outreach",
-    group: "Masivo",
-    match: (d) => d.channel === "Outreach" && d.sourceLabel === "Mail from Decelera Team",
+    group: "Curated",
+    match: (d) => d.sourceLabel === "Event",
   },
   {
-    key: "Outreach-Masivo",
-    label: "Outreach — LinkedIn masivo (Maru)",
+    key: "OutboundEmailing",
+    label: "Outbound emailing",
     channel: "Outreach",
-    group: "Masivo",
-    match: (d) => d.channel === "Outreach" && d.sourceLabel === "Maru",
+    group: "Mass",
+    match: (d) => d.sourceLabel === "Outbound" || d.sourceLabel === "Mail from Decelera Team",
   },
   {
-    key: "Outreach-Curado",
-    label: "Outreach — LinkedIn curado",
+    key: "Maru",
+    label: "Maru",
     channel: "Outreach",
-    group: "Curado",
-    match: (d) =>
-      d.channel === "Outreach" &&
-      d.sourceLabel !== "Event" &&
-      d.sourceLabel !== "Mail from Decelera Team" &&
-      d.sourceLabel !== "Maru",
+    group: "Mass",
+    match: (d) => d.sourceLabel === "Maru",
   },
-  { key: "Marketing", label: "Marketing", channel: "Marketing", group: "Masivo", match: (d) => d.channel === "Marketing" },
-  { key: "Otros", label: "Otros", channel: "Otros", group: null, match: (d) => d.channel === "Otros" },
+  { key: "Inbound", label: "Inbound", channel: "Marketing", group: "Inbound", match: (d) => d.channel === "Marketing" },
+  { key: "Unclassified", label: "Sin clasificar", channel: "Otros", group: null, match: (d) => d.channel === "Otros" },
 ];
 
 /**
- * Objetivos de la hoja de metas que compartió Carlos (columna "Mex '26 Applications").
- * Marketing/Otros no tenían objetivo en la hoja.
+ * Objetivos de la hoja de metas que compartió Carlos (columna "Mex '26 Applications"),
+ * remapeados a las claves nuevas (Referral→Referrals, Outreach-Curado→LinkedIn,
+ * Outreach-Event→Events, Outreach-MassMailing→OutboundEmailing, Outreach-Masivo→Maru).
+ * Inbound / Sin clasificar no tenían objetivo en la hoja.
  */
 export const CHANNEL_GOALS: Record<string, number> = {
-  Referral: 220,
-  "Outreach-Event": 20,
-  "Outreach-Curado": 125,
-  "Outreach-Masivo": 556,
-  "Outreach-MassMailing": 250,
+  Referrals: 220,
+  Events: 20,
+  LinkedIn: 125,
+  Maru: 556,
+  OutboundEmailing: 250,
   TOTAL: 1171,
 };
 
 /** Objetivo de Tier 1 por fila — la cifra entre paréntesis junto a "Applications" en la hoja. */
 export const TIER1_GOALS: Record<string, number> = {
-  Referral: 55,
-  "Outreach-Event": 4,
-  "Outreach-Curado": 13,
-  "Outreach-Masivo": 21,
-  "Outreach-MassMailing": 3,
+  Referrals: 55,
+  Events: 4,
+  LinkedIn: 13,
+  Maru: 21,
+  OutboundEmailing: 3,
   TOTAL: 96,
 };
 
 /** Objetivo de "Selected" (= Invested aquí) por fila. */
 export const SELECTED_GOALS: Record<string, number> = {
-  Referral: 13,
-  "Outreach-Event": 2,
-  "Outreach-Curado": 5,
-  "Outreach-Masivo": 2,
-  "Outreach-MassMailing": 1,
+  Referrals: 13,
+  Events: 2,
+  LinkedIn: 5,
+  Maru: 2,
+  OutboundEmailing: 1,
   TOTAL: 23,
 };
+
+/** % benchmark de eficiencia de canal (In play ÷ Contacted) — pendiente de definir. */
+export const CHANNEL_EFFICIENCY_BENCHMARK_PCT: number | null = null;
+
+/** Below this many "Contacted", an efficiency rate is an anecdote, not a rate. */
+export const MIN_SAMPLE_FOR_EFFICIENCY = 10;
 
 export interface FunnelMatrixRow {
   key: string;
@@ -196,6 +202,106 @@ export function buildApplicationsOverTime(deals: Deal[]): ApplicationsOverTimePo
   });
 }
 
+export interface PacePoint {
+  day: number;
+  cumulative: number;
+}
+
+export interface PaceVsPlan {
+  /** Real cumulative line — anchored at day 0 with whatever total was already banked before the opencall started. */
+  points: PacePoint[];
+  /** Straight-line plan: 0 at day 0 (opencall start) to `goal` at `totalDays` (the deadline). */
+  planPoints: PacePoint[];
+  totalDays: number;
+  todayDay: number;
+  todayReal: number;
+  todayPlan: number;
+  /** Plan minus real at today — positive means behind pace, negative means ahead. */
+  gap: number;
+  /** Slope of the real line from day 0 to today (excludes whatever was already banked pre-opencall). */
+  actualPacePerWeek: number;
+  /** Weekly rate needed from today to close the gap by the deadline — null once the deadline has passed. */
+  requiredPacePerWeek: number | null;
+}
+
+/**
+ * "Ritmo contra objetivo": real cumulative applications vs. a straight-line plan running
+ * from the opencall start to `APPLICATIONS_DEADLINE`, where `goal` should be reached.
+ */
+export function buildPaceVsPlan(deals: Deal[], goal: number): PaceVsPlan {
+  const totalDays = Math.round((APPLICATIONS_DEADLINE - OPEN_CALL_START) / MS_PER_DAY);
+
+  const withDay = buildApplicationsOverTime(deals).map((p) => ({
+    day: Math.round((new Date(`${p.date}T00:00:00Z`).getTime() - OPEN_CALL_START) / MS_PER_DAY),
+    cumulative: p.cumulative,
+  }));
+
+  const before = withDay.filter((p) => p.day <= 0);
+  const anchor = before.length > 0 ? before[before.length - 1].cumulative : 0;
+  const after = withDay.filter((p) => p.day > 0);
+  const points: PacePoint[] = [{ day: 0, cumulative: anchor }, ...after];
+
+  const planPoints: PacePoint[] = [
+    { day: 0, cumulative: 0 },
+    { day: totalDays, cumulative: goal },
+  ];
+
+  const todayDay = Math.min(Math.max(Math.round((Date.now() - OPEN_CALL_START) / MS_PER_DAY), 0), totalDays);
+  const upToToday = points.filter((p) => p.day <= todayDay);
+  const todayReal = upToToday.length > 0 ? upToToday[upToToday.length - 1].cumulative : anchor;
+  const todayPlan = totalDays > 0 ? (goal * todayDay) / totalDays : goal;
+  const gap = todayPlan - todayReal;
+
+  const weeksElapsed = todayDay / 7;
+  const weeksRemaining = (totalDays - todayDay) / 7;
+  const actualPacePerWeek = weeksElapsed > 0 ? (todayReal - anchor) / weeksElapsed : 0;
+  const requiredPacePerWeek = weeksRemaining > 0 ? (goal - todayReal) / weeksRemaining : null;
+
+  return { points, planPoints, totalDays, todayDay, todayReal, todayPlan, gap, actualPacePerWeek, requiredPacePerWeek };
+}
+
+export interface AbsoluteFunnelStage {
+  key: string;
+  label: string;
+  count: number;
+  /** % lost vs. the very first stage (Aplicaciones) — not vs. the row above. Null on the first row. */
+  dropPct: number | null;
+}
+
+export interface AbsoluteFunnel {
+  stages: AbsoluteFunnelStage[];
+  total: number;
+  selectedGoal: number;
+}
+
+const ABSOLUTE_FUNNEL_STAGES: { key: PipelineStatus; label: string }[] = [
+  { key: "Qualified", label: "Cualificadas" },
+  { key: "In play", label: "In play" },
+  { key: "Pre-committee", label: "Pre-comité" },
+  { key: "Invested", label: "Seleccionada" },
+];
+
+/**
+ * "Funnel — supervivencia absoluta": each stage counted against the original total (not the
+ * stage before it), so a brutal drop stays visible instead of being hidden by re-normalizing
+ * every bar to 100% of its predecessor. Counts are cumulative — a deal that reached "In play"
+ * and later got killed still counts there (via `lastPipelineStage`, sourced from `status_6`).
+ */
+export function buildAbsoluteFunnel(deals: Deal[]): AbsoluteFunnel {
+  const total = deals.length;
+
+  const stages: AbsoluteFunnelStage[] = [
+    { key: "Aplicaciones", label: "Aplicaciones", count: total, dropPct: null },
+    ...ABSOLUTE_FUNNEL_STAGES.map(({ key, label }) => {
+      const count = deals.filter((d) => rank(d.lastPipelineStage) >= rank(key)).length;
+      const dropPct = total > 0 ? Math.round((1 - count / total) * 100) : null;
+      return { key, label, count, dropPct };
+    }),
+  ];
+
+  return { stages, total, selectedGoal: SELECTED_GOALS.TOTAL };
+}
+
 export type WeeklyVolumePoint = { weekLabel: string; weekIndex: number } & Record<Channel, number>;
 
 /** Deals created per week bucket, split by channel — excludes deals with no created-at date. */
@@ -220,70 +326,3 @@ export function buildWeeklyVolume(deals: Deal[]): WeeklyVolumePoint[] {
   return Array.from(byWeek.values()).sort((a, b) => a.weekIndex - b.weekIndex);
 }
 
-function average(values: number[]): number {
-  return values.reduce((sum, v) => sum + v, 0) / values.length;
-}
-
-export interface DimensionScore {
-  dimension: "Team" | "Market" | "Product" | "Traction";
-  avgPct: number;
-  max: number;
-}
-
-export interface QualitySummary {
-  /** How many of the filtered deals actually have a scored form (Leads never do). */
-  sampleSize: number;
-  avgTotalPct: number | null;
-  dimensions: DimensionScore[];
-  tierCounts: { tier: string; count: number }[];
-  topGreenFlags: { flag: string; count: number; pct: number }[];
-}
-
-const DIMENSIONS: { label: DimensionScore["dimension"]; key: "team" | "market" | "product" | "traction" }[] = [
-  { label: "Team", key: "team" },
-  { label: "Market", key: "market" },
-  { label: "Product", key: "product" },
-  { label: "Traction", key: "traction" },
-];
-
-/** Form-quality summary (score breakdown + green flags) for whichever deals have a scored form. */
-export function buildQualitySummary(deals: Deal[]): QualitySummary {
-  const scored = deals.filter((d) => d.formScore.total !== null);
-  const sampleSize = scored.length;
-
-  const dimensions = DIMENSIONS.map(({ label, key }) => {
-    const max = FORM_DIMENSION_MAX[key];
-    const values = scored.map((d) => d.formScore[key]).filter((v): v is number => v !== null);
-    const avgPct = values.length > 0 ? Math.round((average(values) / max) * 100) : 0;
-    return { dimension: label, avgPct, max };
-  });
-
-  const totals = scored.map((d) => d.formScore.total).filter((v): v is number => v !== null);
-  const avgTotalPct = totals.length > 0 ? Math.round((average(totals) / FORM_DIMENSION_MAX.total) * 100) : null;
-
-  const tierCounts = new Map<string, number>();
-  for (const deal of scored) {
-    const tier = deal.formScore.tier ?? "Sin tier";
-    tierCounts.set(tier, (tierCounts.get(tier) ?? 0) + 1);
-  }
-
-  const flagCounts = new Map<string, number>();
-  for (const deal of scored) {
-    for (const flag of deal.greenFlags) flagCounts.set(flag, (flagCounts.get(flag) ?? 0) + 1);
-  }
-
-  const topGreenFlags = Array.from(flagCounts.entries())
-    .map(([flag, count]) => ({ flag, count, pct: sampleSize > 0 ? Math.round((count / sampleSize) * 100) : 0 }))
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 8);
-
-  return {
-    sampleSize,
-    avgTotalPct,
-    dimensions,
-    tierCounts: Array.from(tierCounts.entries())
-      .map(([tier, count]) => ({ tier, count }))
-      .sort((a, b) => b.count - a.count),
-    topGreenFlags,
-  };
-}

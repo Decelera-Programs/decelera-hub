@@ -38,6 +38,13 @@
   --status-warning: #dd6b20;
   --status-critical: #e53e3e;
 
+  /* Soft tints for pill badges and alert banners — same hues as the status colors above. */
+  --pill-good-bg: rgba(30, 158, 82, 0.14);
+  --pill-critical-bg: rgba(229, 62, 62, 0.14);
+  --warning-bg: #fef3c7;
+  --warning-border: #fde68a;
+  --warning-fg: #92400e;
+
   --background: var(--page);
   --foreground: var(--text-primary);
 }

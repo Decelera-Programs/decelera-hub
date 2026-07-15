@@ -1,9 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { AbsoluteFunnelChart } from "./AbsoluteFunnelChart";
 import { ApplicationsOverTimeChart } from "./ApplicationsOverTimeChart";
 import { FunnelTable } from "./FunnelTable";
-import { QualitySummary } from "./QualitySummary";
 import { SummaryKpis } from "./SummaryKpis";
 import { WeeklyVolumeChart } from "./WeeklyVolumeChart";
 import { computeWeek } from "@/lib/transform";
@@ -117,7 +117,7 @@ export function FunnelDashboard({ deals }: { deals: Deal[] }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <SummaryKpis deals={filtered} />
+      <SummaryKpis deals={filtered} showGoal={showGoals} />
       <div className="flex flex-wrap items-center gap-3">
         <TabGroup
           options={stageOptions}
@@ -137,7 +137,7 @@ export function FunnelDashboard({ deals }: { deals: Deal[] }) {
         <ApplicationsOverTimeChart deals={stageFiltered} showGoal={showGoals} />
         <WeeklyVolumeChart deals={stageFiltered} />
       </div>
-      <QualitySummary deals={filtered} />
+      <AbsoluteFunnelChart deals={filtered} showGoal={showGoals} />
     </div>
   );
 }
