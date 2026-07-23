@@ -22,6 +22,7 @@ export interface RawDeal {
   form_sumary: string | null;
   green_flags_form: string | null;
   tier_5: string | null;
+  owner: string | null;
 }
 
 /** -1 = antes del inicio de la opencall, 1/2/3… = semana N desde el inicio, null = sin fecha. */
@@ -59,4 +60,6 @@ export interface Deal {
   weekLabel: string;
   formScore: FormScore;
   greenFlags: string[];
+  /** Attio deal owner (workspace member name) — null if unassigned. */
+  owner: string | null;
 }

@@ -66,7 +66,7 @@ export const CONVERSION_ROWS: ConversionRowDef[] = [
     match: (d) => d.sourceLabel === "Maru",
   },
   { key: "Inbound", label: "Inbound", channel: "Marketing", group: "Inbound", match: (d) => d.channel === "Marketing" },
-  { key: "Unclassified", label: "Sin clasificar", channel: "Otros", group: null, match: (d) => d.channel === "Otros" },
+  { key: "Unclassified", label: "Other", channel: "Otros", group: null, match: (d) => d.channel === "Otros" },
 ];
 
 /**

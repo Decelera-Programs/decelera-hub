@@ -211,9 +211,19 @@ function ConversionRow({
   );
 }
 
+const NO_OWNER = "Sin owner";
+
 export function FunnelTable({ deals, showGoals = false }: { deals: Deal[]; showGoals?: boolean }) {
   const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set());
-  const rows = buildFunnelMatrix(deals);
+  const [selectedOwner, setSelectedOwner] = useState("all");
+
+  const owners = Array.from(new Set(deals.map((d) => d.owner ?? NO_OWNER))).sort((a, b) =>
+    a === NO_OWNER ? 1 : b === NO_OWNER ? -1 : a.localeCompare(b)
+  );
+  const scopedDeals =
+    selectedOwner === "all" ? deals : deals.filter((d) => (d.owner ?? NO_OWNER) === selectedOwner);
+
+  const rows = buildFunnelMatrix(scopedDeals);
   const totalRow = rows.find((row) => row.key === "TOTAL");
   const sections = GROUP_ORDER.map((group) => ({
     group,
@@ -236,8 +246,26 @@ export function FunnelTable({ deals, showGoals = false }: { deals: Deal[]; showG
   return (
     <ChartCard
       title="Funnel por canal de entrada"
-      subtitle={`Conversión acumulada por etapa · ${deals.length} deals`}
+      subtitle={`Conversión acumulada por etapa · ${scopedDeals.length} deals`}
     >
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <label className="text-xs font-medium text-[var(--text-secondary)]" htmlFor="owner-filter">
+          Owner
+        </label>
+        <select
+          id="owner-filter"
+          value={selectedOwner}
+          onChange={(e) => setSelectedOwner(e.target.value)}
+          className="rounded-full border border-[var(--border)] bg-[var(--surface-1)] px-3 py-1.5 text-sm text-[var(--text-primary)]"
+        >
+          <option value="all">Todos</option>
+          {owners.map((owner) => (
+            <option key={owner} value={owner}>
+              {owner}
+            </option>
+          ))}
+        </select>
+      </div>
       <div
         className="flex items-start gap-2 rounded-xl border px-4 py-3 text-sm"
         style={{ background: "var(--warning-bg)", borderColor: "var(--warning-border)", color: "var(--warning-fg)" }}
@@ -298,7 +326,7 @@ export function FunnelTable({ deals, showGoals = false }: { deals: Deal[]; showG
                     title={section.group ? GROUP_HINT[section.group] : undefined}
                     className={`bg-[var(--page)] px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)] ${section.group ? "cursor-help" : ""}`}
                   >
-                    {section.group ?? "Sin clasificar"}
+                    {section.group ?? "Other"}
                   </td>
                 </tr>
                 {section.rows.map((row) => {
@@ -345,7 +373,7 @@ export function FunnelTable({ deals, showGoals = false }: { deals: Deal[]; showG
         Curated = contacto personal (referrals, eventos, LinkedIn manual), Mass = alcance masivo
         automatizado (mass mailing, LinkedIn vía Maru), Inbound = llegaron solos — Attio no
         distingue todavía si fue newsletter, LinkedIn, Instagram o web, todo cae en el mismo valor.
-        En Inbound y Sin clasificar, cuando hay más de una fuente distinta se muestran directamente
+        En Inbound y Other, cuando hay más de una fuente distinta se muestran directamente
         como filas separadas. En el resto de filas, el ▸ indica que mezclan más de una fuente — haz
         clic para desglosarlas.
         {showGoals && (

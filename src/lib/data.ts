@@ -4,7 +4,7 @@ import { mapRawDeal } from "./transform";
 import type { RawDeal } from "./types";
 
 const DEAL_COLUMNS =
-  "record_id, name, stage, status, status_6, reference_3, created_at_entry, created_at_record, form_sumary, green_flags_form, tier_5";
+  "record_id, name, stage, status, status_6, reference_3, created_at_entry, created_at_record, form_sumary, green_flags_form, tier_5, owner";
 
 const OPENCALL_STAGES = ["Mexico 2026", "Leads Mexico 2026"];
 
