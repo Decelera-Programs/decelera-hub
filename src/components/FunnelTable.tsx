@@ -17,8 +17,8 @@ const STAGE_HINT: Record<PipelineStatus, string> = {
   Invested: "Decelera invirtió",
 };
 
-const TIER1_HINT = "Startups con Tier 1 en el form score";
-const CONVERSION_HINT = "Invested ÷ total de la fila";
+const TIER1_COUNT_HINT = "Startups con Tier 1 en el form score";
+const TIER1_PCT_HINT = "Tier 1 ÷ total de la fila — verde/rojo contra la meta 2026, gris si no hay meta definida";
 const EFFICIENCY_HINT = "In play ÷ Contacted — verde/rojo contra el benchmark, gris si hay muy pocos datos";
 const GROUP_ORDER = ["Curated", "Mass", "Inbound", null] as const;
 const GROUP_HINT: Record<"Curated" | "Mass" | "Inbound", string> = {
@@ -27,7 +27,10 @@ const GROUP_HINT: Record<"Curated" | "Mass" | "Inbound", string> = {
   Inbound: "Llegaron solos: social media, newsletter, búsqueda — Attio no distingue la plataforma exacta todavía",
 };
 
-const COLUMN_COUNT = 1 + PIPELINE_ORDER.length + 3;
+/** Pipeline stages shown as their own columns — "Invested" is dropped from the table (still used elsewhere). */
+const DISPLAYED_STAGES: PipelineStatus[] = PIPELINE_ORDER.filter((stage) => stage !== "Invested");
+
+const COLUMN_COUNT = 1 + DISPLAYED_STAGES.length + 3;
 const OUTCOME_BG = "var(--column-band)";
 
 function pct(numerator: number, denominator: number) {
@@ -35,37 +38,34 @@ function pct(numerator: number, denominator: number) {
   return Math.round((numerator / denominator) * 100);
 }
 
-/** Count with its de-emphasized conversion % beside it — the number is the point, the % is context. */
-function StatCell({ count, base }: { count: number; base: number | null }) {
-  const p = base === null || base === 0 ? null : pct(count, base);
-  return (
-    <>
-      {count}
-      {p !== null && <span className="ml-1 text-[var(--text-muted)]">({p}%)</span>}
-    </>
-  );
-}
-
-/** Target rate (goalCount ÷ goalBase) shown next to the achieved rate, colored by whether we're meeting it. */
-function TargetPct({
-  actual,
-  goalCount,
+/** Tier 1 ÷ total, colored against this row's 2026 goal rate — gray when no goal is defined for the row. */
+function Tier1Pct({
+  tier1,
+  total,
+  tier1Goal,
   goalBase,
 }: {
-  actual: number | null;
-  goalCount: number | null;
+  tier1: number;
+  total: number;
+  tier1Goal: number | null;
   goalBase: number | null;
 }) {
-  if (actual === null || goalCount === null || goalBase === null || goalBase === 0) return null;
-  const targetPct = Math.round((goalCount / goalBase) * 100);
-  const met = actual >= targetPct;
+  const p = pct(tier1, total);
+  if (p === null) return <span className="text-[var(--text-muted)]">—</span>;
+  const target = tier1Goal !== null && goalBase !== null && goalBase !== 0 ? Math.round((tier1Goal / goalBase) * 100) : null;
+  const { color, bg } =
+    target === null
+      ? { color: "var(--text-secondary)", bg: "var(--gridline)" }
+      : p >= target
+        ? { color: "var(--status-good)", bg: "var(--pill-good-bg)" }
+        : { color: "var(--status-critical)", bg: "var(--pill-critical-bg)" };
   return (
     <span
-      title={`Meta: ${targetPct}% (${goalCount}/${goalBase})`}
-      className="ml-1.5 cursor-help font-medium"
-      style={{ color: met ? "var(--status-good)" : "var(--status-critical)" }}
+      className="inline-flex cursor-help rounded-full px-2.5 py-1 text-xs font-semibold"
+      style={{ color, background: bg }}
+      title={target !== null ? `Meta: ${target}%` : "Meta pendiente"}
     >
-      {targetPct}%
+      {p}%
     </span>
   );
 }
@@ -172,46 +172,40 @@ function ConversionRow({
           {showGoals && row.goal !== null && <GoalIndicator current={row.total} goal={row.goal} />}
         </span>
       </td>
-      {PIPELINE_ORDER.map((stage, i) => {
-        const prevStage = i === 0 ? null : PIPELINE_ORDER[i - 1];
-        const prevCount = prevStage ? row.stageCounts[prevStage] : null;
-        return (
+      {DISPLAYED_STAGES.map((stage) => (
+        <Fragment key={stage}>
           <td
-            key={stage}
-            className="px-3 py-2.5 text-right tabular-nums text-[var(--text-primary)]"
+            className="px-3 py-2.5 text-center tabular-nums text-[var(--text-primary)]"
             style={isTotal ? { fontWeight: 600 } : undefined}
           >
-            <StatCell count={row.stageCounts[stage]} base={prevCount} />
+            {row.stageCounts[stage]}
           </td>
-        );
-      })}
+          {stage === "In play" && (
+            <td
+              className="px-3 py-2.5 text-center tabular-nums text-[var(--text-primary)]"
+              style={isTotal ? { fontWeight: 600 } : undefined}
+            >
+              {row.tier1}
+            </td>
+          )}
+        </Fragment>
+      ))}
       <td
-        className="border-l border-[var(--gridline)] px-3 py-2.5 text-right tabular-nums"
+        className="border-l border-[var(--gridline)] px-3 py-2.5 text-center tabular-nums"
         style={{ background: OUTCOME_BG, ...(isTotal ? { fontWeight: 600 } : {}) }}
       >
         <EfficiencyPct contacted={row.stageCounts.Contacted} inPlay={row.stageCounts["In play"]} />
       </td>
       <td
-        className="px-3 py-2.5 text-right tabular-nums text-[var(--text-primary)]"
+        className="px-3 py-2.5 text-center tabular-nums text-[var(--text-primary)]"
         style={{ background: OUTCOME_BG, ...(isTotal ? { fontWeight: 600 } : {}) }}
       >
-        <StatCell count={row.tier1} base={row.total} />
-        {showGoals && (
-          <TargetPct actual={pct(row.tier1, row.total)} goalCount={row.tier1Goal} goalBase={row.goal} />
-        )}
-      </td>
-      <td
-        className="px-3 py-2.5 text-right tabular-nums text-[var(--text-primary)]"
-        style={{ background: OUTCOME_BG, ...(isTotal ? { fontWeight: 600 } : {}) }}
-      >
-        {pct(row.stageCounts.Invested, row.total) ?? "—"}%
-        {showGoals && (
-          <TargetPct
-            actual={pct(row.stageCounts.Invested, row.total)}
-            goalCount={row.selectedGoal}
-            goalBase={row.goal}
-          />
-        )}
+        <Tier1Pct
+          tier1={row.tier1}
+          total={row.total}
+          tier1Goal={showGoals ? row.tier1Goal : null}
+          goalBase={showGoals ? row.goal : null}
+        />
       </td>
     </tr>
   );
@@ -261,35 +255,37 @@ export function FunnelTable({ deals, showGoals = false }: { deals: Deal[]; showG
               <th className="px-3 py-2 text-left font-medium text-[var(--text-secondary)]">
                 Canal
               </th>
-              {PIPELINE_ORDER.map((stage) => (
-                <th
-                  key={stage}
-                  title={STAGE_HINT[stage]}
-                  className="cursor-help px-3 py-2 text-right font-medium text-[var(--text-secondary)]"
-                >
-                  {stage}
-                </th>
+              {DISPLAYED_STAGES.map((stage) => (
+                <Fragment key={stage}>
+                  <th
+                    title={STAGE_HINT[stage]}
+                    className="cursor-help px-3 py-2 text-center font-medium text-[var(--text-secondary)]"
+                  >
+                    {stage}
+                  </th>
+                  {stage === "In play" && (
+                    <th
+                      title={TIER1_COUNT_HINT}
+                      className="cursor-help px-3 py-2 text-center font-medium text-[var(--text-secondary)]"
+                    >
+                      Tier 1
+                    </th>
+                  )}
+                </Fragment>
               ))}
               <th
                 title={EFFICIENCY_HINT}
-                className="cursor-help border-l border-[var(--gridline)] px-3 py-2 text-right font-medium text-[var(--text-secondary)]"
+                className="cursor-help border-l border-[var(--gridline)] px-3 py-2 text-center font-medium text-[var(--text-secondary)]"
                 style={{ background: OUTCOME_BG }}
               >
                 Efic. In play/Contacted
               </th>
               <th
-                title={TIER1_HINT}
-                className="cursor-help px-3 py-2 text-right font-medium text-[var(--text-secondary)]"
+                title={TIER1_PCT_HINT}
+                className="cursor-help px-3 py-2 text-center font-medium text-[var(--text-secondary)]"
                 style={{ background: OUTCOME_BG }}
               >
                 Tier 1
-              </th>
-              <th
-                title={CONVERSION_HINT}
-                className="cursor-help px-3 py-2 text-right font-medium text-[var(--text-secondary)]"
-                style={{ background: OUTCOME_BG }}
-              >
-                Conversión a selección
               </th>
             </tr>
           </thead>
@@ -340,22 +336,25 @@ export function FunnelTable({ deals, showGoals = false }: { deals: Deal[]; showG
       </div>
       <p className="text-xs text-[var(--text-muted)]">
         Cada celda cuenta startups que llegaron a esa etapa o más allá — incluye a las que después
-        murieron, contando hasta dónde llegaron antes de caer. El % es la conversión respecto a la
-        etapa anterior. Efic. In play/Contacted, Tier 1 y Conversión a selección (fondo resaltado)
-        son sobre el total de la fila; con menos de {MIN_SAMPLE_FOR_EFFICIENCY} contactadas, la
-        eficiencia se muestra en gris (&ldquo;n bajo&rdquo;) porque no es una tasa fiable todavía.
+        murieron, contando hasta dónde llegaron antes de caer. La columna Tier 1 entre &ldquo;In
+        play&rdquo; y &ldquo;Pre-committee&rdquo; es el total de startups Tier 1 en la fila. Efic. In
+        play/Contacted y Tier 1 (fondo resaltado, a la derecha) son porcentajes sobre el total de la
+        fila; con menos de {MIN_SAMPLE_FOR_EFFICIENCY} contactadas, la eficiencia se muestra en gris
+        (&ldquo;n bajo&rdquo;) porque no es una tasa fiable todavía.
         Curated / Mass / Inbound son una agrupación direccional nuestra (no un dato de Attio):
         Curated = contacto personal (referrals, eventos, LinkedIn manual), Mass = alcance masivo
         automatizado (mass mailing, LinkedIn vía Maru), Inbound = llegaron solos — Attio no
         distingue todavía si fue newsletter, LinkedIn, Instagram o web, todo cae en el mismo valor.
-        Las filas con ▸ mezclan más de una fuente — haz clic para desglosarlas.
+        En Inbound y Sin clasificar, cuando hay más de una fuente distinta se muestran directamente
+        como filas separadas. En el resto de filas, el ▸ indica que mezclan más de una fuente — haz
+        clic para desglosarlas.
         {showGoals && (
           <>
             {" "}
             La barrita junto al nombre del canal es el objetivo 2026 (deals conseguidos ÷ meta). En
-            Tier 1 / Conversión a selección, el % en verde o rojo junto al actual es la meta 2026
-            (verde = la igualamos o superamos, rojo = vamos por debajo). Los objetivos solo se
-            muestran en &ldquo;Todos&rdquo; porque se definieron para Leads + Aplicaciones juntos.
+            el Tier 1 de la derecha, el % en verde o rojo es contra la meta 2026 de esa fila (verde =
+            la igualamos o superamos, rojo = vamos por debajo). Los objetivos solo se muestran en
+            &ldquo;Todos&rdquo; porque se definieron para Leads + Aplicaciones juntos.
           </>
         )}
       </p>

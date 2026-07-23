@@ -21,6 +21,7 @@ export interface RawDeal {
   created_at_record: string | null;
   form_sumary: string | null;
   green_flags_form: string | null;
+  tier_5: string | null;
 }
 
 /** -1 = antes del inicio de la opencall, 1/2/3… = semana N desde el inicio, null = sin fecha. */
@@ -45,8 +46,9 @@ export interface Deal {
   /**
    * Furthest live pipeline stage this deal ever reached.
    * For live deals this mirrors `status`. For Killed/Not qualified deals this
-   * comes from `status_6` (the last active status before it died) — null means
-   * it died before reaching even "Contacted".
+   * comes from `status_6` (the last active status before it died), falling
+   * back to "Contacted" when that's missing — every deal here applied, so it
+   * was contacted at minimum even if Attio never recorded where it died.
    */
   lastPipelineStage: PipelineStatus | null;
   channel: Channel;

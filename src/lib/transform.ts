@@ -21,6 +21,7 @@ export const REFERENCE_CHANNEL_MAP: Record<string, Channel> = {
   Portfolio: "Referral",
   Alumni: "Referral",
   EM: "Referral",
+  Boardy: "Referral",
   "Social media (LinkedIn, X, Instagram...)": "Marketing",
   Press: "Marketing",
   Google: "Marketing",
@@ -92,15 +93,14 @@ const EMPTY_FORM_SCORE: FormScore = {
   tier: null,
 };
 
-/** Parses the fixed-format `form_sumary` block (see `FORM_DIMENSION_MAX` for the scale). */
-export function parseFormSummary(raw: string | null): FormScore {
-  if (!raw) return EMPTY_FORM_SCORE;
+/** Parses the fixed-format `form_sumary` block (see `FORM_DIMENSION_MAX` for the scale). Tier comes from the dedicated `tier_5` column instead — see `mapRawDeal`. */
+export function parseFormSummary(raw: string | null, tier: string | null): FormScore {
+  if (!raw) return { ...EMPTY_FORM_SCORE, tier };
 
   const grab = (label: string) => {
     const match = raw.match(new RegExp(`${label}:\\s*(\\d+(?:\\.\\d+)?)\\s*/`, "i"));
     return match ? Number(match[1]) : null;
   };
-  const tierMatch = raw.match(/Tier:\s*(.+)/i);
 
   return {
     team: grab("Team"),
@@ -108,7 +108,7 @@ export function parseFormSummary(raw: string | null): FormScore {
     product: grab("Product"),
     traction: grab("Traction"),
     total: grab("Total"),
-    tier: tierMatch ? tierMatch[1].trim() : null,
+    tier,
   };
 }
 
@@ -124,7 +124,9 @@ export function parseFlagList(raw: string | null): string[] {
 export function mapRawDeal(raw: RawDeal): Deal {
   const status = asStatus(raw.status);
   const isDead = status ? DEAD_STATUSES.includes(status) : false;
-  const lastPipelineStage = isDead ? asPipelineStatus(raw.status_6) : asPipelineStatus(raw.status);
+  // Every deal here applied, so it was at least "Contacted" — fall back to that when status/status_6
+  // is missing or unrecognized (e.g. a Killed/Not qualified deal with no status_6 on file).
+  const lastPipelineStage = (isDead ? asPipelineStatus(raw.status_6) : asPipelineStatus(raw.status)) ?? "Contacted";
   const referenceList = parsePgArray(raw.reference_3);
   const createdAtRaw = raw.created_at_entry ?? raw.created_at_record;
   const createdAt = createdAtRaw ? new Date(createdAtRaw) : null;
@@ -143,7 +145,7 @@ export function mapRawDeal(raw: RawDeal): Deal {
     createdAt,
     weekIndex,
     weekLabel,
-    formScore: parseFormSummary(raw.form_sumary),
+    formScore: parseFormSummary(raw.form_sumary, raw.tier_5?.trim() || null),
     greenFlags: parseFlagList(raw.green_flags_form),
   };
 }

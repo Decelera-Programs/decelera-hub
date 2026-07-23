@@ -57,6 +57,7 @@ export function WeeklyVolumeChart({ deals }: { deals: Deal[] }) {
             />
             <YAxis
               allowDecimals={false}
+              domain={[0, (dataMax: number) => Math.max(dataMax, 90)]}
               tick={{ fill: "var(--text-muted)", fontSize: 12 }}
               axisLine={false}
               tickLine={false}

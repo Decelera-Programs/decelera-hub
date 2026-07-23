@@ -23,7 +23,13 @@ export interface ConversionRowDef {
  * `reference_3` values exist underneath, via the generic source-breakdown below.
  */
 export const CONVERSION_ROWS: ConversionRowDef[] = [
-  { key: "Referrals", label: "Referrals", channel: "Referral", group: "Curated", match: (d) => d.channel === "Referral" },
+  {
+    key: "Referrals",
+    label: "Referrals",
+    channel: "Referral",
+    group: "Curated",
+    match: (d) => d.channel === "Referral" && d.sourceLabel !== "Boardy",
+  },
   {
     key: "LinkedIn",
     label: "LinkedIn",
@@ -37,6 +43,13 @@ export const CONVERSION_ROWS: ConversionRowDef[] = [
     channel: "Outreach",
     group: "Curated",
     match: (d) => d.sourceLabel === "Event",
+  },
+  {
+    key: "Boardy",
+    label: "Boardy",
+    channel: "Referral",
+    group: "Curated",
+    match: (d) => d.sourceLabel === "Boardy",
   },
   {
     key: "OutboundEmailing",
@@ -148,31 +161,46 @@ function buildRow(
   };
 }
 
+/** Raw `reference_3` source values that need a friendlier display label than the Attio picklist text. */
+const SOURCE_LABEL_OVERRIDES: Record<string, string> = {
+  Inbound: "startups@decelera",
+};
+
 /** Splits a row's deals by raw `sourceLabel` — only worth showing when there's more than one distinct source. */
-function buildSourceSubRows(channel: Channel | null, deals: Deal[]): FunnelMatrixRow[] {
+function buildSourceSubRows(channel: Channel | null, group: CurationGroup | null, deals: Deal[]): FunnelMatrixRow[] {
   const bySource = new Map<string, Deal[]>();
   for (const deal of deals) {
     const source = deal.sourceLabel ?? "Sin fuente";
-    const group = bySource.get(source);
-    if (group) group.push(deal);
+    const sourceDeals = bySource.get(source);
+    if (sourceDeals) sourceDeals.push(deal);
     else bySource.set(source, [deal]);
   }
 
   if (bySource.size < 2) return [];
 
   return Array.from(bySource.entries())
-    .map(([source, sourceDeals]) => buildRow(source, source, channel, null, sourceDeals))
+    .map(([source, sourceDeals]) =>
+      buildRow(source, SOURCE_LABEL_OVERRIDES[source] ?? source, channel, group, sourceDeals)
+    )
     .sort((a, b) => b.total - a.total);
 }
 
 /** Funnel matrix: one row per conversion-table channel split (+ TOTAL), one column per live pipeline stage, plus Tier 1 and conversion-to-selection totals. */
 export function buildFunnelMatrix(deals: Deal[]): FunnelMatrixRow[] {
-  const rows = CONVERSION_ROWS.map((def) => {
+  const rows = CONVERSION_ROWS.flatMap((def) => {
     const rowDeals = deals.filter(def.match);
+    if (rowDeals.length === 0) return [];
+
+    if (def.key === "Inbound" || def.key === "Unclassified") {
+      // These mix several raw sources — show them as their own rows instead of one row you have to expand.
+      const bySource = buildSourceSubRows(def.channel, def.group, rowDeals);
+      if (bySource.length > 0) return bySource;
+    }
+
     const row = buildRow(def.key, def.label, def.channel, def.group, rowDeals);
-    row.subRows = buildSourceSubRows(def.channel, rowDeals);
-    return row;
-  }).filter((row) => row.total > 0);
+    row.subRows = buildSourceSubRows(def.channel, null, rowDeals);
+    return [row];
+  });
 
   rows.push(buildRow("TOTAL", "Total", null, null, deals));
   return rows;
@@ -249,6 +277,11 @@ export function buildPaceVsPlan(deals: Deal[], goal: number): PaceVsPlan {
   const todayDay = Math.min(Math.max(Math.round((Date.now() - OPEN_CALL_START) / MS_PER_DAY), 0), totalDays);
   const upToToday = points.filter((p) => p.day <= todayDay);
   const todayReal = upToToday.length > 0 ? upToToday[upToToday.length - 1].cumulative : anchor;
+  // Extend the real line flat through to today — otherwise it stops at the last day with new
+  // applications, leaving a visible gap before the "hoy" marker whenever that isn't today.
+  if (points[points.length - 1].day < todayDay) {
+    points.push({ day: todayDay, cumulative: todayReal });
+  }
   const todayPlan = totalDays > 0 ? (goal * todayDay) / totalDays : goal;
   const gap = todayPlan - todayReal;
 
