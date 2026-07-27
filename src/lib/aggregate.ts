@@ -24,8 +24,8 @@ export interface ConversionRowDef {
  */
 /**
  * A deal tagged `reference_3 = "Inbound"` only counts as a real startups@decelera.com lead when
- * its reference explanation says so. Otherwise (empty, or some unrelated note) it's treated as
- * misfiled Outbound emailing instead of genuine inbound.
+ * its reference explanation says so. Otherwise (empty, or some unrelated note) it's folded into
+ * "Social media" instead — see `effectiveSourceLabel`.
  */
 function isMisfiledInboundTag(d: Deal): boolean {
   return d.sourceLabel === "Inbound" && !d.referralNote?.toLowerCase().includes("startups@decelera");
@@ -44,7 +44,7 @@ export const CONVERSION_ROWS: ConversionRowDef[] = [
     label: "LinkedIn",
     channel: "Outreach",
     group: "Curated",
-    match: (d) => d.sourceLabel === "Contacted by LinkedIn" || d.sourceLabel === "Decelera Team",
+    match: (d) => d.sourceLabel === "Contacted by LinkedIn" || d.sourceLabel === "Decelera Team" || d.sourceLabel === "Outbound",
   },
   {
     key: "Events",
@@ -65,7 +65,7 @@ export const CONVERSION_ROWS: ConversionRowDef[] = [
     label: "Outbound emailing",
     channel: "Outreach",
     group: "Mass",
-    match: (d) => d.sourceLabel === "Outbound" || d.sourceLabel === "Mail from Decelera Team" || isMisfiledInboundTag(d),
+    match: (d) => d.sourceLabel === "Mail from Decelera Team",
   },
   {
     key: "Maru",
@@ -79,7 +79,7 @@ export const CONVERSION_ROWS: ConversionRowDef[] = [
     label: "Inbound",
     channel: "Marketing",
     group: "Inbound",
-    match: (d) => d.channel === "Marketing" && !isMisfiledInboundTag(d),
+    match: (d) => d.channel === "Marketing",
   },
   { key: "Unclassified", label: "Other", channel: "Otros", group: null, match: (d) => d.channel === "Otros" },
 ];
@@ -181,23 +181,36 @@ const SOURCE_LABEL_OVERRIDES: Record<string, string> = {
   Inbound: "startups@decelera",
 };
 
-/** Splits a row's deals by raw `sourceLabel` — only worth showing when there's more than one distinct source. */
-function buildSourceSubRows(channel: Channel | null, group: CurationGroup | null, deals: Deal[]): FunnelMatrixRow[] {
+/** A misfiled "Inbound" tag (no startups@decelera.com confirmation) is folded into Social media instead. */
+function effectiveSourceLabel(deal: Deal): string {
+  if (isMisfiledInboundTag(deal)) return "Social media (LinkedIn, X, Instagram...)";
+  return deal.sourceLabel ?? "Sin fuente";
+}
+
+function groupBySourceLabel(deals: Deal[]): Map<string, Deal[]> {
   const bySource = new Map<string, Deal[]>();
   for (const deal of deals) {
-    const source = deal.sourceLabel ?? "Sin fuente";
+    const source = effectiveSourceLabel(deal);
     const sourceDeals = bySource.get(source);
     if (sourceDeals) sourceDeals.push(deal);
     else bySource.set(source, [deal]);
   }
+  return bySource;
+}
 
-  if (bySource.size < 2) return [];
-
-  return Array.from(bySource.entries())
+/** One row per distinct raw `sourceLabel`, always — used where the group's own name is never a real source (Inbound/Other). */
+function buildSourceRows(channel: Channel | null, group: CurationGroup | null, deals: Deal[]): FunnelMatrixRow[] {
+  return Array.from(groupBySourceLabel(deals).entries())
     .map(([source, sourceDeals]) =>
       buildRow(source, SOURCE_LABEL_OVERRIDES[source] ?? source, channel, group, sourceDeals)
     )
     .sort((a, b) => b.total - a.total);
+}
+
+/** Splits a row's deals by raw `sourceLabel` — only worth showing when there's more than one distinct source. */
+function buildSourceSubRows(channel: Channel | null, group: CurationGroup | null, deals: Deal[]): FunnelMatrixRow[] {
+  if (groupBySourceLabel(deals).size < 2) return [];
+  return buildSourceRows(channel, group, deals);
 }
 
 /** Funnel matrix: one row per conversion-table channel split (+ TOTAL), one column per live pipeline stage, plus Tier 1 and conversion-to-selection totals. */
@@ -207,9 +220,9 @@ export function buildFunnelMatrix(deals: Deal[]): FunnelMatrixRow[] {
     if (rowDeals.length === 0) return [];
 
     if (def.key === "Inbound" || def.key === "Unclassified") {
-      // These mix several raw sources — show them as their own rows instead of one row you have to expand.
-      const bySource = buildSourceSubRows(def.channel, def.group, rowDeals);
-      if (bySource.length > 0) return bySource;
+      // These are a bucket name, not a real source — always show the actual source(s), even if
+      // there's only one, so the generic "Inbound"/"Other" label never appears in the table.
+      return buildSourceRows(def.channel, def.group, rowDeals);
     }
 
     const row = buildRow(def.key, def.label, def.channel, def.group, rowDeals);
