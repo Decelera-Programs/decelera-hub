@@ -22,6 +22,15 @@ export interface ConversionRowDef {
  * per-platform split isn't possible yet. Click-to-expand on those rows still shows whatever raw
  * `reference_3` values exist underneath, via the generic source-breakdown below.
  */
+/**
+ * A deal tagged `reference_3 = "Inbound"` only counts as a real startups@decelera.com lead when
+ * its reference explanation says so. Otherwise (empty, or some unrelated note) it's treated as
+ * misfiled Outbound emailing instead of genuine inbound.
+ */
+function isMisfiledInboundTag(d: Deal): boolean {
+  return d.sourceLabel === "Inbound" && !d.referralNote?.toLowerCase().includes("startups@decelera");
+}
+
 export const CONVERSION_ROWS: ConversionRowDef[] = [
   {
     key: "Referrals",
@@ -56,7 +65,7 @@ export const CONVERSION_ROWS: ConversionRowDef[] = [
     label: "Outbound emailing",
     channel: "Outreach",
     group: "Mass",
-    match: (d) => d.sourceLabel === "Outbound" || d.sourceLabel === "Mail from Decelera Team",
+    match: (d) => d.sourceLabel === "Outbound" || d.sourceLabel === "Mail from Decelera Team" || isMisfiledInboundTag(d),
   },
   {
     key: "Maru",
@@ -65,7 +74,13 @@ export const CONVERSION_ROWS: ConversionRowDef[] = [
     group: "Mass",
     match: (d) => d.sourceLabel === "Maru",
   },
-  { key: "Inbound", label: "Inbound", channel: "Marketing", group: "Inbound", match: (d) => d.channel === "Marketing" },
+  {
+    key: "Inbound",
+    label: "Inbound",
+    channel: "Marketing",
+    group: "Inbound",
+    match: (d) => d.channel === "Marketing" && !isMisfiledInboundTag(d),
+  },
   { key: "Unclassified", label: "Other", channel: "Otros", group: null, match: (d) => d.channel === "Otros" },
 ];
 

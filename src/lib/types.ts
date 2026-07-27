@@ -23,6 +23,7 @@ export interface RawDeal {
   green_flags_form: string | null;
   tier_5: string | null;
   owner: string | null;
+  referral: string | null;
 }
 
 /** -1 = antes del inicio de la opencall, 1/2/3… = semana N desde el inicio, null = sin fecha. */
@@ -55,6 +56,8 @@ export interface Deal {
   channel: Channel;
   /** Raw first value of `reference_3` (e.g. "Event", "Contacted by LinkedIn") — null if missing/unmapped. */
   sourceLabel: string | null;
+  /** Free-text "reference explanation" (Attio `referral`) — used to tell a real startups@decelera.com inbound apart from a bare/misfiled "Inbound" tag. */
+  referralNote: string | null;
   createdAt: Date | null;
   weekIndex: number | null;
   weekLabel: string;

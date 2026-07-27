@@ -142,6 +142,7 @@ export function mapRawDeal(raw: RawDeal): Deal {
     lastPipelineStage,
     channel: categorizeReference(sourceLabel),
     sourceLabel,
+    referralNote: raw.referral?.trim() || null,
     createdAt,
     weekIndex,
     weekLabel,
