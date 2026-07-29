@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { Area, AreaChart, CartesianGrid, Line, LineChart, ReferenceDot, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { ChartCard } from "./ChartCard";
 import { buildApplicationsOverTime, buildPaceVsPlan, CHANNEL_GOALS, TIER1_GOALS } from "@/lib/aggregate";
@@ -59,12 +58,8 @@ function OverTimeTooltip({
   );
 }
 
-function PaceVsPlanChart({ deals, goal }: { deals: Deal[]; goal: number }) {
-  const [tier1Only, setTier1Only] = useState(false);
-  const scopedDeals = tier1Only ? deals.filter((d) => d.formScore.tier === "Tier 1") : deals;
-  const scopedGoal = tier1Only ? TIER1_TOTAL_GOAL : goal;
-
-  const pace = buildPaceVsPlan(scopedDeals, scopedGoal);
+function PaceVsPlanChart({ deals, goal, tier1Only }: { deals: Deal[]; goal: number; tier1Only: boolean }) {
+  const pace = buildPaceVsPlan(deals, goal);
   const { points, planPoints, totalDays, todayDay, todayReal, todayPlan, gap, actualPacePerWeek, requiredPacePerWeek } = pace;
 
   const merged = Array.from(new Set([...points.map((p) => p.day), ...planPoints.map((p) => p.day), todayDay]))
@@ -72,7 +67,7 @@ function PaceVsPlanChart({ deals, goal }: { deals: Deal[]; goal: number }) {
     .map((day) => ({
       day,
       real: points.find((p) => p.day === day)?.cumulative ?? null,
-      plan: (scopedGoal * day) / totalDays,
+      plan: (goal * day) / totalDays,
     }));
 
   const tickFormatter = formatDay(totalDays);
@@ -81,37 +76,17 @@ function PaceVsPlanChart({ deals, goal }: { deals: Deal[]; goal: number }) {
   return (
     <ChartCard
       title="Ritmo vs objetivo"
-      subtitle={`¿Llegamos a la meta de ${scopedGoal} ${tier1Only ? "Tier 1" : "aplicaciones"}?`}
+      subtitle={`¿Llegamos a la meta de ${goal} ${tier1Only ? "Tier 1" : "aplicaciones"}?`}
     >
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-wrap gap-4 text-xs text-[var(--text-secondary)]">
-          <span className="flex items-center gap-1.5">
-            <span aria-hidden className="inline-block h-2 w-2 rounded-full" style={{ background: "var(--series-1)" }} />
-            {tier1Only ? "Tier 1 acumuladas (real)" : "Aplicaciones acumuladas (real)"}
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span aria-hidden className="inline-block h-2 w-2 rounded-full" style={{ background: "var(--text-muted)" }} />
-            Línea de plan
-          </span>
-        </div>
-        <div className="flex gap-1 rounded-full border border-[var(--border)] bg-[var(--surface-1)] p-1">
-          <button
-            onClick={() => setTier1Only(false)}
-            aria-pressed={!tier1Only}
-            className="rounded-full px-3 py-1 text-xs font-medium transition-colors"
-            style={!tier1Only ? { background: "var(--series-1)", color: "#fff" } : { color: "var(--text-secondary)" }}
-          >
-            Todas
-          </button>
-          <button
-            onClick={() => setTier1Only(true)}
-            aria-pressed={tier1Only}
-            className="rounded-full px-3 py-1 text-xs font-medium transition-colors"
-            style={tier1Only ? { background: "var(--series-1)", color: "#fff" } : { color: "var(--text-secondary)" }}
-          >
-            Tier 1
-          </button>
-        </div>
+      <div className="flex flex-wrap gap-4 text-xs text-[var(--text-secondary)]">
+        <span className="flex items-center gap-1.5">
+          <span aria-hidden className="inline-block h-2 w-2 rounded-full" style={{ background: "var(--series-1)" }} />
+          {tier1Only ? "Tier 1 acumuladas (real)" : "Aplicaciones acumuladas (real)"}
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span aria-hidden className="inline-block h-2 w-2 rounded-full" style={{ background: "var(--text-muted)" }} />
+          Línea de plan
+        </span>
       </div>
       <div className="h-64 w-full">
         <ResponsiveContainer width="100%" height="100%">
@@ -129,7 +104,7 @@ function PaceVsPlanChart({ deals, goal }: { deals: Deal[]; goal: number }) {
             />
             <YAxis
               allowDecimals={false}
-              domain={[0, (dataMax: number) => Math.max(dataMax, scopedGoal)]}
+              domain={[0, (dataMax: number) => Math.max(dataMax, goal)]}
               tick={{ fill: "var(--text-muted)", fontSize: 12 }}
               axisLine={false}
               tickLine={false}
@@ -206,11 +181,14 @@ function PaceVsPlanChart({ deals, goal }: { deals: Deal[]; goal: number }) {
 export function ApplicationsOverTimeChart({
   deals,
   showGoal = false,
+  tier1Only = false,
 }: {
   deals: Deal[];
   showGoal?: boolean;
+  tier1Only?: boolean;
 }) {
-  const data = buildApplicationsOverTime(deals);
+  const scopedDeals = tier1Only ? deals.filter((d) => d.formScore.tier === "Tier 1") : deals;
+  const data = buildApplicationsOverTime(scopedDeals);
 
   if (data.length === 0) {
     return (
@@ -223,13 +201,24 @@ export function ApplicationsOverTimeChart({
   }
 
   if (showGoal) {
-    return <PaceVsPlanChart deals={deals} goal={TOTAL_GOAL} />;
+    return (
+      <PaceVsPlanChart
+        deals={scopedDeals}
+        goal={tier1Only ? TIER1_TOTAL_GOAL : TOTAL_GOAL}
+        tier1Only={tier1Only}
+      />
+    );
   }
 
   const last = data[data.length - 1];
 
   return (
-    <ChartCard title="Aplicaciones en el tiempo" subtitle="Total acumulado por día de creación">
+    <ChartCard
+      title="Aplicaciones en el tiempo"
+      subtitle={
+        tier1Only ? "Total Tier 1 acumulado por día de creación" : "Total acumulado por día de creación"
+      }
+    >
       <div className="h-64 w-full">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={data} margin={{ top: 12, right: 24, bottom: 4, left: 0 }}>

@@ -37,13 +37,18 @@ function WeeklyTooltip({
   );
 }
 
-export function WeeklyVolumeChart({ deals }: { deals: Deal[] }) {
-  const data = buildWeeklyVolume(deals);
+export function WeeklyVolumeChart({ deals, tier1Only = false }: { deals: Deal[]; tier1Only?: boolean }) {
+  const scopedDeals = tier1Only ? deals.filter((d) => d.formScore.tier === "Tier 1") : deals;
+  const data = buildWeeklyVolume(scopedDeals);
 
   return (
     <ChartCard
       title="Volumen semanal por canal"
-      subtitle="Deals creados por semana (no cambia con el filtro de semana)"
+      subtitle={
+        tier1Only
+          ? "Deals Tier 1 creados por semana (no cambia con el filtro de semana)"
+          : "Deals creados por semana (no cambia con el filtro de semana)"
+      }
     >
       <div className="h-64 w-full">
         <ResponsiveContainer width="100%" height="100%">

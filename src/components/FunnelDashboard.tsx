@@ -11,6 +11,10 @@ import type { Deal, StageValue } from "@/lib/types";
 
 type WeekOption = "all" | -1 | number;
 type StageOption = "all" | StageValue;
+type ScopeOption = "all" | "tier1";
+
+const SCOPE_OPTIONS: ScopeOption[] = ["all", "tier1"];
+const SCOPE_LABEL: Record<ScopeOption, string> = { all: "Todas", tier1: "Tier 1" };
 
 function weekLabel(option: WeekOption) {
   if (option === "all") return "Total";
@@ -93,6 +97,7 @@ function TabGroup<T extends string | number>({
 export function FunnelDashboard({ deals }: { deals: Deal[] }) {
   const [selectedWeek, setSelectedWeek] = useState<WeekOption>("all");
   const [selectedStage, setSelectedStage] = useState<StageOption>("all");
+  const [tier1Only, setTier1Only] = useState(false);
 
   const weekOptions = useMemo<WeekOption[]>(() => {
     const currentWeek = Math.max(0, computeWeek(new Date()).weekIndex ?? 0);
@@ -133,9 +138,18 @@ export function FunnelDashboard({ deals }: { deals: Deal[] }) {
         &ldquo;Total&rdquo; no filtran.
       </p>
       <FunnelTable deals={filtered} showGoals={showGoals} />
+      <div className="flex items-center justify-end gap-2">
+        <span className="text-xs font-medium text-[var(--text-secondary)]">Alcance</span>
+        <TabGroup
+          options={SCOPE_OPTIONS}
+          selected={tier1Only ? "tier1" : "all"}
+          onSelect={(value) => setTier1Only(value === "tier1")}
+          label={(value) => SCOPE_LABEL[value]}
+        />
+      </div>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <ApplicationsOverTimeChart deals={stageFiltered} showGoal={showGoals} />
-        <WeeklyVolumeChart deals={stageFiltered} />
+        <ApplicationsOverTimeChart deals={stageFiltered} showGoal={showGoals} tier1Only={tier1Only} />
+        <WeeklyVolumeChart deals={stageFiltered} tier1Only={tier1Only} />
       </div>
       <AbsoluteFunnelChart deals={filtered} showGoal={showGoals} />
     </div>
