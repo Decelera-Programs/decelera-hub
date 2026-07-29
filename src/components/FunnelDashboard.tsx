@@ -138,7 +138,7 @@ export function FunnelDashboard({ deals }: { deals: Deal[] }) {
         &ldquo;Total&rdquo; no filtran.
       </p>
       <FunnelTable deals={filtered} showGoals={showGoals} />
-      <div className="flex items-center justify-end gap-2">
+      <div className="flex items-center gap-2">
         <span className="text-xs font-medium text-[var(--text-secondary)]">Alcance</span>
         <TabGroup
           options={SCOPE_OPTIONS}
