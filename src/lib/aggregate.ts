@@ -31,13 +31,22 @@ function isMisfiledInboundTag(d: Deal): boolean {
   return d.sourceLabel === "Inbound" && !d.referralNote?.toLowerCase().includes("startups@decelera");
 }
 
+/**
+ * A deal tagged `reference_3 = "Mail from Decelera Team"` with a reference explanation naming a
+ * real person is a referral that got tagged with the wrong picklist value, not a genuine mass
+ * email — a real automated mail has no such note.
+ */
+function isMisfiledMailFromTeamTag(d: Deal): boolean {
+  return d.sourceLabel === "Mail from Decelera Team" && !!d.referralNote;
+}
+
 export const CONVERSION_ROWS: ConversionRowDef[] = [
   {
     key: "Referrals",
     label: "Referrals",
     channel: "Referral",
     group: "Curated",
-    match: (d) => d.channel === "Referral" && d.sourceLabel !== "Boardy",
+    match: (d) => (d.channel === "Referral" && d.sourceLabel !== "Boardy") || isMisfiledMailFromTeamTag(d),
   },
   {
     key: "LinkedIn",
@@ -65,7 +74,7 @@ export const CONVERSION_ROWS: ConversionRowDef[] = [
     label: "Outbound emailing",
     channel: "Outreach",
     group: "Mass",
-    match: (d) => d.sourceLabel === "Mail from Decelera Team",
+    match: (d) => d.sourceLabel === "Mail from Decelera Team" && !isMisfiledMailFromTeamTag(d),
   },
   {
     key: "Maru",
