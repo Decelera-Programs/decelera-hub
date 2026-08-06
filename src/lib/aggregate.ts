@@ -93,6 +93,14 @@ export const CONVERSION_ROWS: ConversionRowDef[] = [
   { key: "Unclassified", label: "Other", channel: "Otros", group: null, match: (d) => d.channel === "Otros" },
 ];
 
+/** Row keys in table order — drives the stacking/legend order of the weekly volume chart. */
+export const ROW_ORDER: string[] = CONVERSION_ROWS.map((def) => def.key);
+
+/** Row key → display label (e.g. "OutboundEmailing" → "Outbound emailing"). */
+export const ROW_LABEL: Record<string, string> = Object.fromEntries(
+  CONVERSION_ROWS.map((def) => [def.key, def.label])
+);
+
 /**
  * Objetivos de la hoja de metas que compartió Carlos (columna "Mex '26 Applications"),
  * remapeados a las claves nuevas (Referral→Referrals, Outreach-Curado→LinkedIn,
@@ -372,9 +380,14 @@ export function buildAbsoluteFunnel(deals: Deal[]): AbsoluteFunnel {
   return { stages, total, selectedGoal: SELECTED_GOALS.TOTAL };
 }
 
-export type WeeklyVolumePoint = { weekLabel: string; weekIndex: number } & Record<Channel, number>;
+export interface WeeklyVolumePoint {
+  weekLabel: string;
+  weekIndex: number;
+  /** One count per `ConversionRowDef.key` in ROW_ORDER. */
+  [rowKey: string]: string | number;
+}
 
-/** Deals created per week bucket, split by channel — excludes deals with no created-at date. */
+/** Deals created per week bucket, split by the same row breakdown as the conversion table — excludes deals with no created-at date. */
 export function buildWeeklyVolume(deals: Deal[]): WeeklyVolumePoint[] {
   const byWeek = new Map<number, WeeklyVolumePoint>();
   for (const deal of deals) {
@@ -384,14 +397,12 @@ export function buildWeeklyVolume(deals: Deal[]): WeeklyVolumePoint[] {
       point = {
         weekLabel: deal.weekLabel,
         weekIndex: deal.weekIndex,
-        Marketing: 0,
-        Referral: 0,
-        Outreach: 0,
-        Otros: 0,
+        ...Object.fromEntries(ROW_ORDER.map((key) => [key, 0])),
       };
       byWeek.set(deal.weekIndex, point);
     }
-    point[deal.channel] += 1;
+    const rowDef = CONVERSION_ROWS.find((def) => def.match(deal));
+    if (rowDef) point[rowDef.key] = (point[rowDef.key] as number) + 1;
   }
   return Array.from(byWeek.values()).sort((a, b) => a.weekIndex - b.weekIndex);
 }

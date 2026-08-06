@@ -32,6 +32,19 @@
   --series-3: #d9821e; /* Outreach — brand sun, deepened */
   --series-other: #b9c1d4; /* Otros / de-emphasis — brand cloud */
 
+  /* Categorical (fixed order, 8 slots) — one per row of the conversion table
+     (Referrals, LinkedIn, Events, Boardy, Outbound emailing, Maru, Inbound,
+     Other), used by the weekly volume chart. Validated adjacent-pair CVD
+     palette for stacked bars — see dataviz skill references/palette.md. */
+  --row-1: #2a78d6; /* Referrals */
+  --row-2: #eb6834; /* LinkedIn */
+  --row-3: #1baf7a; /* Events */
+  --row-4: #eda100; /* Boardy */
+  --row-5: #e87ba4; /* Outbound emailing */
+  --row-6: #008300; /* Maru */
+  --row-7: #4a3aa7; /* Inbound */
+  --row-8: #e34948; /* Other */
+
   /* Status (fixed, reserved meaning) — matches the tones already used across
      Decelera's application forms for validation states. */
   --status-good: #1e9e52;
@@ -75,6 +88,15 @@
     --series-2: #1497ad;
     --series-3: #b37f27;
     --series-other: #4a5568;
+
+    --row-1: #3987e5;
+    --row-2: #d95926;
+    --row-3: #199e70;
+    --row-4: #c98500;
+    --row-5: #d55181;
+    --row-6: #008300;
+    --row-7: #9085e9;
+    --row-8: #e66767;
 
     --status-good: #4ade80;
     --status-warning: #f0924a;

@@ -2,8 +2,8 @@
 
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { ChartCard } from "./ChartCard";
-import { buildWeeklyVolume } from "@/lib/aggregate";
-import { CHANNEL_COLOR, CHANNEL_ORDER } from "@/lib/colors";
+import { buildWeeklyVolume, ROW_LABEL, ROW_ORDER } from "@/lib/aggregate";
+import { ROW_COLOR } from "@/lib/colors";
 import type { Deal } from "@/lib/types";
 
 interface WeeklyTooltipItem {
@@ -29,7 +29,7 @@ function WeeklyTooltip({
       {payload.map((item) => (
         <p key={item.dataKey} className="flex items-center gap-1.5 text-[var(--text-secondary)]">
           <span aria-hidden className="inline-block h-2 w-2 rounded-full" style={{ background: item.color }} />
-          {item.dataKey}: {item.value}
+          {ROW_LABEL[item.dataKey] ?? item.dataKey}: {item.value}
         </p>
       ))}
       <p className="font-medium text-[var(--text-primary)]">Total: {total}</p>
@@ -69,13 +69,13 @@ export function WeeklyVolumeChart({ deals, tier1Only = false }: { deals: Deal[];
               width={32}
             />
             <Tooltip content={<WeeklyTooltip />} cursor={{ fill: "var(--page)" }} />
-            {CHANNEL_ORDER.map((channel, i) => (
+            {ROW_ORDER.map((key, i) => (
               <Bar
-                key={channel}
-                dataKey={channel}
+                key={key}
+                dataKey={key}
                 stackId="week"
-                fill={CHANNEL_COLOR[channel]}
-                radius={i === CHANNEL_ORDER.length - 1 ? [4, 4, 0, 0] : undefined}
+                fill={ROW_COLOR[key]}
+                radius={i === ROW_ORDER.length - 1 ? [4, 4, 0, 0] : undefined}
                 maxBarSize={40}
               />
             ))}
@@ -83,10 +83,10 @@ export function WeeklyVolumeChart({ deals, tier1Only = false }: { deals: Deal[];
         </ResponsiveContainer>
       </div>
       <div className="flex flex-wrap gap-x-4 gap-y-1 pt-1 text-xs text-[var(--text-secondary)]">
-        {CHANNEL_ORDER.map((channel) => (
-          <span key={channel} className="flex items-center gap-1.5">
-            <span aria-hidden className="inline-block h-2 w-2 rounded-full" style={{ background: CHANNEL_COLOR[channel] }} />
-            {channel}
+        {ROW_ORDER.map((key) => (
+          <span key={key} className="flex items-center gap-1.5">
+            <span aria-hidden className="inline-block h-2 w-2 rounded-full" style={{ background: ROW_COLOR[key] }} />
+            {ROW_LABEL[key]}
           </span>
         ))}
       </div>
