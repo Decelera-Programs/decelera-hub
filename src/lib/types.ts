@@ -24,6 +24,8 @@ export interface RawDeal {
   tier_5: string | null;
   owner: string | null;
   referral: string | null;
+  /** Attio "Reconect reason" — set (e.g. "Not fund raising", "Too early") when a live deal is parked to revisit later rather than actively worked. */
+  reconect: string | null;
 }
 
 /** -1 = antes del inicio de la opencall, 1/2/3… = semana N desde el inicio, null = sin fecha. */
@@ -65,4 +67,6 @@ export interface Deal {
   greenFlags: string[];
   /** Attio deal owner (workspace member name) — null if unassigned. */
   owner: string | null;
+  /** Attio "Reconect reason" — set when a live deal is parked to revisit later, not actively worked. */
+  reconnectReason: string | null;
 }

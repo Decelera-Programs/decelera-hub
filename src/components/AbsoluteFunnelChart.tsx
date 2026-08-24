@@ -1,6 +1,20 @@
 import { ChartCard } from "./ChartCard";
 import { buildAbsoluteFunnel } from "@/lib/aggregate";
+import type { AbsoluteFunnelStage } from "@/lib/aggregate";
 import type { Deal } from "@/lib/types";
+
+/** Explains a stage's cumulative count on hover — always sums back to `stage.count`. */
+function breakdownTooltip(stage: AbsoluteFunnelStage): string | undefined {
+  if (!stage.breakdown) return undefined;
+  const { currentlyHere, toReconnect, advancedFurther, diedAfterReaching } = stage.breakdown;
+  return [
+    `${stage.count} llegaron a "${stage.label}" o más allá:`,
+    `${currentlyHere} actualmente en ${stage.label} (llamadas)`,
+    `${toReconnect} a reconectar más adelante (razón de reconexión en Attio)`,
+    `${advancedFurther} avanzaron a una etapa posterior`,
+    `${diedAfterReaching} llegaron aquí pero luego fueron Killed / No calificados`,
+  ].join("\n");
+}
 
 export function AbsoluteFunnelChart({
   deals,
@@ -26,7 +40,11 @@ export function AbsoluteFunnelChart({
           return (
             <div key={stage.key} className="flex items-center gap-3">
               <span className="w-24 shrink-0 text-sm text-[var(--text-secondary)]">{stage.label}</span>
-              <div className="relative h-9 flex-1 overflow-hidden rounded-lg" style={{ background: "var(--gridline)" }}>
+              <div
+                className={`relative h-9 flex-1 overflow-hidden rounded-lg ${stage.breakdown ? "cursor-help" : ""}`}
+                style={{ background: "var(--gridline)" }}
+                title={breakdownTooltip(stage)}
+              >
                 <div
                   className="flex h-full items-center rounded-lg px-3 text-sm font-semibold text-white"
                   style={{ width: `${widthPct}%`, background: "linear-gradient(90deg, var(--series-1), var(--series-2))" }}

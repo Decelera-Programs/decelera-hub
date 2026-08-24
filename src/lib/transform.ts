@@ -149,5 +149,6 @@ export function mapRawDeal(raw: RawDeal): Deal {
     formScore: parseFormSummary(raw.form_sumary, raw.tier_5?.trim() || null),
     greenFlags: parseFlagList(raw.green_flags_form),
     owner: raw.owner?.trim() || null,
+    reconnectReason: raw.reconect?.trim() || null,
   };
 }
