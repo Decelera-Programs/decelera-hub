@@ -50,6 +50,15 @@ Fuente: `historico.deals` filtrado por `stage IN ('Mexico 2026', 'Leads Mexico 2
     llegó cada compañía, no solo las que siguen vivas.
   - Killed / Not qualified se muestran como columnas informativas aparte
     (totales por canal), fuera de la cadena de conversión.
+- **Vista "Gate Out"**: toggle en el dashboard que sustituye los KPIs y
+  gráficos de volumen por dos tasas de conversión a "hubo llamada + análisis"
+  (= el deal llegó a "In play" o más allá, sea cual sea su estado actual):
+  - **Aplicaciones → llamada + análisis**: `# deals con lastPipelineStage ≥
+    In play` ÷ `# deals totales` (dentro del filtro activo).
+  - **Outreach → hablamos con ellos**: la misma fórmula, mismo numerador
+    (llegaron a "In play"+), pero el denominador es solo los deals con
+    `channel === "Outreach"` (LinkedIn, Events, Outbound emailing, Maru).
+  - Implementación: `buildGateOutSummary` en `src/lib/aggregate.ts`.
 
 ## Estructura
 

@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { AbsoluteFunnelChart } from "./AbsoluteFunnelChart";
 import { ApplicationsOverTimeChart } from "./ApplicationsOverTimeChart";
 import { FunnelTable } from "./FunnelTable";
+import { GateOutKpis } from "./GateOutKpis";
 import { SummaryKpis } from "./SummaryKpis";
 import { WeeklyVolumeChart } from "./WeeklyVolumeChart";
 import { computeWeek } from "@/lib/transform";
@@ -12,9 +13,13 @@ import type { Deal, StageValue } from "@/lib/types";
 type WeekOption = "all" | -1 | number;
 type StageOption = "all" | StageValue;
 type ScopeOption = "all" | "tier1";
+type ViewMode = "total" | "gateOut";
 
 const SCOPE_OPTIONS: ScopeOption[] = ["all", "tier1"];
 const SCOPE_LABEL: Record<ScopeOption, string> = { all: "Todas", tier1: "Tier 1" };
+
+const VIEW_MODE_OPTIONS: ViewMode[] = ["total", "gateOut"];
+const VIEW_MODE_LABEL: Record<ViewMode, string> = { total: "Totales", gateOut: "Gate Out" };
 
 function weekLabel(option: WeekOption) {
   if (option === "all") return "Total";
@@ -98,6 +103,7 @@ export function FunnelDashboard({ deals }: { deals: Deal[] }) {
   const [selectedWeek, setSelectedWeek] = useState<WeekOption>("all");
   const [selectedStage, setSelectedStage] = useState<StageOption>("all");
   const [tier1Only, setTier1Only] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>("total");
 
   const weekOptions = useMemo<WeekOption[]>(() => {
     const currentWeek = Math.max(0, computeWeek(new Date()).weekIndex ?? 0);
@@ -122,7 +128,20 @@ export function FunnelDashboard({ deals }: { deals: Deal[] }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <SummaryKpis deals={filtered} showGoal={showGoals} />
+      <div className="flex items-center gap-2">
+        <span className="text-xs font-medium text-[var(--text-secondary)]">Vista</span>
+        <TabGroup
+          options={VIEW_MODE_OPTIONS}
+          selected={viewMode}
+          onSelect={setViewMode}
+          label={(o) => VIEW_MODE_LABEL[o]}
+        />
+      </div>
+      {viewMode === "gateOut" ? (
+        <GateOutKpis deals={filtered} />
+      ) : (
+        <SummaryKpis deals={filtered} showGoal={showGoals} />
+      )}
       <div className="flex flex-wrap items-center gap-3">
         <TabGroup
           options={stageOptions}
@@ -138,19 +157,23 @@ export function FunnelDashboard({ deals }: { deals: Deal[] }) {
         &ldquo;Total&rdquo; no filtran.
       </p>
       <FunnelTable deals={filtered} showGoals={showGoals} />
-      <div className="flex items-center gap-2">
-        <span className="text-xs font-medium text-[var(--text-secondary)]">Alcance</span>
-        <TabGroup
-          options={SCOPE_OPTIONS}
-          selected={tier1Only ? "tier1" : "all"}
-          onSelect={(value) => setTier1Only(value === "tier1")}
-          label={(value) => SCOPE_LABEL[value]}
-        />
-      </div>
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <ApplicationsOverTimeChart deals={stageFiltered} showGoal={showGoals} tier1Only={tier1Only} />
-        <WeeklyVolumeChart deals={stageFiltered} tier1Only={tier1Only} />
-      </div>
+      {viewMode === "total" && (
+        <>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-[var(--text-secondary)]">Alcance</span>
+            <TabGroup
+              options={SCOPE_OPTIONS}
+              selected={tier1Only ? "tier1" : "all"}
+              onSelect={(value) => setTier1Only(value === "tier1")}
+              label={(value) => SCOPE_LABEL[value]}
+            />
+          </div>
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <ApplicationsOverTimeChart deals={stageFiltered} showGoal={showGoals} tier1Only={tier1Only} />
+            <WeeklyVolumeChart deals={stageFiltered} tier1Only={tier1Only} />
+          </div>
+        </>
+      )}
       <AbsoluteFunnelChart deals={filtered} showGoal={showGoals} />
     </div>
   );

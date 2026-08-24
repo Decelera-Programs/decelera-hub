@@ -11,7 +11,7 @@ function rank(stage: Deal["lastPipelineStage"]): number {
   return stage ? PIPELINE_ORDER.indexOf(stage) : -1;
 }
 
-function StatTile({
+export function StatTile({
   label,
   value,
   caption,
