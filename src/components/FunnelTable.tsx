@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { ChannelLegend } from "./ChannelLegend";
 import { ChartCard } from "./ChartCard";
 import { buildFunnelMatrix, CHANNEL_EFFICIENCY_BENCHMARK_PCT, MIN_SAMPLE_FOR_EFFICIENCY } from "@/lib/aggregate";
@@ -10,7 +10,7 @@ import { PIPELINE_ORDER } from "@/lib/transform";
 import type { Deal, PipelineStatus } from "@/lib/types";
 
 const STAGE_HINT: Record<PipelineStatus, string> = {
-  Contacted: "Total contactados alguna vez — pasa el cursor sobre una celda para ver cuántos siguen ahí sin avanzar",
+  Contacted: "Total contactados alguna vez — toca/haz clic en una celda para ver cuántos siguen ahí sin avanzar",
   Qualified: "Pasó el primer filtro de calidad",
   "In play": "En proceso activo de evaluación",
   "Pre-committee": "Presentada al comité de inversión",
@@ -35,11 +35,12 @@ function contactedTooltipContent(row: FunnelMatrixRow): { header: string; lines:
 }
 
 /**
- * A hover tooltip positioned with `fixed` + a measured bounding rect, instead of `absolute`
- * inside the table. The table's horizontal-scroll wrapper (`overflow-x-auto`) forces its
- * vertical overflow to clip too (a CSS quirk: one axis non-"visible" forces the other to
- * "auto"), so an absolutely-positioned tooltip gets silently cut off near the first/last row.
- * `position: fixed` is laid out against the viewport, not that wrapper, so it always shows.
+ * Tap/click to toggle the breakdown popover (not hover) — hover doesn't exist as an event on
+ * touch devices, which is the most likely reason earlier hover-based versions of this never
+ * showed up for some users. Positioned with `fixed` + a measured bounding rect so it's never
+ * clipped by the table's `overflow-x-auto` scroll wrapper (that wrapper's CSS forces its
+ * vertical overflow to clip too — a `position: fixed` popover isn't laid out against it).
+ * Closes on an outside click/tap or Escape.
  */
 function ContactedCell({
   row,
@@ -51,12 +52,37 @@ function ContactedCell({
   const [rect, setRect] = useState<DOMRect | null>(null);
   const tooltip = contactedTooltipContent(row);
 
+  useEffect(() => {
+    if (!rect) return;
+    function close() {
+      setRect(null);
+    }
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") close();
+    }
+    // Skip the click that just opened it — otherwise the same event bubbling to
+    // document closes it immediately.
+    const id = requestAnimationFrame(() => {
+      document.addEventListener("click", close);
+      document.addEventListener("touchstart", close);
+    });
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      cancelAnimationFrame(id);
+      document.removeEventListener("click", close);
+      document.removeEventListener("touchstart", close);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [rect]);
+
   return (
     <td
-      className="relative cursor-help px-3 py-2.5 text-center tabular-nums text-[var(--text-primary)]"
+      className="relative cursor-pointer px-3 py-2.5 text-center tabular-nums text-[var(--text-primary)] underline decoration-dotted underline-offset-4"
       style={isTotal ? { fontWeight: 600 } : undefined}
-      onMouseEnter={(e) => setRect(e.currentTarget.getBoundingClientRect())}
-      onMouseLeave={() => setRect(null)}
+      onClick={(e) => {
+        e.stopPropagation();
+        setRect((prev) => (prev ? null : e.currentTarget.getBoundingClientRect()));
+      }}
     >
       {row.stageCounts.Contacted}
       {rect && (
@@ -438,7 +464,7 @@ export function FunnelTable({ deals, showGoals = false }: { deals: Deal[]; showG
         startups de Maru que llegaron a &ldquo;In play&rdquo; ya están incluidas dentro del
         &ldquo;In play&rdquo; de la fila Total — no hace falta sumarlas aparte. La columna
         &ldquo;Contacted&rdquo; es la única que no resta a nadie (todas las startups contaron como
-        contactadas); pasa el cursor sobre una celda de esa columna para ver cuántas de esa fila
+        contactadas); toca o haz clic en una celda de esa columna para ver cuántas de esa fila
         siguen ahí sin avanzar todavía, frente a las que ya progresaron o murieron (y por qué). La
         columna Tier 1 entre &ldquo;In
         play&rdquo; y &ldquo;Pre-committee&rdquo; es el total de startups Tier 1 en la fila. Efic. In
