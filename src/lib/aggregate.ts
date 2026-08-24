@@ -338,6 +338,18 @@ export function buildPaceVsPlan(deals: Deal[], goal: number): PaceVsPlan {
   return { points, planPoints, totalDays, todayDay, todayReal, todayPlan, gap, actualPacePerWeek, requiredPacePerWeek };
 }
 
+/** How a stage's cumulative count breaks down — always sums back to `count`. Null on the first row (no gate to break down). */
+export interface AbsoluteFunnelBreakdown {
+  /** Live deals currently sitting at exactly this status, not parked for reconnect (Attio's own "In play" / etc. view). */
+  currentlyHere: number;
+  /** Live deals at exactly this status with a "Reconect reason" set — parked to revisit later, not actively worked. */
+  toReconnect: number;
+  /** Live deals that moved on to a later stage. */
+  advancedFurther: number;
+  /** Killed / Not qualified deals whose last active stage (before dying) was this one or beyond. */
+  diedAfterReaching: number;
+}
+
 export interface AbsoluteFunnelStage {
   key: string;
   label: string;
@@ -346,6 +358,7 @@ export interface AbsoluteFunnelStage {
   dropPct: number | null;
   /** "Gate Out" rate: % of the previous stage's count that made it into this one. Null on the first row (no gate to measure). */
   gatePct: number | null;
+  breakdown: AbsoluteFunnelBreakdown | null;
 }
 
 export interface AbsoluteFunnel {
@@ -367,18 +380,38 @@ const ABSOLUTE_FUNNEL_STAGES: { key: PipelineStatus; label: string }[] = [
  * every bar to 100% of its predecessor. Counts are cumulative — a deal that reached "In play"
  * and later got killed still counts there (via `lastPipelineStage`, sourced from `status_6`).
  */
+function isLivePipelineStatus(status: Deal["status"]): status is PipelineStatus {
+  return status !== null && (PIPELINE_ORDER as string[]).includes(status);
+}
+
+function isDeadDeal(d: Deal): boolean {
+  return d.status === "Killed" || d.status === "Not qualified";
+}
+
+/** Decomposes a stage's cumulative count into where those deals actually stand today — always sums back to `count`. */
+function buildBreakdown(deals: Deal[], stageKey: PipelineStatus): AbsoluteFunnelBreakdown {
+  const stageRank = rank(stageKey);
+  const liveAtStage = deals.filter((d) => d.status === stageKey);
+  return {
+    currentlyHere: liveAtStage.filter((d) => !d.reconnectReason).length,
+    toReconnect: liveAtStage.filter((d) => !!d.reconnectReason).length,
+    advancedFurther: deals.filter((d) => isLivePipelineStatus(d.status) && rank(d.status) > stageRank).length,
+    diedAfterReaching: deals.filter((d) => isDeadDeal(d) && rank(d.lastPipelineStage) >= stageRank).length,
+  };
+}
+
 export function buildAbsoluteFunnel(deals: Deal[]): AbsoluteFunnel {
   const total = deals.length;
 
   const stages: AbsoluteFunnelStage[] = [
-    { key: "Aplicaciones", label: "Aplicaciones", count: total, dropPct: null, gatePct: null },
+    { key: "Aplicaciones", label: "Aplicaciones", count: total, dropPct: null, gatePct: null, breakdown: null },
   ];
   for (const { key, label } of ABSOLUTE_FUNNEL_STAGES) {
     const count = deals.filter((d) => rank(d.lastPipelineStage) >= rank(key)).length;
     const dropPct = total > 0 ? Math.round((1 - count / total) * 100) : null;
     const prevCount = stages[stages.length - 1].count;
     const gatePct = prevCount > 0 ? Math.round((count / prevCount) * 100) : null;
-    stages.push({ key, label, count, dropPct, gatePct });
+    stages.push({ key, label, count, dropPct, gatePct, breakdown: buildBreakdown(deals, key) });
   }
 
   return { stages, total, selectedGoal: SELECTED_GOALS.TOTAL };
