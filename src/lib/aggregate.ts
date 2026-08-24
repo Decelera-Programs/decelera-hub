@@ -356,7 +356,7 @@ const ABSOLUTE_FUNNEL_STAGES: { key: PipelineStatus; label: string }[] = [
   { key: "Qualified", label: "Cualificadas" },
   { key: "In play", label: "In play" },
   { key: "Pre-committee", label: "Pre-comité" },
-  { key: "Invested", label: "Seleccionada" },
+  { key: "Invested", label: "Contract" },
 ];
 
 /**
