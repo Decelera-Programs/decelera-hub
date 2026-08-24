@@ -174,7 +174,7 @@ export function FunnelDashboard({ deals }: { deals: Deal[] }) {
           </div>
         </>
       )}
-      <AbsoluteFunnelChart deals={filtered} showGoal={showGoals} />
+      <AbsoluteFunnelChart deals={filtered} showGoal={showGoals} gateOut={viewMode === "gateOut"} />
     </div>
   );
 }
