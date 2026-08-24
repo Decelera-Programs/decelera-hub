@@ -150,5 +150,7 @@ export function mapRawDeal(raw: RawDeal): Deal {
     greenFlags: parseFlagList(raw.green_flags_form),
     owner: raw.owner?.trim() || null,
     reconnectReason: raw.reconect?.trim() || null,
+    killedReason: raw.reason?.trim() || null,
+    contactStatus: raw.contact_status?.trim() || null,
   };
 }

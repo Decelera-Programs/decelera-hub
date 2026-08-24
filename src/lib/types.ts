@@ -26,6 +26,10 @@ export interface RawDeal {
   referral: string | null;
   /** Attio "Reconect reason" — set (e.g. "Not fund raising", "Too early") when a live deal is parked to revisit later rather than actively worked. */
   reconect: string | null;
+  /** Attio "Killed reason" — set (e.g. "Did not answer", "Not interested") when `status` is "Killed". */
+  reason: string | null;
+  /** Attio "Contact Status" — e.g. "Videocall Scheduled", "Videocall Done", "No Response". */
+  contact_status: string | null;
 }
 
 /** -1 = antes del inicio de la opencall, 1/2/3… = semana N desde el inicio, null = sin fecha. */
@@ -69,4 +73,8 @@ export interface Deal {
   owner: string | null;
   /** Attio "Reconect reason" — set when a live deal is parked to revisit later, not actively worked. */
   reconnectReason: string | null;
+  /** Attio "Killed reason" — set when `status` is "Killed" (e.g. "Did not answer", "Not interested"). */
+  killedReason: string | null;
+  /** Attio "Contact Status" — e.g. "Videocall Scheduled", "Videocall Done", "No Response". Null if never set. */
+  contactStatus: string | null;
 }

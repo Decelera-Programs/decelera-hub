@@ -350,15 +350,31 @@ export interface AbsoluteFunnelBreakdown {
   diedAfterReaching: number;
 }
 
+/** How the base applicant pool splits: progressed into the pipeline, or never got past screening — and if so, why. Always sums back to the total. */
+export interface ApplicationsBreakdown {
+  /** Reached "Qualified" or beyond at some point (even if later killed). */
+  progressed: number;
+  /** Killed before reaching "Qualified", reason "Did not answer" — never responded. */
+  killedDidNotAnswer: number;
+  /** Killed before reaching "Qualified", reason "Not interested" — responded, declined. */
+  killedNotInterested: number;
+  /** Killed before reaching "Qualified" for any other/unrecorded reason. */
+  killedOtherReason: number;
+  /** "Not qualified" before reaching "Qualified" (distinct dead status from Killed). */
+  notQualified: number;
+  /** Still at "Contacted", no outcome recorded yet. */
+  pending: number;
+}
+
 export interface AbsoluteFunnelStage {
   key: string;
   label: string;
   count: number;
   /** % lost vs. the very first stage (Aplicaciones) — not vs. the row above. Null on the first row. */
   dropPct: number | null;
-  /** "Gate Out" rate: % of the previous stage's count that made it into this one. Null on the first row (no gate to measure). */
-  gatePct: number | null;
   breakdown: AbsoluteFunnelBreakdown | null;
+  /** Only set on the first row ("Aplicaciones") — how the whole pool splits before ever reaching "Qualified". */
+  appBreakdown: ApplicationsBreakdown | null;
 }
 
 export interface AbsoluteFunnel {
@@ -400,18 +416,45 @@ function buildBreakdown(deals: Deal[], stageKey: PipelineStatus): AbsoluteFunnel
   };
 }
 
+/**
+ * How the raw applicant pool splits before ever reaching "Qualified": progressed into the
+ * pipeline, or died at the screening gate (Killed, broken down by reason) / Not qualified /
+ * still pending. A deal that reached Qualified+ and was later killed still counts as
+ * "progressed" — this is about the first gate only, not its eventual fate.
+ */
+function buildApplicationsBreakdown(deals: Deal[]): ApplicationsBreakdown {
+  const qualifiedRank = rank("Qualified");
+  const progressed = deals.filter((d) => rank(d.lastPipelineStage) >= qualifiedRank);
+  const notProgressed = deals.filter((d) => rank(d.lastPipelineStage) < qualifiedRank);
+  const killed = notProgressed.filter((d) => d.status === "Killed");
+
+  return {
+    progressed: progressed.length,
+    killedDidNotAnswer: killed.filter((d) => d.killedReason === "Did not answer").length,
+    killedNotInterested: killed.filter((d) => d.killedReason === "Not interested").length,
+    killedOtherReason: killed.filter((d) => d.killedReason !== "Did not answer" && d.killedReason !== "Not interested").length,
+    notQualified: notProgressed.filter((d) => d.status === "Not qualified").length,
+    pending: notProgressed.filter((d) => d.status !== "Killed" && d.status !== "Not qualified").length,
+  };
+}
+
 export function buildAbsoluteFunnel(deals: Deal[]): AbsoluteFunnel {
   const total = deals.length;
 
   const stages: AbsoluteFunnelStage[] = [
-    { key: "Aplicaciones", label: "Aplicaciones", count: total, dropPct: null, gatePct: null, breakdown: null },
+    {
+      key: "Aplicaciones",
+      label: "Aplicaciones",
+      count: total,
+      dropPct: null,
+      breakdown: null,
+      appBreakdown: buildApplicationsBreakdown(deals),
+    },
   ];
   for (const { key, label } of ABSOLUTE_FUNNEL_STAGES) {
     const count = deals.filter((d) => rank(d.lastPipelineStage) >= rank(key)).length;
     const dropPct = total > 0 ? Math.round((1 - count / total) * 100) : null;
-    const prevCount = stages[stages.length - 1].count;
-    const gatePct = prevCount > 0 ? Math.round((count / prevCount) * 100) : null;
-    stages.push({ key, label, count, dropPct, gatePct, breakdown: buildBreakdown(deals, key) });
+    stages.push({ key, label, count, dropPct, breakdown: buildBreakdown(deals, key), appBreakdown: null });
   }
 
   return { stages, total, selectedGoal: SELECTED_GOALS.TOTAL };
@@ -445,6 +488,21 @@ export function buildGateOutSummary(deals: Deal[]): GateOutSummary {
   return {
     overall: gateOutMetric(deals),
     outreach: gateOutMetric(deals.filter((d) => d.channel === "Outreach")),
+  };
+}
+
+export interface ContactStatusCounts {
+  /** `contactStatus === "Videocall Scheduled"` — call booked, hasn't happened yet. */
+  videocallScheduled: number;
+  /** `contactStatus === "Videocall Done"` — call happened, mid-analysis. */
+  videocallDone: number;
+}
+
+/** Snapshot of where live deals stand on Attio's "Contact Status" field, independent of the main pipeline `status`. */
+export function buildContactStatusCounts(deals: Deal[]): ContactStatusCounts {
+  return {
+    videocallScheduled: deals.filter((d) => d.contactStatus === "Videocall Scheduled").length,
+    videocallDone: deals.filter((d) => d.contactStatus === "Videocall Done").length,
   };
 }
 
