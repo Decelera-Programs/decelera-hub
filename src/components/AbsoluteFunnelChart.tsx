@@ -4,13 +4,26 @@ import type { AbsoluteFunnelStage } from "@/lib/aggregate";
 import type { Deal } from "@/lib/types";
 
 /** Builds the hover breakdown for a stage — always sums back to `stage.count`. Null when the stage has none. */
-function stageTooltipContent(stage: AbsoluteFunnelStage): { header: string; lines: string[] } | null {
+function stageTooltipContent(stage: AbsoluteFunnelStage, gateOut: boolean): { header: string; lines: string[] } | null {
   if (stage.appBreakdown) {
     const { progressed, killedDidNotAnswer, killedNotInterested, killedOtherReason, notQualified, pending } =
       stage.appBreakdown;
-    // Deliberately the sum of the breakdown below, not `stage.count` — in Gate Out mode
-    // `stage.count` already excludes the dead-on-arrival lines, so it wouldn't match the list.
-    const rawTotal = progressed + killedDidNotAnswer + killedNotInterested + killedOtherReason + notQualified + pending;
+    const deadOnArrival = killedDidNotAnswer + killedNotInterested + killedOtherReason + notQualified;
+
+    if (gateOut) {
+      // `stage.count` here already excludes dead-on-arrival leads (progressed + pending only) —
+      // the header/lines below match that same subset, not the raw total.
+      return {
+        header: `${stage.count} aplicaciones activas (todos los canales) se dispersan así:`,
+        lines: [
+          `${progressed} avanzaron a Qualified o más allá`,
+          `${pending} siguen en Contacted, sin resolver`,
+          `(${deadOnArrival} quedaron fuera de este total: Killed/No calificados sin haber avanzado nunca de Contacted)`,
+        ],
+      };
+    }
+
+    const rawTotal = progressed + deadOnArrival + pending;
     return {
       header: `${rawTotal} aplicaciones (todos los canales) se dispersan así:`,
       lines: [
@@ -75,7 +88,7 @@ export function AbsoluteFunnelChart({
         {stages.map((stage, index) => {
           const widthPct = total > 0 ? Math.max((stage.count / total) * 100, stage.count > 0 ? 6 : 0) : 0;
           const isSelected = stage.key === "Invested";
-          const tooltip = stageTooltipContent(stage);
+          const tooltip = stageTooltipContent(stage, gateOut);
           const prevStage = index > 0 ? stages[index - 1] : null;
 
           return (
