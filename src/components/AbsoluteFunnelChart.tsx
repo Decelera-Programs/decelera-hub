@@ -4,16 +4,31 @@ import type { AbsoluteFunnelStage } from "@/lib/aggregate";
 import type { Deal } from "@/lib/types";
 
 /** Explains a stage's cumulative count on hover — always sums back to `stage.count`. */
-function breakdownTooltip(stage: AbsoluteFunnelStage): string | undefined {
-  if (!stage.breakdown) return undefined;
+function StageBreakdownTooltip({ stage }: { stage: AbsoluteFunnelStage }) {
+  if (!stage.breakdown) return null;
   const { currentlyHere, toReconnect, advancedFurther, diedAfterReaching } = stage.breakdown;
-  return [
-    `${stage.count} llegaron a "${stage.label}" o más allá:`,
+  const lines = [
     `${currentlyHere} actualmente en ${stage.label} (llamadas)`,
     `${toReconnect} a reconectar más adelante (razón de reconexión en Attio)`,
     `${advancedFurther} avanzaron a una etapa posterior`,
     `${diedAfterReaching} llegaron aquí pero luego fueron Killed / No calificados`,
-  ].join("\n");
+  ];
+  return (
+    <div
+      role="tooltip"
+      className="pointer-events-none absolute bottom-full left-0 z-10 mb-2 w-72 rounded-lg border px-3 py-2 text-xs opacity-0 shadow-lg transition-opacity group-hover:opacity-100"
+      style={{ background: "var(--surface-1)", borderColor: "var(--border)", color: "var(--text-primary)" }}
+    >
+      <p className="mb-1 font-semibold">
+        {stage.count} llegaron a &ldquo;{stage.label}&rdquo; o más allá:
+      </p>
+      <ul className="flex flex-col gap-0.5 text-[var(--text-secondary)]">
+        {lines.map((line) => (
+          <li key={line}>{line}</li>
+        ))}
+      </ul>
+    </div>
+  );
 }
 
 export function AbsoluteFunnelChart({
@@ -40,17 +55,16 @@ export function AbsoluteFunnelChart({
           return (
             <div key={stage.key} className="flex items-center gap-3">
               <span className="w-24 shrink-0 text-sm text-[var(--text-secondary)]">{stage.label}</span>
-              <div
-                className={`relative h-9 flex-1 overflow-hidden rounded-lg ${stage.breakdown ? "cursor-help" : ""}`}
-                style={{ background: "var(--gridline)" }}
-                title={breakdownTooltip(stage)}
-              >
-                <div
-                  className="flex h-full items-center rounded-lg px-3 text-sm font-semibold text-white"
-                  style={{ width: `${widthPct}%`, background: "linear-gradient(90deg, var(--series-1), var(--series-2))" }}
-                >
-                  {gateOut && stage.gatePct !== null ? `${stage.gatePct}%` : stage.count}
+              <div className={`group relative flex-1 ${stage.breakdown ? "cursor-help" : ""}`}>
+                <div className="relative h-9 overflow-hidden rounded-lg" style={{ background: "var(--gridline)" }}>
+                  <div
+                    className="flex h-full items-center rounded-lg px-3 text-sm font-semibold text-white"
+                    style={{ width: `${widthPct}%`, background: "linear-gradient(90deg, var(--series-1), var(--series-2))" }}
+                  >
+                    {gateOut && stage.gatePct !== null ? `${stage.gatePct}%` : stage.count}
+                  </div>
                 </div>
+                <StageBreakdownTooltip stage={stage} />
               </div>
               <span className="w-28 shrink-0 text-right text-xs">
                 {gateOut ? (
