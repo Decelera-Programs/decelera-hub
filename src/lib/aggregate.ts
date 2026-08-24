@@ -158,6 +158,8 @@ export interface FunnelMatrixRow {
   goal: number | null;
   tier1Goal: number | null;
   selectedGoal: number | null;
+  /** How this row's deals split before ever reaching "Qualified" — same shape as the "Aplicaciones" breakdown, scoped to this row. */
+  applicationsBreakdown: ApplicationsBreakdown;
 }
 
 function rank(stage: PipelineStatus | null): number {
@@ -190,6 +192,7 @@ function buildRow(
     goal: CHANNEL_GOALS[key] ?? null,
     tier1Goal: TIER1_GOALS[key] ?? null,
     selectedGoal: SELECTED_GOALS[key] ?? null,
+    applicationsBreakdown: buildApplicationsBreakdown(deals),
   };
 }
 
