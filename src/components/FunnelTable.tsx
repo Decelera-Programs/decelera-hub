@@ -18,18 +18,69 @@ const STAGE_HINT: Record<PipelineStatus, string> = {
 };
 
 /** Builds the "still pending vs. moved on" breakdown shown on hover over a row's Contacted cell. */
-function contactedTooltip(row: FunnelMatrixRow): string {
+function contactedTooltipContent(row: FunnelMatrixRow): { header: string; lines: string[] } {
   const { pending, progressed, killedDidNotAnswer, killedNotInterested, killedOtherReason, notQualified } =
     row.applicationsBreakdown;
-  return [
-    `${row.stageCounts.Contacted} contactados en total:`,
-    `${pending} siguen en Contacted, sin avanzar todavía`,
-    `${progressed} avanzaron a Qualified o más allá`,
-    `${killedDidNotAnswer} Killed — no respondieron ("Did not answer")`,
-    `${killedNotInterested} Killed — no interesados ("Not interested")`,
-    `${killedOtherReason} Killed — otro motivo / sin razón registrada`,
-    `${notQualified} No calificados ("Not qualified")`,
-  ].join("\n");
+  return {
+    header: `${row.stageCounts.Contacted} contactados en total:`,
+    lines: [
+      `${pending} siguen en Contacted, sin avanzar todavía`,
+      `${progressed} avanzaron a Qualified o más allá`,
+      `${killedDidNotAnswer} Killed — no respondieron ("Did not answer")`,
+      `${killedNotInterested} Killed — no interesados ("Not interested")`,
+      `${killedOtherReason} Killed — otro motivo / sin razón registrada`,
+      `${notQualified} No calificados ("Not qualified")`,
+    ],
+  };
+}
+
+/**
+ * A hover tooltip positioned with `fixed` + a measured bounding rect, instead of `absolute`
+ * inside the table. The table's horizontal-scroll wrapper (`overflow-x-auto`) forces its
+ * vertical overflow to clip too (a CSS quirk: one axis non-"visible" forces the other to
+ * "auto"), so an absolutely-positioned tooltip gets silently cut off near the first/last row.
+ * `position: fixed` is laid out against the viewport, not that wrapper, so it always shows.
+ */
+function ContactedCell({
+  row,
+  isTotal,
+}: {
+  row: FunnelMatrixRow;
+  isTotal: boolean;
+}) {
+  const [rect, setRect] = useState<DOMRect | null>(null);
+  const tooltip = contactedTooltipContent(row);
+
+  return (
+    <td
+      className="relative cursor-help px-3 py-2.5 text-center tabular-nums text-[var(--text-primary)]"
+      style={isTotal ? { fontWeight: 600 } : undefined}
+      onMouseEnter={(e) => setRect(e.currentTarget.getBoundingClientRect())}
+      onMouseLeave={() => setRect(null)}
+    >
+      {row.stageCounts.Contacted}
+      {rect && (
+        <div
+          role="tooltip"
+          className="pointer-events-none fixed z-50 w-72 rounded-lg border px-3 py-2 text-left text-xs shadow-lg"
+          style={{
+            top: rect.bottom + 8,
+            left: Math.min(rect.left, window.innerWidth - 300),
+            background: "var(--surface-1)",
+            borderColor: "var(--border)",
+            color: "var(--text-primary)",
+          }}
+        >
+          <p className="mb-1 font-semibold">{tooltip.header}</p>
+          <ul className="flex flex-col gap-0.5 text-[var(--text-secondary)]">
+            {tooltip.lines.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </td>
+  );
 }
 
 const TIER1_COUNT_HINT = "Startups con Tier 1 en el form score";
@@ -187,25 +238,28 @@ function ConversionRow({
           {showGoals && row.goal !== null && <GoalIndicator current={row.total} goal={row.goal} />}
         </span>
       </td>
-      {DISPLAYED_STAGES.map((stage) => (
-        <Fragment key={stage}>
-          <td
-            className={`px-3 py-2.5 text-center tabular-nums text-[var(--text-primary)] ${stage === "Contacted" ? "cursor-help" : ""}`}
-            style={isTotal ? { fontWeight: 600 } : undefined}
-            title={stage === "Contacted" ? contactedTooltip(row) : undefined}
-          >
-            {row.stageCounts[stage]}
-          </td>
-          {stage === "In play" && (
+      {DISPLAYED_STAGES.map((stage) =>
+        stage === "Contacted" ? (
+          <ContactedCell key={stage} row={row} isTotal={isTotal} />
+        ) : (
+          <Fragment key={stage}>
             <td
               className="px-3 py-2.5 text-center tabular-nums text-[var(--text-primary)]"
               style={isTotal ? { fontWeight: 600 } : undefined}
             >
-              {row.tier1}
+              {row.stageCounts[stage]}
             </td>
-          )}
-        </Fragment>
-      ))}
+            {stage === "In play" && (
+              <td
+                className="px-3 py-2.5 text-center tabular-nums text-[var(--text-primary)]"
+                style={isTotal ? { fontWeight: 600 } : undefined}
+              >
+                {row.tier1}
+              </td>
+            )}
+          </Fragment>
+        )
+      )}
       <td
         className="border-l border-[var(--gridline)] px-3 py-2.5 text-center tabular-nums"
         style={{ background: OUTCOME_BG, ...(isTotal ? { fontWeight: 600 } : {}) }}
