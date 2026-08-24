@@ -10,12 +10,27 @@ import { PIPELINE_ORDER } from "@/lib/transform";
 import type { Deal, PipelineStatus } from "@/lib/types";
 
 const STAGE_HINT: Record<PipelineStatus, string> = {
-  Contacted: "Primer contacto con la startup",
+  Contacted: "Total contactados alguna vez — pasa el cursor sobre una celda para ver cuántos siguen ahí sin avanzar",
   Qualified: "Pasó el primer filtro de calidad",
   "In play": "En proceso activo de evaluación",
   "Pre-committee": "Presentada al comité de inversión",
   Invested: "Decelera invirtió",
 };
+
+/** Builds the "still pending vs. moved on" breakdown shown on hover over a row's Contacted cell. */
+function contactedTooltip(row: FunnelMatrixRow): string {
+  const { pending, progressed, killedDidNotAnswer, killedNotInterested, killedOtherReason, notQualified } =
+    row.applicationsBreakdown;
+  return [
+    `${row.stageCounts.Contacted} contactados en total:`,
+    `${pending} siguen en Contacted, sin avanzar todavía`,
+    `${progressed} avanzaron a Qualified o más allá`,
+    `${killedDidNotAnswer} Killed — no respondieron ("Did not answer")`,
+    `${killedNotInterested} Killed — no interesados ("Not interested")`,
+    `${killedOtherReason} Killed — otro motivo / sin razón registrada`,
+    `${notQualified} No calificados ("Not qualified")`,
+  ].join("\n");
+}
 
 const TIER1_COUNT_HINT = "Startups con Tier 1 en el form score";
 const TIER1_PCT_HINT = "Tier 1 ÷ total de la fila — verde/rojo contra la meta 2026, gris si no hay meta definida";
@@ -175,8 +190,9 @@ function ConversionRow({
       {DISPLAYED_STAGES.map((stage) => (
         <Fragment key={stage}>
           <td
-            className="px-3 py-2.5 text-center tabular-nums text-[var(--text-primary)]"
+            className={`px-3 py-2.5 text-center tabular-nums text-[var(--text-primary)] ${stage === "Contacted" ? "cursor-help" : ""}`}
             style={isTotal ? { fontWeight: 600 } : undefined}
+            title={stage === "Contacted" ? contactedTooltip(row) : undefined}
           >
             {row.stageCounts[stage]}
           </td>
@@ -364,7 +380,13 @@ export function FunnelTable({ deals, showGoals = false }: { deals: Deal[]; showG
       </div>
       <p className="text-xs text-[var(--text-muted)]">
         Cada celda cuenta startups que llegaron a esa etapa o más allá — incluye a las que después
-        murieron, contando hasta dónde llegaron antes de caer. La columna Tier 1 entre &ldquo;In
+        murieron, contando hasta dónde llegaron antes de caer. Esto significa que, por ejemplo, las
+        startups de Maru que llegaron a &ldquo;In play&rdquo; ya están incluidas dentro del
+        &ldquo;In play&rdquo; de la fila Total — no hace falta sumarlas aparte. La columna
+        &ldquo;Contacted&rdquo; es la única que no resta a nadie (todas las startups contaron como
+        contactadas); pasa el cursor sobre una celda de esa columna para ver cuántas de esa fila
+        siguen ahí sin avanzar todavía, frente a las que ya progresaron o murieron (y por qué). La
+        columna Tier 1 entre &ldquo;In
         play&rdquo; y &ldquo;Pre-committee&rdquo; es el total de startups Tier 1 en la fila. Efic. In
         play/Contacted y Tier 1 (fondo resaltado, a la derecha) son porcentajes sobre el total de la
         fila; con menos de {MIN_SAMPLE_FOR_EFFICIENCY} contactadas, la eficiencia se muestra en gris
