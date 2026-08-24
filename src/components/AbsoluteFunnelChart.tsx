@@ -8,8 +8,11 @@ function stageTooltipContent(stage: AbsoluteFunnelStage): { header: string; line
   if (stage.appBreakdown) {
     const { progressed, killedDidNotAnswer, killedNotInterested, killedOtherReason, notQualified, pending } =
       stage.appBreakdown;
+    // Deliberately the sum of the breakdown below, not `stage.count` — in Gate Out mode
+    // `stage.count` already excludes the dead-on-arrival lines, so it wouldn't match the list.
+    const rawTotal = progressed + killedDidNotAnswer + killedNotInterested + killedOtherReason + notQualified + pending;
     return {
-      header: `${stage.count} aplicaciones se dispersan así:`,
+      header: `${rawTotal} aplicaciones (todos los canales) se dispersan así:`,
       lines: [
         `${progressed} avanzaron a Qualified o más allá`,
         `${killedDidNotAnswer} Killed — no respondieron ("Did not answer")`,
@@ -61,7 +64,7 @@ export function AbsoluteFunnelChart({
   showGoal: boolean;
   gateOut?: boolean;
 }) {
-  const { stages, total, selectedGoal } = buildAbsoluteFunnel(deals);
+  const { stages, total, selectedGoal } = buildAbsoluteFunnel(deals, { excludeDeadOnArrival: gateOut });
 
   return (
     <ChartCard
@@ -117,7 +120,7 @@ export function AbsoluteFunnelChart({
       </div>
       <p className="text-xs text-[var(--text-muted)]">
         {gateOut
-          ? "Cuántos de la etapa anterior avanzaron a esta, en número — pasa el cursor sobre una barra para ver cómo se reparte."
+          ? "Cuántos de la etapa anterior avanzaron a esta, en número — pasa el cursor sobre una barra para ver cómo se reparte. \"Aplicaciones\" aquí excluye a quienes murieron (Killed/No calificados) sin haber avanzado nunca de Contacted — cuentan igual sin importar el canal (form, Maru, mass email...), pero no eran candidatos reales, así que no infla la base."
           : "Números absolutos, no % relativo a la etapa anterior — así no se esconde el colapso real del embudo."}
       </p>
     </ChartCard>
