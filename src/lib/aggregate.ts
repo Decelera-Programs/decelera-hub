@@ -344,6 +344,8 @@ export interface AbsoluteFunnelStage {
   count: number;
   /** % lost vs. the very first stage (Aplicaciones) — not vs. the row above. Null on the first row. */
   dropPct: number | null;
+  /** "Gate Out" rate: % of the previous stage's count that made it into this one. Null on the first row (no gate to measure). */
+  gatePct: number | null;
 }
 
 export interface AbsoluteFunnel {
@@ -369,13 +371,15 @@ export function buildAbsoluteFunnel(deals: Deal[]): AbsoluteFunnel {
   const total = deals.length;
 
   const stages: AbsoluteFunnelStage[] = [
-    { key: "Aplicaciones", label: "Aplicaciones", count: total, dropPct: null },
-    ...ABSOLUTE_FUNNEL_STAGES.map(({ key, label }) => {
-      const count = deals.filter((d) => rank(d.lastPipelineStage) >= rank(key)).length;
-      const dropPct = total > 0 ? Math.round((1 - count / total) * 100) : null;
-      return { key, label, count, dropPct };
-    }),
+    { key: "Aplicaciones", label: "Aplicaciones", count: total, dropPct: null, gatePct: null },
   ];
+  for (const { key, label } of ABSOLUTE_FUNNEL_STAGES) {
+    const count = deals.filter((d) => rank(d.lastPipelineStage) >= rank(key)).length;
+    const dropPct = total > 0 ? Math.round((1 - count / total) * 100) : null;
+    const prevCount = stages[stages.length - 1].count;
+    const gatePct = prevCount > 0 ? Math.round((count / prevCount) * 100) : null;
+    stages.push({ key, label, count, dropPct, gatePct });
+  }
 
   return { stages, total, selectedGoal: SELECTED_GOALS.TOTAL };
 }
