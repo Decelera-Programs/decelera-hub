@@ -441,17 +441,28 @@ function buildApplicationsBreakdown(deals: Deal[]): ApplicationsBreakdown {
   };
 }
 
-export function buildAbsoluteFunnel(deals: Deal[]): AbsoluteFunnel {
-  const total = deals.length;
+/**
+ * `excludeDeadOnArrival`: when true, the "Aplicaciones" row drops leads that were Killed/Not
+ * qualified while still sitting at "Contacted" — they never got a real shot, so counting them
+ * as part of the applicant base understates every gate's real conversion. Bar widths still
+ * scale against the true raw total (`deals.length`), so the Aplicaciones bar itself visibly
+ * shrinks below 100% to signal it's now a subset — everything downstream (Qualified+) is
+ * already unaffected, since a dead-on-arrival lead was never counted there anyway.
+ */
+export function buildAbsoluteFunnel(deals: Deal[], options?: { excludeDeadOnArrival?: boolean }): AbsoluteFunnel {
+  const rawTotal = deals.length;
+  const total = rawTotal;
+  const appBreakdown = buildApplicationsBreakdown(deals);
+  const applicationsCount = options?.excludeDeadOnArrival ? appBreakdown.progressed + appBreakdown.pending : rawTotal;
 
   const stages: AbsoluteFunnelStage[] = [
     {
       key: "Aplicaciones",
       label: "Aplicaciones",
-      count: total,
+      count: applicationsCount,
       dropPct: null,
       breakdown: null,
-      appBreakdown: buildApplicationsBreakdown(deals),
+      appBreakdown,
     },
   ];
   for (const { key, label } of ABSOLUTE_FUNNEL_STAGES) {
