@@ -380,6 +380,37 @@ export function buildAbsoluteFunnel(deals: Deal[]): AbsoluteFunnel {
   return { stages, total, selectedGoal: SELECTED_GOALS.TOTAL };
 }
 
+export interface GateOutMetric {
+  /** Deals that reached "In play" or beyond — i.e. we actually had the call + analysis. */
+  spoke: number;
+  base: number;
+  pct: number | null;
+}
+
+export interface GateOutSummary {
+  /** All applications → call + analysis done. */
+  overall: GateOutMetric;
+  /** Outreach-channel applications → we actually spoke to them. */
+  outreach: GateOutMetric;
+}
+
+function gateOutMetric(deals: Deal[]): GateOutMetric {
+  const base = deals.length;
+  const spoke = deals.filter((d) => rank(d.lastPipelineStage) >= rank("In play")).length;
+  return { spoke, base, pct: base > 0 ? Math.round((spoke / base) * 100) : null };
+}
+
+/**
+ * "Gate Out": conversion from raw volume to an actual human touchpoint (In play = call +
+ * analysis done), both overall and narrowed to the Outreach channel specifically.
+ */
+export function buildGateOutSummary(deals: Deal[]): GateOutSummary {
+  return {
+    overall: gateOutMetric(deals),
+    outreach: gateOutMetric(deals.filter((d) => d.channel === "Outreach")),
+  };
+}
+
 export interface WeeklyVolumePoint {
   weekLabel: string;
   weekIndex: number;
