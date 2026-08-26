@@ -156,7 +156,7 @@ export function FunnelDashboard({ deals }: { deals: Deal[] }) {
         Semanas contadas desde el inicio de la opencall (29 jun 2026). &ldquo;Todos&rdquo; /
         &ldquo;Total&rdquo; no filtran.
       </p>
-      <FunnelTable deals={filtered} showGoals={showGoals} />
+      <AbsoluteFunnelChart deals={filtered} showGoal={showGoals} gateOut={viewMode === "gateOut"} />
       {viewMode === "total" && (
         <>
           <div className="flex items-center gap-2">
@@ -169,12 +169,12 @@ export function FunnelDashboard({ deals }: { deals: Deal[] }) {
             />
           </div>
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <ApplicationsOverTimeChart deals={stageFiltered} showGoal={showGoals} tier1Only={tier1Only} />
             <WeeklyVolumeChart deals={stageFiltered} tier1Only={tier1Only} />
+            <ApplicationsOverTimeChart deals={stageFiltered} showGoal={showGoals} tier1Only={tier1Only} />
           </div>
         </>
       )}
-      <AbsoluteFunnelChart deals={filtered} showGoal={showGoals} gateOut={viewMode === "gateOut"} />
+      <FunnelTable deals={filtered} showGoals={showGoals} />
     </div>
   );
 }
