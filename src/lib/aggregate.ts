@@ -388,12 +388,9 @@ export interface AbsoluteFunnel {
   selectedGoal: number;
 }
 
-/** A lead counts as an "Aplicación" once it's a real applicant, not just outreach: either it came in through the form, or it actually got a videocall with the investment team. */
+/** A lead counts as an "Aplicación" once it's a real applicant, not just outreach: either it's in the Aplicaciones stage, or it actually got a videocall with the investment team. */
 export function isApplication(d: Deal): boolean {
-  // `stage` never changes after a deal is created (confirmed empirically — Maru-sourced leads
-  // that later complete the form still show stage="Leads Mexico 2026" forever), so a completed
-  // form has to be detected directly via the form itself, not inferred from stage.
-  return d.stage === "Mexico 2026" || d.contactStatus === "Videocall Done" || d.formScore.total !== null;
+  return d.stage === "Mexico 2026" || d.contactStatus === "Videocall Done";
 }
 
 const STAGE_DESCRIPTION: Record<string, string> = {
