@@ -82,7 +82,7 @@ export function SummaryKpis({ deals, showGoal }: { deals: Deal[]; showGoal: bool
       <StatTile
         label="Mejor sourcer"
         value={bestSourcer?.name ?? "—"}
-        caption={bestSourcer ? `${bestSourcer.count} deals · por owner, no sourcer real` : "Sin datos"}
+        caption={bestSourcer ? `${bestSourcer.count} deals · por owner` : "Sin datos"}
         accent="var(--series-3)"
       />
     </div>
