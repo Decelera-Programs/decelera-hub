@@ -15,6 +15,8 @@ type StageOption = "all" | StageValue;
 type ScopeOption = "all" | "tier1";
 type ViewMode = "total" | "gateOut";
 
+const NO_OWNER = "Sin owner";
+
 const SCOPE_OPTIONS: ScopeOption[] = ["all", "tier1"];
 const SCOPE_LABEL: Record<ScopeOption, string> = { all: "Todas", tier1: "Tier 1" };
 
@@ -65,6 +67,39 @@ function WeekSelect({
   );
 }
 
+function OwnerSelect({
+  options,
+  selected,
+  onSelect,
+}: {
+  options: string[];
+  selected: string;
+  onSelect: (value: string) => void;
+}) {
+  return (
+    <div className="relative inline-block">
+      <select
+        value={selected}
+        onChange={(e) => onSelect(e.target.value)}
+        className="appearance-none rounded-full border border-[var(--border)] bg-[var(--surface-1)] py-1.5 pl-3 pr-7 text-sm font-medium text-[var(--text-secondary)]"
+      >
+        <option value="all">Owner: Todos</option>
+        {options.map((owner) => (
+          <option key={owner} value={owner}>
+            {owner}
+          </option>
+        ))}
+      </select>
+      <span
+        aria-hidden
+        className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-[var(--text-muted)]"
+      >
+        ▾
+      </span>
+    </div>
+  );
+}
+
 function TabGroup<T extends string | number>({
   options,
   selected,
@@ -102,6 +137,7 @@ function TabGroup<T extends string | number>({
 export function FunnelDashboard({ deals }: { deals: Deal[] }) {
   const [selectedWeek, setSelectedWeek] = useState<WeekOption>("all");
   const [selectedStage, setSelectedStage] = useState<StageOption>("all");
+  const [selectedOwner, setSelectedOwner] = useState("all");
   const [tier1Only, setTier1Only] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("total");
 
@@ -114,11 +150,21 @@ export function FunnelDashboard({ deals }: { deals: Deal[] }) {
     return weeks;
   }, [deals]);
 
+  const ownerOptions = useMemo(
+    () =>
+      Array.from(new Set(deals.map((d) => d.owner ?? NO_OWNER))).sort((a, b) =>
+        a === NO_OWNER ? 1 : b === NO_OWNER ? -1 : a.localeCompare(b)
+      ),
+    [deals]
+  );
+
   const stageOptions: StageOption[] = ["all", "Mexico 2026", "Leads Mexico 2026"];
 
-  // Stage filter applies everywhere; the week filter only narrows the table —
-  // both trend charts need every week to make sense.
-  const stageFiltered = deals.filter((d) => selectedStage === "all" || d.stage === selectedStage);
+  // Owner filter applies to everything downstream; stage filter applies everywhere too.
+  // The week filter only narrows the table/funnel — both trend charts need every week to
+  // make sense of a trend.
+  const ownerFiltered = deals.filter((d) => selectedOwner === "all" || (d.owner ?? NO_OWNER) === selectedOwner);
+  const stageFiltered = ownerFiltered.filter((d) => selectedStage === "all" || d.stage === selectedStage);
 
   const filtered = stageFiltered.filter((d) => selectedWeek === "all" || d.weekIndex === selectedWeek);
 
@@ -150,6 +196,7 @@ export function FunnelDashboard({ deals }: { deals: Deal[] }) {
           label={(o) => STAGE_LABEL[o]}
         />
         <WeekSelect options={weekOptions} selected={selectedWeek} onSelect={setSelectedWeek} />
+        <OwnerSelect options={ownerOptions} selected={selectedOwner} onSelect={setSelectedOwner} />
       </div>
       <p className="text-xs text-[var(--text-muted)]">
         Aplicaciones = stage <em>Mexico 2026</em>, Leads = stage <em>Leads Mexico 2026</em>.
