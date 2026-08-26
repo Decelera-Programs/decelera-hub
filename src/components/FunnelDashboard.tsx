@@ -21,7 +21,7 @@ const SCOPE_OPTIONS: ScopeOption[] = ["all", "tier1"];
 const SCOPE_LABEL: Record<ScopeOption, string> = { all: "Todas", tier1: "Tier 1" };
 
 const VIEW_MODE_OPTIONS: ViewMode[] = ["total", "currentAlive"];
-const VIEW_MODE_LABEL: Record<ViewMode, string> = { total: "Totales", currentAlive: "Current Alive" };
+const VIEW_MODE_LABEL: Record<ViewMode, string> = { total: "Totales", currentAlive: "Currently Alive" };
 const VIEW_MODE_EXPLANATION: Record<ViewMode, string> = {
   total: "Todos los leads, incluidos los que ya murieron (Killed / No calificados) en algún punto del camino.",
   currentAlive: "Solo los leads que siguen vivos hoy — se excluyen por completo los que fueron Killed o No calificados, en cualquier etapa en la que hayan muerto.",
