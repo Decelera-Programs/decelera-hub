@@ -1,15 +1,14 @@
-import { CHANNEL_GOALS } from "@/lib/aggregate";
-import { PIPELINE_ORDER } from "@/lib/transform";
+import {
+  buildBestChannelByQuality,
+  buildBestChannelByVolume,
+  buildBestSourcer,
+  buildContactStatusCounts,
+  CHANNEL_GOALS,
+  isApplication,
+} from "@/lib/aggregate";
 import type { Deal } from "@/lib/types";
 
 const TOTAL_GOAL = CHANNEL_GOALS.TOTAL;
-
-/** % benchmark de conversión in play / total aplicaciones — pendiente de definir. */
-const QUALITY_BENCHMARK_PCT: number | null = null;
-
-function rank(stage: Deal["lastPipelineStage"]): number {
-  return stage ? PIPELINE_ORDER.indexOf(stage) : -1;
-}
 
 export function StatTile({
   label,
@@ -44,34 +43,47 @@ export function StatTile({
 export function SummaryKpis({ deals, showGoal }: { deals: Deal[]; showGoal: boolean }) {
   const total = deals.length;
 
-  const preComite = deals.filter((d) => d.status === "Pre-committee").length;
-  const inPlay = deals.filter((d) => d.status === "In play").length;
-
-  // Conversión acumulada: llegaron a "In play" o más allá (In play, Pre-committee, Invested),
-  // no solo las que están hoy mismo en ese status.
-  const inPlayOrBeyond = deals.filter((d) => rank(d.lastPipelineStage) >= rank("In play")).length;
-  const qualityPct = total > 0 ? Math.round((inPlayOrBeyond / total) * 100) : null;
+  const applicationsCount = deals.filter(isApplication).length;
+  const tier1Count = deals.filter((d) => d.formScore.tier === "Tier 1").length;
 
   // La meta (1171) se definió para Leads + Aplicaciones combinados — comparar un subset
   // filtrado por stage contra la meta completa daría una desviación falsa.
   const desvioPct = showGoal && total > 0 ? Math.round((total / TOTAL_GOAL - 1) * 100) : null;
 
+  const { videocallDone } = buildContactStatusCounts(deals);
+  const bestVolume = buildBestChannelByVolume(deals);
+  const bestQuality = buildBestChannelByQuality(deals);
+  const bestSourcer = buildBestSourcer(deals);
+
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-      <StatTile label="En pre-comité" value={String(preComite)} accent="var(--series-2)" />
-      <StatTile label="En in play" value={String(inPlay)} accent="var(--status-warning)" />
-      <StatTile
-        label="Calidad"
-        value={qualityPct !== null ? `${qualityPct}%` : "—"}
-        caption={QUALITY_BENCHMARK_PCT !== null ? `Benchmark: ${QUALITY_BENCHMARK_PCT}%` : "Benchmark pendiente"}
-        accent="var(--series-1)"
-      />
+      <StatTile label="Aplicaciones" value={String(applicationsCount)} caption="Formulario o videollamada hecha" accent="var(--series-1)" />
+      <StatTile label="Tier 1" value={String(tier1Count)} caption={`de ${total} deals`} accent="var(--series-2)" />
       <StatTile
         label="Desvío volumen"
         value={desvioPct !== null ? `${desvioPct > 0 ? "+" : ""}${desvioPct}%` : "—"}
         caption={showGoal ? `Meta: ${TOTAL_GOAL} aplicaciones` : "Solo disponible en vista Todos"}
         accent="var(--series-3)"
         tone={desvioPct === null ? undefined : desvioPct >= 0 ? "positive" : "negative"}
+      />
+      <StatTile label="Videollamadas hechas" value={String(videocallDone)} caption='Contact Status = "Videocall Done"' accent="var(--status-warning)" />
+      <StatTile
+        label="Mejor canal (volumen)"
+        value={bestVolume?.label ?? "—"}
+        caption={bestVolume ? `${bestVolume.count} deals` : "Sin datos"}
+        accent="var(--series-1)"
+      />
+      <StatTile
+        label="Mejor canal (calidad)"
+        value={bestQuality?.label ?? "—"}
+        caption={bestQuality ? `${bestQuality.count} Tier 1 (form o signals)` : "Sin datos"}
+        accent="var(--series-2)"
+      />
+      <StatTile
+        label="Mejor sourcer"
+        value={bestSourcer?.name ?? "—"}
+        caption={bestSourcer ? `${bestSourcer.count} deals · por owner, no sourcer real` : "Sin datos"}
+        accent="var(--series-3)"
       />
     </div>
   );

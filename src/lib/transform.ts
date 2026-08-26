@@ -121,6 +121,26 @@ export function parseFlagList(raw: string | null): string[] {
     .filter(Boolean);
 }
 
+/**
+ * Normalizes a raw Supabase column value into trimmed text — never throws, regardless of the
+ * actual runtime shape. Attio multiselect fields (e.g. "Tier 1 - OK") can sync as a genuine
+ * Postgres array rather than delimited text, which would crash a plain `?.trim()` outright; this
+ * treats a non-empty array as present (joining its values) instead of assuming everything is a string.
+ */
+function asText(value: unknown): string | null {
+  if (value == null) return null;
+  if (Array.isArray(value)) {
+    const joined = value
+      .filter((v) => v != null)
+      .map(String)
+      .join(", ")
+      .trim();
+    return joined || null;
+  }
+  const text = String(value).trim();
+  return text || null;
+}
+
 export function mapRawDeal(raw: RawDeal): Deal {
   const status = asStatus(raw.status);
   const isDead = status ? DEAD_STATUSES.includes(status) : false;
@@ -142,15 +162,17 @@ export function mapRawDeal(raw: RawDeal): Deal {
     lastPipelineStage,
     channel: categorizeReference(sourceLabel),
     sourceLabel,
-    referralNote: raw.referral?.trim() || null,
+    referralNote: asText(raw.referral),
     createdAt,
     weekIndex,
     weekLabel,
-    formScore: parseFormSummary(raw.form_sumary, raw.tier_5?.trim() || null),
+    formScore: parseFormSummary(raw.form_sumary, asText(raw.tier_5)),
     greenFlags: parseFlagList(raw.green_flags_form),
-    owner: raw.owner?.trim() || null,
-    reconnectReason: raw.reconect?.trim() || null,
-    killedReason: raw.reason?.trim() || null,
-    contactStatus: raw.contact_status?.trim() || null,
+    owner: asText(raw.owner),
+    reconnectReason: asText(raw.reconect),
+    killedReason: asText(raw.reason),
+    contactStatus: asText(raw.contact_status),
+    programStatus: asText(raw.program),
+    tier1SignalOk: asText(raw.tier_1_ok) !== null,
   };
 }
