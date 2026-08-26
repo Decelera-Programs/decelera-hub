@@ -373,10 +373,12 @@ export interface AbsoluteFunnelStage {
   key: string;
   label: string;
   count: number;
-  /** % lost vs. the very first stage (Aplicaciones) — not vs. the row above. Null on the first row. */
+  /** Plain-English explanation of what counts toward this stage, shown on hover above the numeric breakdown. */
+  description: string;
+  /** % lost vs. the very first stage (Leads Contacted) — not vs. the row above. Null on the first row. */
   dropPct: number | null;
   breakdown: AbsoluteFunnelBreakdown | null;
-  /** Only set on the first row ("Aplicaciones") — how the whole pool splits before ever reaching "Qualified". */
+  /** Set on "Leads Contacted" (all deals) and "Aplicaciones" (just that subset) — how the pool splits before ever reaching "Qualified". */
   appBreakdown: ApplicationsBreakdown | null;
 }
 
@@ -385,6 +387,20 @@ export interface AbsoluteFunnel {
   total: number;
   selectedGoal: number;
 }
+
+/** A lead counts as an "Aplicación" once it's a real applicant, not just outreach: either it came in through the form, or it actually got a videocall with the investment team. */
+function isApplication(d: Deal): boolean {
+  return d.stage === "Mexico 2026" || d.contactStatus === "Videocall Done";
+}
+
+const STAGE_DESCRIPTION: Record<string, string> = {
+  "Leads Contacted": "Todos los leads que entraron al pipeline, sin importar el canal ni si llegaron a convertirse en aplicación.",
+  Aplicaciones: "Companies que rellenaron el formulario o entraron a una videollamada con el equipo de inversión.",
+  Qualified: "Pasaron el primer filtro de calidad del equipo tras revisar la aplicación.",
+  "In play": "En proceso activo de evaluación: llamada + análisis con el equipo.",
+  "Pre-committee": "Presentadas al comité de inversión para la decisión de invertir/programa/kill.",
+  Invested: "Decelera invirtió.",
+};
 
 const ABSOLUTE_FUNNEL_STAGES: { key: PipelineStatus; label: string }[] = [
   { key: "Qualified", label: "Cualificadas" },
@@ -442,33 +458,49 @@ function buildApplicationsBreakdown(deals: Deal[]): ApplicationsBreakdown {
 }
 
 /**
- * `excludeDeadOnArrival`: when true, the "Aplicaciones" row drops leads that were Killed/Not
- * qualified while still sitting at "Contacted" — they never got a real shot, so counting them
- * as part of the applicant base understates every gate's real conversion. Bar widths still
- * scale against the true raw total (`deals.length`), so the Aplicaciones bar itself visibly
- * shrinks below 100% to signal it's now a subset — everything downstream (Qualified+) is
- * already unaffected, since a dead-on-arrival lead was never counted there anyway.
+ * "Leads Contacted" (every lead, whatever the source) feeds "Aplicaciones" (form fill or an
+ * actual videocall — see `isApplication`), which feeds the usual pipeline stages. Qualified/In
+ * play/Pre-committee/Invested are still computed over ALL deals (not just "Aplicaciones") using
+ * the same pipeline-rank logic as before — a deal can be Qualified without ever having a
+ * videocall logged, so those counts can occasionally exceed "Aplicaciones"; the hover breakdown
+ * makes that transparent rather than hiding it behind a stricter (and less honest) filter.
  */
-export function buildAbsoluteFunnel(deals: Deal[], options?: { excludeDeadOnArrival?: boolean }): AbsoluteFunnel {
-  const rawTotal = deals.length;
-  const total = rawTotal;
-  const appBreakdown = buildApplicationsBreakdown(deals);
-  const applicationsCount = options?.excludeDeadOnArrival ? appBreakdown.progressed + appBreakdown.pending : rawTotal;
+export function buildAbsoluteFunnel(deals: Deal[]): AbsoluteFunnel {
+  const total = deals.length;
+  const applications = deals.filter(isApplication);
 
   const stages: AbsoluteFunnelStage[] = [
     {
-      key: "Aplicaciones",
-      label: "Aplicaciones",
-      count: applicationsCount,
+      key: "Leads Contacted",
+      label: "Leads Contacted",
+      count: total,
+      description: STAGE_DESCRIPTION["Leads Contacted"],
       dropPct: null,
       breakdown: null,
-      appBreakdown,
+      appBreakdown: buildApplicationsBreakdown(deals),
+    },
+    {
+      key: "Aplicaciones",
+      label: "Aplicaciones",
+      count: applications.length,
+      description: STAGE_DESCRIPTION.Aplicaciones,
+      dropPct: total > 0 ? Math.round((1 - applications.length / total) * 100) : null,
+      breakdown: null,
+      appBreakdown: buildApplicationsBreakdown(applications),
     },
   ];
   for (const { key, label } of ABSOLUTE_FUNNEL_STAGES) {
     const count = deals.filter((d) => rank(d.lastPipelineStage) >= rank(key)).length;
     const dropPct = total > 0 ? Math.round((1 - count / total) * 100) : null;
-    stages.push({ key, label, count, dropPct, breakdown: buildBreakdown(deals, key), appBreakdown: null });
+    stages.push({
+      key,
+      label,
+      count,
+      description: STAGE_DESCRIPTION[key],
+      dropPct,
+      breakdown: buildBreakdown(deals, key),
+      appBreakdown: null,
+    });
   }
 
   return { stages, total, selectedGoal: SELECTED_GOALS.TOTAL };
