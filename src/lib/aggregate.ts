@@ -380,6 +380,8 @@ export interface AbsoluteFunnelStage {
   breakdown: AbsoluteFunnelBreakdown | null;
   /** Set on "Leads Contacted" (all deals) and "Aplicaciones" (just that subset) — how the pool splits before ever reaching "Qualified". */
   appBreakdown: ApplicationsBreakdown | null;
+  /** One-off hover notes that don't fit either breakdown shape — currently just "Invested"'s programme-confirmation caveat. */
+  extraLines: string[] | null;
 }
 
 export interface AbsoluteFunnel {
@@ -399,14 +401,16 @@ const STAGE_DESCRIPTION: Record<string, string> = {
   Qualified: "Pasaron el primer filtro de calidad del equipo tras revisar la aplicación.",
   "In play": "En proceso activo de evaluación: llamada + análisis con el equipo.",
   "Pre-committee": "Presentadas al comité de inversión para la decisión de invertir/programa/kill.",
-  Invested: "Decelera invirtió.",
+  Invested: "Decelera invirtió y la participación en el programa está confirmada — no basta con estar marcada \"Invested\" en el pipeline.",
 };
+
+/** The value of the "Program" field that means participation is actually confirmed, not just a possibility. */
+const PROGRAM_CONFIRMED_VALUE = "Inversión Pre-Program";
 
 const ABSOLUTE_FUNNEL_STAGES: { key: PipelineStatus; label: string }[] = [
   { key: "Qualified", label: "Cualificadas" },
   { key: "In play", label: "In play" },
   { key: "Pre-committee", label: "Pre-comité" },
-  { key: "Invested", label: "Contract Signed" },
 ];
 
 /**
@@ -478,6 +482,7 @@ export function buildAbsoluteFunnel(deals: Deal[]): AbsoluteFunnel {
       dropPct: null,
       breakdown: null,
       appBreakdown: buildApplicationsBreakdown(deals),
+      extraLines: null,
     },
     {
       key: "Aplicaciones",
@@ -487,6 +492,7 @@ export function buildAbsoluteFunnel(deals: Deal[]): AbsoluteFunnel {
       dropPct: total > 0 ? Math.round((1 - applications.length / total) * 100) : null,
       breakdown: null,
       appBreakdown: buildApplicationsBreakdown(applications),
+      extraLines: null,
     },
   ];
   for (const { key, label } of ABSOLUTE_FUNNEL_STAGES) {
@@ -500,8 +506,29 @@ export function buildAbsoluteFunnel(deals: Deal[]): AbsoluteFunnel {
       dropPct,
       breakdown: buildBreakdown(deals, key),
       appBreakdown: null,
+      extraLines: null,
     });
   }
+
+  // "Invested" is special: the pipeline `status` reaching "Invested" isn't enough on its own —
+  // it only counts here once program participation is actually confirmed (`programStatus`).
+  const investedStatusCount = deals.filter((d) => d.status === "Invested").length;
+  const investedConfirmedCount = deals.filter(
+    (d) => d.status === "Invested" && d.programStatus === PROGRAM_CONFIRMED_VALUE
+  ).length;
+  stages.push({
+    key: "Invested",
+    label: "Contract Signed",
+    count: investedConfirmedCount,
+    description: STAGE_DESCRIPTION.Invested,
+    dropPct: total > 0 ? Math.round((1 - investedConfirmedCount / total) * 100) : null,
+    breakdown: null,
+    appBreakdown: null,
+    extraLines: [
+      `${investedStatusCount} marcadas "Invested" en el pipeline en total`,
+      `${investedConfirmedCount} de ellas con programa confirmado ("${PROGRAM_CONFIRMED_VALUE}") — solo estas cuentan aquí`,
+    ],
+  });
 
   return { stages, total, selectedGoal: SELECTED_GOALS.TOTAL };
 }

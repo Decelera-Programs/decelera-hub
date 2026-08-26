@@ -32,7 +32,7 @@ function stageTooltipContent(stage: AbsoluteFunnelStage): { description: string;
       ],
     };
   }
-  return { description: stage.description, lines: [] };
+  return { description: stage.description, lines: stage.extraLines ?? [] };
 }
 
 function HoverTooltip({ description, lines }: { description: string; lines: string[] }) {

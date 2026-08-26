@@ -30,6 +30,8 @@ export interface RawDeal {
   reason: string | null;
   /** Attio "Contact Status" — e.g. "Videocall Scheduled", "Videocall Done", "No Response". */
   contact_status: string | null;
+  /** Attio "Program" — "Potential Program" or "Inversión Pre-Program". Set once program participation is actually confirmed, distinct from the pipeline `status` reaching "Invested". */
+  program: string | null;
 }
 
 /** -1 = antes del inicio de la opencall, 1/2/3… = semana N desde el inicio, null = sin fecha. */
@@ -77,4 +79,6 @@ export interface Deal {
   killedReason: string | null;
   /** Attio "Contact Status" — e.g. "Videocall Scheduled", "Videocall Done", "No Response". Null if never set. */
   contactStatus: string | null;
+  /** Attio "Program" — set once program participation is actually confirmed ("Inversión Pre-Program"), distinct from the pipeline status reaching "Invested". Null if unset. */
+  programStatus: string | null;
 }
