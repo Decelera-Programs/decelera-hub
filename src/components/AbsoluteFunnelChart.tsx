@@ -32,7 +32,7 @@ function stageTooltipContent(stage: AbsoluteFunnelStage): { description: string;
       ],
     };
   }
-  return { description: stage.description, lines: stage.extraLines ?? [] };
+  return { description: stage.description, lines: [] };
 }
 
 function HoverTooltip({ description, lines }: { description: string; lines: string[] }) {
@@ -54,11 +54,22 @@ function HoverTooltip({ description, lines }: { description: string; lines: stri
   );
 }
 
-export function AbsoluteFunnelChart({ deals, showGoal }: { deals: Deal[]; showGoal: boolean }) {
+export function AbsoluteFunnelChart({
+  deals,
+  showGoal,
+  gateOut = false,
+}: {
+  deals: Deal[];
+  showGoal: boolean;
+  gateOut?: boolean;
+}) {
   const { stages, total, selectedGoal } = buildAbsoluteFunnel(deals);
 
   return (
-    <ChartCard title="Funnel — supervivencia absoluta" subtitle="¿Cuántos avanzan en cada gate?">
+    <ChartCard
+      title="Funnel — supervivencia absoluta"
+      subtitle={gateOut ? "¿Cuántos avanzan en cada gate?" : "¿Dónde se cae la gente de verdad?"}
+    >
       <div className="flex flex-col gap-3">
         {stages.map((stage, index) => {
           const widthPct = total > 0 ? Math.max((stage.count / total) * 100, stage.count > 0 ? 6 : 0) : 0;
@@ -81,19 +92,25 @@ export function AbsoluteFunnelChart({ deals, showGoal }: { deals: Deal[]; showGo
                 <HoverTooltip description={tooltip.description} lines={tooltip.lines} />
               </div>
               <span className="w-28 shrink-0 text-right text-xs">
-                {isSelected && showGoal ? (
+                {gateOut ? (
+                  prevStage === null ? (
+                    <span className="text-[var(--text-muted)]">base</span>
+                  ) : (
+                    <span className="text-[var(--text-muted)]">
+                      {stage.count} de {prevStage.count}
+                    </span>
+                  )
+                ) : stage.dropPct === null ? (
+                  <span className="text-[var(--text-muted)]">—</span>
+                ) : isSelected && showGoal ? (
                   <span
                     className="font-medium"
                     style={{ color: stage.count >= selectedGoal ? "var(--status-good)" : "var(--status-critical)" }}
                   >
                     {stage.count} / {selectedGoal} plazas
                   </span>
-                ) : prevStage === null ? (
-                  <span className="text-[var(--text-muted)]">base</span>
                 ) : (
-                  <span className="text-[var(--text-muted)]">
-                    {stage.count} de {prevStage.count}
-                  </span>
+                  <span className="text-[var(--text-muted)]">caída {stage.dropPct}%</span>
                 )}
               </span>
             </div>
@@ -101,9 +118,9 @@ export function AbsoluteFunnelChart({ deals, showGoal }: { deals: Deal[]; showGo
         })}
       </div>
       <p className="text-xs text-[var(--text-muted)]">
-        Cuántos de la etapa anterior avanzaron a esta, en número (no %) — así no se esconde el
-        colapso real del embudo detrás de una barra reescalada al 100%. Pasa el cursor sobre una
-        barra para ver su descripción y desglose.
+        {gateOut
+          ? "Cuántos de la etapa anterior avanzaron a esta, en número — pasa el cursor sobre una barra para ver su descripción y desglose."
+          : "Números absolutos, no % relativo a la etapa anterior — así no se esconde el colapso real del embudo."}
       </p>
     </ChartCard>
   );

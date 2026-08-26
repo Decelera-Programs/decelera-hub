@@ -375,11 +375,11 @@ export interface AbsoluteFunnelStage {
   count: number;
   /** Plain-English explanation of what counts toward this stage, shown on hover above the numeric breakdown. */
   description: string;
+  /** % lost vs. the very first stage (Leads Contacted) — not vs. the row above. Null on the first row. */
+  dropPct: number | null;
   breakdown: AbsoluteFunnelBreakdown | null;
   /** Set on "Leads Contacted" (all deals) and "Aplicaciones" (just that subset) — how the pool splits before ever reaching "Qualified". */
   appBreakdown: ApplicationsBreakdown | null;
-  /** One-off hover notes that don't fit either breakdown shape — currently just "Invested"'s programme-confirmation caveat. */
-  extraLines: string[] | null;
 }
 
 export interface AbsoluteFunnel {
@@ -389,7 +389,7 @@ export interface AbsoluteFunnel {
 }
 
 /** A lead counts as an "Aplicación" once it's a real applicant, not just outreach: either it came in through the form, or it actually got a videocall with the investment team. */
-export function isApplication(d: Deal): boolean {
+function isApplication(d: Deal): boolean {
   return d.stage === "Mexico 2026" || d.contactStatus === "Videocall Done";
 }
 
@@ -399,16 +399,14 @@ const STAGE_DESCRIPTION: Record<string, string> = {
   Qualified: "Pasaron el primer filtro de calidad del equipo tras revisar la aplicación.",
   "In play": "En proceso activo de evaluación: llamada + análisis con el equipo.",
   "Pre-committee": "Presentadas al comité de inversión para la decisión de invertir/programa/kill.",
-  Invested: "Decelera invirtió y la participación en el programa está confirmada — no basta con estar marcada \"Invested\" en el pipeline.",
+  Invested: "Decelera invirtió.",
 };
-
-/** The value of the "Program" field that means participation is actually confirmed, not just a possibility. */
-const PROGRAM_CONFIRMED_VALUE = "Inversión Pre-Program";
 
 const ABSOLUTE_FUNNEL_STAGES: { key: PipelineStatus; label: string }[] = [
   { key: "Qualified", label: "Cualificadas" },
   { key: "In play", label: "In play" },
   { key: "Pre-committee", label: "Pre-comité" },
+  { key: "Invested", label: "Contract Signed" },
 ];
 
 /**
@@ -477,53 +475,66 @@ export function buildAbsoluteFunnel(deals: Deal[]): AbsoluteFunnel {
       label: "Leads Contacted",
       count: total,
       description: STAGE_DESCRIPTION["Leads Contacted"],
+      dropPct: null,
       breakdown: null,
       appBreakdown: buildApplicationsBreakdown(deals),
-      extraLines: null,
     },
     {
       key: "Aplicaciones",
       label: "Aplicaciones",
       count: applications.length,
       description: STAGE_DESCRIPTION.Aplicaciones,
+      dropPct: total > 0 ? Math.round((1 - applications.length / total) * 100) : null,
       breakdown: null,
       appBreakdown: buildApplicationsBreakdown(applications),
-      extraLines: null,
     },
   ];
   for (const { key, label } of ABSOLUTE_FUNNEL_STAGES) {
     const count = deals.filter((d) => rank(d.lastPipelineStage) >= rank(key)).length;
+    const dropPct = total > 0 ? Math.round((1 - count / total) * 100) : null;
     stages.push({
       key,
       label,
       count,
       description: STAGE_DESCRIPTION[key],
+      dropPct,
       breakdown: buildBreakdown(deals, key),
       appBreakdown: null,
-      extraLines: null,
     });
   }
 
-  // "Invested" is special: the pipeline `status` reaching "Invested" isn't enough on its own —
-  // it only counts here once program participation is actually confirmed (`programStatus`).
-  const investedStatusCount = deals.filter((d) => d.status === "Invested").length;
-  const investedConfirmedCount = deals.filter(
-    (d) => d.status === "Invested" && d.programStatus === PROGRAM_CONFIRMED_VALUE
-  ).length;
-  stages.push({
-    key: "Invested",
-    label: "Contract Signed",
-    count: investedConfirmedCount,
-    description: STAGE_DESCRIPTION.Invested,
-    breakdown: null,
-    appBreakdown: null,
-    extraLines: [
-      `${investedStatusCount} marcadas "Invested" en el pipeline en total`,
-      `${investedConfirmedCount} de ellas con programa confirmado ("${PROGRAM_CONFIRMED_VALUE}") — solo estas cuentan aquí`,
-    ],
-  });
-
   return { stages, total, selectedGoal: SELECTED_GOALS.TOTAL };
+}
+
+export interface GateOutMetric {
+  /** Deals that reached "In play" or beyond — i.e. we actually had the call + analysis. */
+  spoke: number;
+  base: number;
+  pct: number | null;
+}
+
+export interface GateOutSummary {
+  /** All applications → call + analysis done. */
+  overall: GateOutMetric;
+  /** Outreach-channel applications → we actually spoke to them. */
+  outreach: GateOutMetric;
+}
+
+function gateOutMetric(deals: Deal[]): GateOutMetric {
+  const base = deals.length;
+  const spoke = deals.filter((d) => rank(d.lastPipelineStage) >= rank("In play")).length;
+  return { spoke, base, pct: base > 0 ? Math.round((spoke / base) * 100) : null };
+}
+
+/**
+ * "Gate Out": conversion from raw volume to an actual human touchpoint (In play = call +
+ * analysis done), both overall and narrowed to the Outreach channel specifically.
+ */
+export function buildGateOutSummary(deals: Deal[]): GateOutSummary {
+  return {
+    overall: gateOutMetric(deals),
+    outreach: gateOutMetric(deals.filter((d) => d.channel === "Outreach")),
+  };
 }
 
 export interface ContactStatusCounts {
@@ -539,57 +550,6 @@ export function buildContactStatusCounts(deals: Deal[]): ContactStatusCounts {
     videocallScheduled: deals.filter((d) => d.contactStatus === "Videocall Scheduled").length,
     videocallDone: deals.filter((d) => d.contactStatus === "Videocall Done").length,
   };
-}
-
-export interface BestChannelResult {
-  label: string;
-  count: number;
-}
-
-/** Picks the CONVERSION_ROWS channel with the highest count of deals matching `extraMatch` — null when nothing matches at all. */
-function bestConversionRow(deals: Deal[], extraMatch: (d: Deal) => boolean): BestChannelResult | null {
-  let best: BestChannelResult | null = null;
-  for (const def of CONVERSION_ROWS) {
-    const count = deals.filter((d) => def.match(d) && extraMatch(d)).length;
-    if (count > 0 && (!best || count > best.count)) best = { label: def.label, count };
-  }
-  return best;
-}
-
-/** Channel that brought in the most deals, period. */
-export function buildBestChannelByVolume(deals: Deal[]): BestChannelResult | null {
-  return bestConversionRow(deals, () => true);
-}
-
-/**
- * Channel that brought in the most Tier 1 companies — counting Tier 1 either from the form
- * score, or from an analyst's screening signals ("Tier 1 - OK" in Attio), whichever flagged it.
- */
-export function buildBestChannelByQuality(deals: Deal[]): BestChannelResult | null {
-  return bestConversionRow(deals, (d) => d.formScore.tier === "Tier 1" || d.tier1SignalOk);
-}
-
-export interface BestSourcerResult {
-  name: string;
-  count: number;
-}
-
-/**
- * Deal owner with the most deals — used as a stand-in for "who sourced the most deals" since
- * Attio has no separate sourcer field. Not the same thing (an owner may not be who found the
- * deal), so the UI must label this clearly.
- */
-export function buildBestSourcer(deals: Deal[]): BestSourcerResult | null {
-  const counts = new Map<string, number>();
-  for (const d of deals) {
-    if (!d.owner) continue;
-    counts.set(d.owner, (counts.get(d.owner) ?? 0) + 1);
-  }
-  let best: BestSourcerResult | null = null;
-  for (const [name, count] of counts) {
-    if (!best || count > best.count) best = { name, count };
-  }
-  return best;
 }
 
 export interface WeeklyVolumePoint {

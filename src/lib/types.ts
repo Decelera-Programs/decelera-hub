@@ -30,10 +30,6 @@ export interface RawDeal {
   reason: string | null;
   /** Attio "Contact Status" — e.g. "Videocall Scheduled", "Videocall Done", "No Response". */
   contact_status: string | null;
-  /** Attio "Program" — "Potential Program" or "Inversión Pre-Program". Set once program participation is actually confirmed, distinct from the pipeline `status` reaching "Invested". */
-  program: string | null;
-  /** Attio "Tier 1 - OK" — multiselect of team members who flagged this deal Tier 1 via signals (screening), separate from the form-score tier. */
-  tier_1_ok: string | null;
 }
 
 /** -1 = antes del inicio de la opencall, 1/2/3… = semana N desde el inicio, null = sin fecha. */
@@ -81,8 +77,4 @@ export interface Deal {
   killedReason: string | null;
   /** Attio "Contact Status" — e.g. "Videocall Scheduled", "Videocall Done", "No Response". Null if never set. */
   contactStatus: string | null;
-  /** Attio "Program" — set once program participation is actually confirmed ("Inversión Pre-Program"), distinct from the pipeline status reaching "Invested". Null if unset. */
-  programStatus: string | null;
-  /** True if an analyst flagged this deal Tier 1 via signals (Attio "Tier 1 - OK"), independent of the form-score tier. */
-  tier1SignalOk: boolean;
 }

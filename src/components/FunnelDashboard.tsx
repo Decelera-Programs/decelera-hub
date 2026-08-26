@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { AbsoluteFunnelChart } from "./AbsoluteFunnelChart";
 import { ApplicationsOverTimeChart } from "./ApplicationsOverTimeChart";
 import { FunnelTable } from "./FunnelTable";
+import { GateOutKpis } from "./GateOutKpis";
 import { SummaryKpis } from "./SummaryKpis";
 import { WeeklyVolumeChart } from "./WeeklyVolumeChart";
 import { computeWeek } from "@/lib/transform";
@@ -12,20 +13,15 @@ import type { Deal, StageValue } from "@/lib/types";
 type WeekOption = "all" | -1 | number;
 type StageOption = "all" | StageValue;
 type ScopeOption = "all" | "tier1";
-type ViewMode = "total" | "currentAlive";
+type ViewMode = "total" | "gateOut";
 
 const NO_OWNER = "Sin owner";
-const DEAD_STATUSES = ["Killed", "Not qualified"];
 
 const SCOPE_OPTIONS: ScopeOption[] = ["all", "tier1"];
 const SCOPE_LABEL: Record<ScopeOption, string> = { all: "Todas", tier1: "Tier 1" };
 
-const VIEW_MODE_OPTIONS: ViewMode[] = ["total", "currentAlive"];
-const VIEW_MODE_LABEL: Record<ViewMode, string> = { total: "Totales", currentAlive: "Current Alive" };
-const VIEW_MODE_EXPLANATION: Record<ViewMode, string> = {
-  total: "Todos los leads, incluidos los que ya murieron (Killed / No calificados) en algún punto del camino.",
-  currentAlive: "Solo los leads que siguen vivos hoy — se excluyen por completo los que fueron Killed o No calificados, en cualquier etapa en la que hayan muerto.",
-};
+const VIEW_MODE_OPTIONS: ViewMode[] = ["total", "gateOut"];
+const VIEW_MODE_LABEL: Record<ViewMode, string> = { total: "Totales", gateOut: "Gate Out" };
 
 function weekLabel(option: WeekOption) {
   if (option === "all") return "Total";
@@ -164,14 +160,11 @@ export function FunnelDashboard({ deals }: { deals: Deal[] }) {
 
   const stageOptions: StageOption[] = ["all", "Mexico 2026", "Leads Mexico 2026"];
 
-  // Owner filter applies to everything downstream; so does "Current Alive" (drops any deal
-  // that's Killed/Not qualified, whatever stage it died at) and the stage filter. The week
-  // filter only narrows the table/funnel — both trend charts need every week to make sense
-  // of a trend.
+  // Owner filter applies to everything downstream; stage filter applies everywhere too.
+  // The week filter only narrows the table/funnel — both trend charts need every week to
+  // make sense of a trend.
   const ownerFiltered = deals.filter((d) => selectedOwner === "all" || (d.owner ?? NO_OWNER) === selectedOwner);
-  const aliveFiltered =
-    viewMode === "currentAlive" ? ownerFiltered.filter((d) => !DEAD_STATUSES.includes(d.status ?? "")) : ownerFiltered;
-  const stageFiltered = aliveFiltered.filter((d) => selectedStage === "all" || d.stage === selectedStage);
+  const stageFiltered = ownerFiltered.filter((d) => selectedStage === "all" || d.stage === selectedStage);
 
   const filtered = stageFiltered.filter((d) => selectedWeek === "all" || d.weekIndex === selectedWeek);
 
@@ -181,19 +174,20 @@ export function FunnelDashboard({ deals }: { deals: Deal[] }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-1">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-medium text-[var(--text-secondary)]">Vista</span>
-          <TabGroup
-            options={VIEW_MODE_OPTIONS}
-            selected={viewMode}
-            onSelect={setViewMode}
-            label={(o) => VIEW_MODE_LABEL[o]}
-          />
-        </div>
-        <p className="text-xs text-[var(--text-muted)]">{VIEW_MODE_EXPLANATION[viewMode]}</p>
+      <div className="flex items-center gap-2">
+        <span className="text-xs font-medium text-[var(--text-secondary)]">Vista</span>
+        <TabGroup
+          options={VIEW_MODE_OPTIONS}
+          selected={viewMode}
+          onSelect={setViewMode}
+          label={(o) => VIEW_MODE_LABEL[o]}
+        />
       </div>
-      <SummaryKpis deals={filtered} showGoal={showGoals} />
+      {viewMode === "gateOut" ? (
+        <GateOutKpis deals={filtered} />
+      ) : (
+        <SummaryKpis deals={filtered} showGoal={showGoals} />
+      )}
       <div className="flex flex-wrap items-center gap-3">
         <TabGroup
           options={stageOptions}
@@ -209,20 +203,24 @@ export function FunnelDashboard({ deals }: { deals: Deal[] }) {
         Semanas contadas desde el inicio de la opencall (29 jun 2026). &ldquo;Todos&rdquo; /
         &ldquo;Total&rdquo; no filtran.
       </p>
-      <AbsoluteFunnelChart deals={filtered} showGoal={showGoals} />
-      <div className="flex items-center gap-2">
-        <span className="text-xs font-medium text-[var(--text-secondary)]">Alcance</span>
-        <TabGroup
-          options={SCOPE_OPTIONS}
-          selected={tier1Only ? "tier1" : "all"}
-          onSelect={(value) => setTier1Only(value === "tier1")}
-          label={(value) => SCOPE_LABEL[value]}
-        />
-      </div>
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <WeeklyVolumeChart deals={stageFiltered} tier1Only={tier1Only} />
-        <ApplicationsOverTimeChart deals={stageFiltered} showGoal={showGoals} tier1Only={tier1Only} />
-      </div>
+      <AbsoluteFunnelChart deals={filtered} showGoal={showGoals} gateOut={viewMode === "gateOut"} />
+      {viewMode === "total" && (
+        <>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-[var(--text-secondary)]">Alcance</span>
+            <TabGroup
+              options={SCOPE_OPTIONS}
+              selected={tier1Only ? "tier1" : "all"}
+              onSelect={(value) => setTier1Only(value === "tier1")}
+              label={(value) => SCOPE_LABEL[value]}
+            />
+          </div>
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <WeeklyVolumeChart deals={stageFiltered} tier1Only={tier1Only} />
+            <ApplicationsOverTimeChart deals={stageFiltered} showGoal={showGoals} tier1Only={tier1Only} />
+          </div>
+        </>
+      )}
       <FunnelTable deals={filtered} showGoals={showGoals} />
     </div>
   );
