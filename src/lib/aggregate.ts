@@ -389,7 +389,7 @@ export interface AbsoluteFunnel {
 }
 
 /** A lead counts as an "Aplicación" once it's a real applicant, not just outreach: either it came in through the form, or it actually got a videocall with the investment team. */
-function isApplication(d: Deal): boolean {
+export function isApplication(d: Deal): boolean {
   return d.stage === "Mexico 2026" || d.contactStatus === "Videocall Done";
 }
 
@@ -539,6 +539,57 @@ export function buildContactStatusCounts(deals: Deal[]): ContactStatusCounts {
     videocallScheduled: deals.filter((d) => d.contactStatus === "Videocall Scheduled").length,
     videocallDone: deals.filter((d) => d.contactStatus === "Videocall Done").length,
   };
+}
+
+export interface BestChannelResult {
+  label: string;
+  count: number;
+}
+
+/** Picks the CONVERSION_ROWS channel with the highest count of deals matching `extraMatch` — null when nothing matches at all. */
+function bestConversionRow(deals: Deal[], extraMatch: (d: Deal) => boolean): BestChannelResult | null {
+  let best: BestChannelResult | null = null;
+  for (const def of CONVERSION_ROWS) {
+    const count = deals.filter((d) => def.match(d) && extraMatch(d)).length;
+    if (count > 0 && (!best || count > best.count)) best = { label: def.label, count };
+  }
+  return best;
+}
+
+/** Channel that brought in the most deals, period. */
+export function buildBestChannelByVolume(deals: Deal[]): BestChannelResult | null {
+  return bestConversionRow(deals, () => true);
+}
+
+/**
+ * Channel that brought in the most Tier 1 companies — counting Tier 1 either from the form
+ * score, or from an analyst's screening signals ("Tier 1 - OK" in Attio), whichever flagged it.
+ */
+export function buildBestChannelByQuality(deals: Deal[]): BestChannelResult | null {
+  return bestConversionRow(deals, (d) => d.formScore.tier === "Tier 1" || d.tier1SignalOk);
+}
+
+export interface BestSourcerResult {
+  name: string;
+  count: number;
+}
+
+/**
+ * Deal owner with the most deals — used as a stand-in for "who sourced the most deals" since
+ * Attio has no separate sourcer field. Not the same thing (an owner may not be who found the
+ * deal), so the UI must label this clearly.
+ */
+export function buildBestSourcer(deals: Deal[]): BestSourcerResult | null {
+  const counts = new Map<string, number>();
+  for (const d of deals) {
+    if (!d.owner) continue;
+    counts.set(d.owner, (counts.get(d.owner) ?? 0) + 1);
+  }
+  let best: BestSourcerResult | null = null;
+  for (const [name, count] of counts) {
+    if (!best || count > best.count) best = { name, count };
+  }
+  return best;
 }
 
 export interface WeeklyVolumePoint {

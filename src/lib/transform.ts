@@ -153,5 +153,6 @@ export function mapRawDeal(raw: RawDeal): Deal {
     killedReason: raw.reason?.trim() || null,
     contactStatus: raw.contact_status?.trim() || null,
     programStatus: raw.program?.trim() || null,
+    tier1SignalOk: !!raw.tier_1_ok?.trim(),
   };
 }
