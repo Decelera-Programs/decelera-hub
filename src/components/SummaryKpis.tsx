@@ -66,7 +66,12 @@ export function SummaryKpis({ deals, showGoal }: { deals: Deal[]; showGoal: bool
         accent="var(--series-3)"
         tone={desvioPct === null ? undefined : desvioPct >= 0 ? "positive" : "negative"}
       />
-      <StatTile label="Videollamadas hechas" value={String(videocallDone)} caption='Contact Status = "Videocall Done"' accent="var(--status-warning)" />
+      <StatTile
+        label="Founders interviewed"
+        value={String(videocallDone)}
+        caption='Contact Status = "Videocall Done" — solo cuenta videollamadas únicas, una por company'
+        accent="var(--status-warning)"
+      />
       <StatTile
         label="Mejor canal (volumen)"
         value={bestVolume?.label ?? "—"}
