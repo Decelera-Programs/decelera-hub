@@ -7,10 +7,9 @@ import { FunnelTable } from "./FunnelTable";
 import { SummaryKpis } from "./SummaryKpis";
 import { WeeklyVolumeChart } from "./WeeklyVolumeChart";
 import { computeWeek } from "@/lib/transform";
-import type { Deal, StageValue } from "@/lib/types";
+import type { Deal } from "@/lib/types";
 
 type WeekOption = "all" | -1 | number;
-type StageOption = "all" | StageValue;
 type ScopeOption = "all" | "tier1";
 type ViewMode = "total" | "currentAlive";
 
@@ -32,12 +31,6 @@ function weekLabel(option: WeekOption) {
   if (option === -1) return "Pre-opencall";
   return `Semana ${option}`;
 }
-
-const STAGE_LABEL: Record<StageOption, string> = {
-  all: "Todos",
-  "Mexico 2026": "Aplicaciones",
-  "Leads Mexico 2026": "Leads",
-};
 
 function WeekSelect({
   options,
@@ -140,7 +133,6 @@ function TabGroup<T extends string | number>({
 
 export function FunnelDashboard({ deals }: { deals: Deal[] }) {
   const [selectedWeek, setSelectedWeek] = useState<WeekOption>("all");
-  const [selectedStage, setSelectedStage] = useState<StageOption>("all");
   const [selectedOwner, setSelectedOwner] = useState("all");
   const [tier1Only, setTier1Only] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("total");
@@ -162,22 +154,14 @@ export function FunnelDashboard({ deals }: { deals: Deal[] }) {
     [deals]
   );
 
-  const stageOptions: StageOption[] = ["all", "Mexico 2026", "Leads Mexico 2026"];
-
   // Owner filter applies to everything downstream; so does "Current Alive" (drops any deal
-  // that's Killed/Not qualified, whatever stage it died at) and the stage filter. The week
-  // filter only narrows the table/funnel — both trend charts need every week to make sense
-  // of a trend.
+  // that's Killed/Not qualified, whatever stage it died at). The week filter only narrows the
+  // table/funnel — both trend charts need every week to make sense of a trend.
   const ownerFiltered = deals.filter((d) => selectedOwner === "all" || (d.owner ?? NO_OWNER) === selectedOwner);
   const aliveFiltered =
     viewMode === "currentAlive" ? ownerFiltered.filter((d) => !DEAD_STATUSES.includes(d.status ?? "")) : ownerFiltered;
-  const stageFiltered = aliveFiltered.filter((d) => selectedStage === "all" || d.stage === selectedStage);
 
-  const filtered = stageFiltered.filter((d) => selectedWeek === "all" || d.weekIndex === selectedWeek);
-
-  // Goals were set for the whole channel (Leads + Aplicaciones combined) — showing them
-  // against a narrower stage filter would compare a partial count to the full target.
-  const showGoals = selectedStage === "all";
+  const filtered = aliveFiltered.filter((d) => selectedWeek === "all" || d.weekIndex === selectedWeek);
 
   return (
     <div className="flex flex-col gap-4">
@@ -193,23 +177,16 @@ export function FunnelDashboard({ deals }: { deals: Deal[] }) {
         </div>
         <p className="text-xs text-[var(--text-muted)]">{VIEW_MODE_EXPLANATION[viewMode]}</p>
       </div>
-      <SummaryKpis deals={filtered} showGoal={showGoals} />
+      <SummaryKpis deals={filtered} showGoal={true} />
       <div className="flex flex-wrap items-center gap-3">
-        <TabGroup
-          options={stageOptions}
-          selected={selectedStage}
-          onSelect={setSelectedStage}
-          label={(o) => STAGE_LABEL[o]}
-        />
         <WeekSelect options={weekOptions} selected={selectedWeek} onSelect={setSelectedWeek} />
         <OwnerSelect options={ownerOptions} selected={selectedOwner} onSelect={setSelectedOwner} />
       </div>
       <p className="text-xs text-[var(--text-muted)]">
-        Aplicaciones = stage <em>Mexico 2026</em>, Leads = stage <em>Leads Mexico 2026</em>.
         Semanas contadas desde el inicio de la opencall (29 jun 2026). &ldquo;Todos&rdquo; /
         &ldquo;Total&rdquo; no filtran.
       </p>
-      <AbsoluteFunnelChart deals={filtered} showGoal={showGoals} />
+      <AbsoluteFunnelChart deals={filtered} showGoal={true} />
       <div className="flex items-center gap-2">
         <span className="text-xs font-medium text-[var(--text-secondary)]">Alcance</span>
         <TabGroup
@@ -220,10 +197,10 @@ export function FunnelDashboard({ deals }: { deals: Deal[] }) {
         />
       </div>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <WeeklyVolumeChart deals={stageFiltered} tier1Only={tier1Only} />
-        <ApplicationsOverTimeChart deals={stageFiltered} showGoal={showGoals} tier1Only={tier1Only} />
+        <WeeklyVolumeChart deals={aliveFiltered} tier1Only={tier1Only} />
+        <ApplicationsOverTimeChart deals={aliveFiltered} showGoal={true} tier1Only={tier1Only} />
       </div>
-      <FunnelTable deals={filtered} showGoals={showGoals} />
+      <FunnelTable deals={filtered} showGoals={true} />
     </div>
   );
 }
