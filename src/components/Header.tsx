@@ -9,6 +9,7 @@ const NAV_LINK_CLASS =
 export type PageKey =
   | "hub"
   | "europe"
+  | "menorca-26"
   | "americas"
   | "operational"
   | "opencall-mexico"
@@ -17,9 +18,11 @@ export type PageKey =
 const BACK_LINKS: Record<PageKey, { label: string; href: string }[]> = {
   hub: [],
   europe: [{ label: "← Panel de control", href: "/" }],
+  "menorca-26": [{ label: "← Decelera Europe", href: "/europe" }],
   americas: [{ label: "← Panel de control", href: "/" }],
   operational: [{ label: "← Panel de control", href: "/" }],
   "opencall-mexico": [
+    { label: "← Americas", href: "/americas" },
     { label: "← Operational", href: "/operational" },
     { label: "Canal Maru", href: "/maru" },
   ],

@@ -9,6 +9,12 @@ export type DashboardEntry = {
   comingSoon?: boolean;
 };
 
+export type DashboardGroup = {
+  id: string;
+  name: string;
+  dashboards: DashboardEntry[];
+};
+
 export const CATEGORIES: Category[] = ["europe", "americas", "operational"];
 
 export const CATEGORY_META: Record<
@@ -32,45 +38,20 @@ export const CATEGORY_META: Record<
   },
 };
 
-/**
- * Placeholder entries for Europe/Americas — these dashboards live in other repos/apps.
- * Swap `href` for the real URL and drop `comingSoon` once each one is ready.
- */
+const RAILWAY_INTERNAL_NOTE =
+  "Está en un dominio privado de Railway (*.railway.internal), que no es accesible desde el navegador. Genera un dominio público en Railway (Settings → Networking → Generate Domain) y actualizamos el enlace.";
+
+/** Flat dashboards shown directly on each category page. */
 export const CATEGORY_DASHBOARDS: Record<Category, DashboardEntry[]> = {
-  europe: [
-    {
-      id: "europe-placeholder-1",
-      name: "Dashboard Menorca (pendiente)",
-      description: "Añade aquí el nombre y la URL del dashboard.",
-      href: "#",
-      external: true,
-      comingSoon: true,
-    },
-    {
-      id: "europe-placeholder-2",
-      name: "Dashboard Menorca (pendiente)",
-      description: "Añade aquí el nombre y la URL del dashboard.",
-      href: "#",
-      external: true,
-      comingSoon: true,
-    },
-  ],
+  // Europe/Menorca dashboards live under cohort subfolders — see CATEGORY_GROUPS.
+  europe: [],
   americas: [
     {
-      id: "americas-placeholder-1",
-      name: "Dashboard LATAM (pendiente)",
-      description: "Añade aquí el nombre y la URL del dashboard.",
-      href: "#",
-      external: true,
-      comingSoon: true,
-    },
-    {
-      id: "americas-placeholder-2",
-      name: "Dashboard LATAM (pendiente)",
-      description: "Añade aquí el nombre y la URL del dashboard.",
-      href: "#",
-      external: true,
-      comingSoon: true,
+      id: "opencall-mexico",
+      name: "Open Call 2026 Dashboard",
+      description: "Funnel completo del dealflow de Attio para la opencall México 2026.",
+      href: "/opencall-mexico",
+      external: false,
     },
   ],
   operational: [
@@ -87,6 +68,48 @@ export const CATEGORY_DASHBOARDS: Record<Category, DashboardEntry[]> = {
       description: "Desglose del canal de outreach Maru dentro del mismo dealflow.",
       href: "/maru",
       external: false,
+    },
+    {
+      id: "portfolio-dashboard",
+      name: "Portfolio Dashboard",
+      description: RAILWAY_INTERNAL_NOTE,
+      href: "#",
+      external: true,
+      comingSoon: true,
+    },
+    {
+      id: "scoring-algorithm",
+      name: "Scoring Algorithm Performance",
+      description: RAILWAY_INTERNAL_NOTE,
+      href: "#",
+      external: true,
+      comingSoon: true,
+    },
+  ],
+};
+
+/** Dashboards grouped under a subfolder within a category (e.g. a program cohort). */
+export const CATEGORY_GROUPS: Partial<Record<Category, DashboardGroup[]>> = {
+  europe: [
+    {
+      id: "menorca-26",
+      name: "Menorca 26",
+      dashboards: [
+        {
+          id: "nps",
+          name: "NPS Dashboard",
+          description: "Encuestas NPS del programa Menorca 26.",
+          href: "https://nps-forms-men26-production-b646.up.railway.app",
+          external: true,
+        },
+        {
+          id: "human-dd",
+          name: "Human Due Diligence Dashboard",
+          description: "Due diligence humana del programa Menorca 26.",
+          href: "https://men26olbibrsdashv1-production.up.railway.app",
+          external: true,
+        },
+      ],
     },
   ],
 };

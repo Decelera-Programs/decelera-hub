@@ -1,9 +1,10 @@
-import { CategoryDashboards } from "@/components/CategoryDashboards";
+import { GroupPicker } from "@/components/GroupPicker";
 import { Header } from "@/components/Header";
-import { CATEGORY_META } from "@/lib/dashboards";
+import { CATEGORY_GROUPS, CATEGORY_META } from "@/lib/dashboards";
 
 export default function EuropePage() {
   const meta = CATEGORY_META.europe;
+  const groups = CATEGORY_GROUPS.europe ?? [];
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-6 py-8">
@@ -13,7 +14,7 @@ export default function EuropePage() {
         subtitle={meta.description}
         showCustomerJourney={false}
       />
-      <CategoryDashboards category="europe" />
+      <GroupPicker category="europe" groups={groups} />
     </div>
   );
 }
