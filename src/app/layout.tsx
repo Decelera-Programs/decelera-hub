@@ -14,8 +14,8 @@ const taviraj = Taviraj({
 });
 
 export const metadata: Metadata = {
-  title: "Opencall México 2026 | Decelera",
-  description: "Dashboard de seguimiento de la opencall México 2026 de Decelera",
+  title: "Panel de control | Decelera",
+  description: "Panel de control de dashboards de Decelera: Europe, Americas y Operational.",
 };
 
 export default function RootLayout({

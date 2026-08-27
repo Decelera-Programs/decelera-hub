@@ -1,43 +1,63 @@
 /* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { CustomerJourneyButton } from "./CustomerJourneyButton";
 
 const NAV_LINK_CLASS =
-  "inline-flex items-center rounded-full border px-4 py-2 text-sm font-medium transition-colors";
+  "inline-flex items-center rounded-full border border-[var(--border)] bg-[var(--surface-1)] px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--row-hover)]";
 
-export function Header({ active = "dashboard" }: { active?: "dashboard" | "maru" }) {
+export type PageKey =
+  | "hub"
+  | "europe"
+  | "americas"
+  | "operational"
+  | "opencall-mexico"
+  | "maru";
+
+const BACK_LINKS: Record<PageKey, { label: string; href: string }[]> = {
+  hub: [],
+  europe: [{ label: "← Panel de control", href: "/" }],
+  americas: [{ label: "← Panel de control", href: "/" }],
+  operational: [{ label: "← Panel de control", href: "/" }],
+  "opencall-mexico": [
+    { label: "← Operational", href: "/operational" },
+    { label: "Canal Maru", href: "/maru" },
+  ],
+  maru: [
+    { label: "← Operational", href: "/operational" },
+    { label: "Opencall México 2026", href: "/opencall-mexico" },
+  ],
+};
+
+export function Header({
+  active,
+  title,
+  subtitle,
+  showCustomerJourney = true,
+}: {
+  active: PageKey;
+  title: string;
+  subtitle?: ReactNode;
+  showCustomerJourney?: boolean;
+}) {
   return (
     <header className="flex flex-wrap items-start justify-between gap-4">
       <div className="flex flex-wrap items-start gap-4">
         <img src="/decelera-mark.svg" alt="Decelera" className="mt-1 h-10 w-10 shrink-0" />
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-[var(--text-primary)] sm:text-3xl">
-            Opencall México 2026
+            {title}
           </h1>
-          <p className="max-w-2xl text-sm text-[var(--text-secondary)]">
-            Seguimiento del deal flow de Attio (stages <em>Mexico 2026</em> y{" "}
-            <em>Leads Mexico 2026</em>): cuántas startups entran por cada canal y hasta dónde
-            avanzan en el funnel.
-          </p>
+          {subtitle && <p className="max-w-2xl text-sm text-[var(--text-secondary)]">{subtitle}</p>}
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        {active === "maru" ? (
-          <Link
-            href="/"
-            className={`${NAV_LINK_CLASS} border-[var(--border)] bg-[var(--surface-1)] text-[var(--text-primary)] hover:bg-[var(--row-hover)]`}
-          >
-            ← Dashboard
+        {BACK_LINKS[active].map((item) => (
+          <Link key={item.href} href={item.href} className={NAV_LINK_CLASS}>
+            {item.label}
           </Link>
-        ) : (
-          <Link
-            href="/maru"
-            className={`${NAV_LINK_CLASS} border-[var(--border)] bg-[var(--surface-1)] text-[var(--text-primary)] hover:bg-[var(--row-hover)]`}
-          >
-            Canal Maru
-          </Link>
-        )}
-        <CustomerJourneyButton />
+        ))}
+        {showCustomerJourney && <CustomerJourneyButton />}
       </div>
     </header>
   );
