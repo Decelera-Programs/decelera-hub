@@ -465,6 +465,33 @@ function buildApplicationsBreakdown(deals: Deal[]): ApplicationsBreakdown {
   };
 }
 
+export interface KilledReasonBreakdown {
+  total: number;
+  reasons: { label: string; count: number }[];
+}
+
+/** Attio's "Killed reason" picklist, in the order they're shown. */
+const KILLED_REASON_VALUES = [
+  "Did not answer",
+  "Not interested",
+  "Tesis",
+  "Screening conviction",
+  "Pre-comitee",
+  "Stand by",
+] as const;
+
+/** How every Killed deal's reason breaks down — all Killed deals, not just those killed before Qualified (contrast `buildApplicationsBreakdown`). */
+export function buildKilledReasonBreakdown(deals: Deal[]): KilledReasonBreakdown {
+  const killed = deals.filter((d) => d.status === "Killed");
+  const reasons: { label: string; count: number }[] = KILLED_REASON_VALUES.map((label) => ({
+    label,
+    count: killed.filter((d) => d.killedReason === label).length,
+  }));
+  const otherCount = killed.length - reasons.reduce((sum, r) => sum + r.count, 0);
+  if (otherCount > 0) reasons.push({ label: "Sin razón registrada", count: otherCount });
+  return { total: killed.length, reasons: reasons.sort((a, b) => b.count - a.count) };
+}
+
 /**
  * "Leads Contacted" (every lead, whatever the source) feeds "Aplicaciones" (form fill or an
  * actual videocall — see `isApplication`), which feeds the usual pipeline stages. Qualified/In
