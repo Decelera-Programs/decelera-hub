@@ -547,6 +547,20 @@ export function buildContactStatusCounts(deals: Deal[]): ContactStatusCounts {
   };
 }
 
+export interface GateOutMetric {
+  /** Deals that reached "In play" or beyond — i.e. we actually had the call + analysis. */
+  spoke: number;
+  base: number;
+  pct: number | null;
+}
+
+/** Conversion from raw volume to an actual human touchpoint (In play = call + analysis done). */
+export function gateOutMetric(deals: Deal[]): GateOutMetric {
+  const base = deals.length;
+  const spoke = deals.filter((d) => rank(d.lastPipelineStage) >= rank("In play")).length;
+  return { spoke, base, pct: base > 0 ? Math.round((spoke / base) * 100) : null };
+}
+
 export interface BestChannelResult {
   label: string;
   count: number;

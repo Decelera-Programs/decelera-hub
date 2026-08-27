@@ -1,7 +1,11 @@
 /* eslint-disable @next/next/no-img-element */
+import Link from "next/link";
 import { CustomerJourneyButton } from "./CustomerJourneyButton";
 
-export function Header() {
+const NAV_LINK_CLASS =
+  "inline-flex items-center rounded-full border px-4 py-2 text-sm font-medium transition-colors";
+
+export function Header({ active = "dashboard" }: { active?: "dashboard" | "maru" }) {
   return (
     <header className="flex flex-wrap items-start justify-between gap-4">
       <div className="flex flex-wrap items-start gap-4">
@@ -17,7 +21,24 @@ export function Header() {
           </p>
         </div>
       </div>
-      <CustomerJourneyButton />
+      <div className="flex flex-wrap items-center gap-2">
+        {active === "maru" ? (
+          <Link
+            href="/"
+            className={`${NAV_LINK_CLASS} border-[var(--border)] bg-[var(--surface-1)] text-[var(--text-primary)] hover:bg-[var(--row-hover)]`}
+          >
+            ← Dashboard
+          </Link>
+        ) : (
+          <Link
+            href="/maru"
+            className={`${NAV_LINK_CLASS} border-[var(--border)] bg-[var(--surface-1)] text-[var(--text-primary)] hover:bg-[var(--row-hover)]`}
+          >
+            Canal Maru
+          </Link>
+        )}
+        <CustomerJourneyButton />
+      </div>
     </header>
   );
 }
