@@ -139,6 +139,9 @@ export const SELECTED_GOALS: Record<string, number> = {
 /** % benchmark de eficiencia de canal (In play ÷ Contacted) — pendiente de definir. */
 export const CHANNEL_EFFICIENCY_BENCHMARK_PCT: number | null = null;
 
+/** The value of the "Program" field that means participation is actually confirmed, not just a possibility. */
+const PROGRAM_CONFIRMED_VALUE = "Inversión Pre-Program";
+
 /** Below this many "Contacted", an efficiency rate is an anecdote, not a rate. */
 export const MIN_SAMPLE_FOR_EFFICIENCY = 10;
 
@@ -152,6 +155,10 @@ export interface FunnelMatrixRow {
   /** How many deals in this row have a "Tier 1" form score. */
   tier1: number;
   total: number;
+  /** Same definition as `isApplication` — form fill or completed videocall. */
+  applications: number;
+  /** "Invested" in the pipeline AND program participation confirmed — same bar as the Contract Signed funnel stage. */
+  investedConfirmed: number;
   /** Breakdown by raw `reference_3` source — only populated when the row mixes 2+ distinct sources. */
   subRows: FunnelMatrixRow[];
   /** Target from the goals sheet — null when this row has no defined objective. */
@@ -188,6 +195,8 @@ function buildRow(
     stageCounts,
     tier1: deals.filter((d) => d.formScore.tier === "Tier 1").length,
     total: deals.length,
+    applications: deals.filter(isApplication).length,
+    investedConfirmed: deals.filter((d) => d.status === "Invested" && d.programStatus === PROGRAM_CONFIRMED_VALUE).length,
     subRows: [],
     goal: CHANNEL_GOALS[key] ?? null,
     tier1Goal: TIER1_GOALS[key] ?? null,
@@ -401,9 +410,6 @@ const STAGE_DESCRIPTION: Record<string, string> = {
   "Pre-committee": "Presentadas al comité de inversión para la decisión de invertir/programa/kill.",
   Invested: "Decelera invirtió y la participación en el programa está confirmada — no basta con estar marcada \"Invested\" en el pipeline.",
 };
-
-/** The value of the "Program" field that means participation is actually confirmed, not just a possibility. */
-const PROGRAM_CONFIRMED_VALUE = "Inversión Pre-Program";
 
 const ABSOLUTE_FUNNEL_STAGES: { key: PipelineStatus; label: string }[] = [
   { key: "Qualified", label: "Cualificadas" },
