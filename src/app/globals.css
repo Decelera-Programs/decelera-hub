@@ -54,9 +54,19 @@
   /* Soft tints for pill badges and alert banners — same hues as the status colors above. */
   --pill-good-bg: rgba(30, 158, 82, 0.14);
   --pill-critical-bg: rgba(229, 62, 62, 0.14);
+  --pill-neutral-bg: color-mix(in srgb, var(--text-muted) 14%, transparent);
   --warning-bg: #fef3c7;
   --warning-border: #fde68a;
   --warning-fg: #92400e;
+
+  /* Hub tool tiles — soft tint + ink per category, derived from existing brand/series
+     tokens via color-mix so they follow automatically in dark mode. */
+  --tile-1-bg: color-mix(in srgb, var(--series-1) 14%, transparent);
+  --tile-1-ink: var(--series-1);
+  --tile-2-bg: color-mix(in srgb, var(--series-2) 16%, transparent);
+  --tile-2-ink: var(--series-2);
+  --tile-3-bg: color-mix(in srgb, var(--status-warning) 16%, transparent);
+  --tile-3-ink: var(--status-warning);
 
   --background: var(--page);
   --foreground: var(--text-primary);
