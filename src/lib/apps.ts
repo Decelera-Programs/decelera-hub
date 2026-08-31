@@ -38,8 +38,18 @@ export const hubApps: HubApp[] = [
     status: "live",
     meta: "Datos en vivo",
   },
+  {
+    slug: "motor-operativo",
+    initial: "CP",
+    title: "Control Panel",
+    description: "KPIs operativos por fondo: DV-I (Menorca) y DV-AM (LATAM).",
+    href: "/motor-operativo",
+    category: "Dashboard",
+    status: "live",
+    meta: "Snapshot manual",
+  },
 ];
 
 // Número de tiles "próximamente" genéricos para comunicar que el hub va a crecer.
 // No participan en la búsqueda ni en los filtros de categoría.
-export const COMING_SOON_SLOTS = 2;
+export const COMING_SOON_SLOTS = 1;

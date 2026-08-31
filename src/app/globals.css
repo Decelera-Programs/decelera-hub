@@ -68,6 +68,10 @@
   --tile-3-bg: color-mix(in srgb, var(--status-warning) 16%, transparent);
   --tile-3-ink: var(--status-warning);
 
+  /* Informational (not live data) — brand sun, muted for text-on-light contrast. */
+  --info-fg: #8a5a12;
+  --pill-info-bg: rgba(255, 185, 80, 0.22);
+
   --background: var(--page);
   --foreground: var(--text-primary);
 }
@@ -111,6 +115,9 @@
     --status-good: #4ade80;
     --status-warning: #f0924a;
     --status-critical: #e66767;
+
+    --info-fg: #ffb950;
+    --pill-info-bg: rgba(255, 185, 80, 0.18);
 
     --background: var(--page);
     --foreground: var(--text-primary);
