@@ -9,13 +9,14 @@ import { ROW_COLOR } from "@/lib/colors";
 import type { Deal } from "@/lib/types";
 
 /**
- * Table columns. "Entrada" fusiona Leads Contacted + Aplicaciones en una sola columna (dos
- * números) — son el tope de embudo, no cuentas garantizadas ≤ la siguiente (una startup puede
- * llegar a Cualificadas sin haber rellenado formulario ni tenido videollamada, vía revisión
- * manual). El resto sí es el mismo funnel acumulado, en el mismo orden, que "Funnel —
- * supervivencia absoluta" arriba.
+ * Table columns. "Leads contactados" y "Aplicaciones" son el tope de embudo: Aplicaciones es un
+ * subconjunto de los contactados (mismo criterio que la barra azul del funnel de arriba), NO una
+ * etapa del funnel — puede quedar por debajo de "Cualificadas" porque una startup puede llegar a
+ * Cualificadas sin rellenar formulario ni tener videollamada (revisión manual). Por eso la
+ * columna Aplicaciones va atenuada. De "Cualificadas" en adelante sí es el mismo funnel
+ * acumulado, en el mismo orden, que "Funnel — supervivencia absoluta" arriba.
  */
-type TableStageKey = "Entrada" | "Qualified" | "InPlay" | "PreCommittee" | "ContractSigned";
+type TableStageKey = "LeadsContacted" | "Aplicaciones" | "Qualified" | "InPlay" | "PreCommittee" | "ContractSigned";
 
 interface TableStageDef {
   key: TableStageKey;
@@ -23,11 +24,18 @@ interface TableStageDef {
   hint: string;
 }
 
+const APP_COL_BG = "color-mix(in srgb, var(--series-1) 7%, transparent)";
+
 const TABLE_STAGES: TableStageDef[] = [
   {
-    key: "Entrada",
-    label: "Entrada",
-    hint: "Leads contactados · de ellos, cuántos son aplicación (formulario rellenado o videollamada) — toca/haz clic para el desglose",
+    key: "LeadsContacted",
+    label: "Leads contactados",
+    hint: "Total contactados alguna vez — toca/haz clic en una celda para el desglose",
+  },
+  {
+    key: "Aplicaciones",
+    label: "Aplicaciones",
+    hint: "De los contactados, cuántos son aplicación (formulario rellenado o videollamada). Subconjunto del total, no una etapa del funnel: puede quedar por debajo de Cualificadas.",
   },
   { key: "Qualified", label: "Cualificadas", hint: "Pasó el primer filtro de calidad" },
   { key: "InPlay", label: "In play", hint: "En proceso activo de evaluación" },
@@ -35,7 +43,7 @@ const TABLE_STAGES: TableStageDef[] = [
   { key: "ContractSigned", label: "Contract Signed", hint: "Decelera invirtió y la participación en el programa está confirmada" },
 ];
 
-/** Builds the "still pending vs. moved on" breakdown shown on hover over a row's Entrada cell. */
+/** Builds the "still pending vs. moved on" breakdown shown on hover over a row's Leads contactados cell. */
 function contactedTooltipContent(row: FunnelMatrixRow): { header: string; lines: string[] } {
   const { pending, progressed, killedDidNotAnswer, killedNotInterested, killedOtherReason, notQualified } =
     row.applicationsBreakdown;
@@ -60,7 +68,7 @@ function contactedTooltipContent(row: FunnelMatrixRow): { header: string; lines:
  * vertical overflow to clip too — a `position: fixed` popover isn't laid out against it).
  * Closes on an outside click/tap or Escape.
  */
-function EntradaCell({
+function ContactedCell({
   row,
   isTotal,
 }: {
@@ -102,8 +110,7 @@ function EntradaCell({
         setRect((prev) => (prev ? null : e.currentTarget.getBoundingClientRect()));
       }}
     >
-      <span className="tabular-nums">{row.stageCounts.Contacted}</span>
-      <span className="text-[var(--text-muted)]"> · {row.applications} app</span>
+      {row.stageCounts.Contacted}
       {rect && (
         <div
           role="tooltip"
@@ -280,10 +287,12 @@ function ConversionRow({
         </span>
       </td>
       {TABLE_STAGES.map((stage) => {
-        if (stage.key === "Entrada") return <EntradaCell key={stage.key} row={row} isTotal={isTotal} />;
+        if (stage.key === "LeadsContacted") return <ContactedCell key={stage.key} row={row} isTotal={isTotal} />;
 
-        const value =
-          stage.key === "Qualified"
+        const isApps = stage.key === "Aplicaciones";
+        const value = isApps
+          ? row.applications
+          : stage.key === "Qualified"
             ? row.stageCounts.Qualified
             : stage.key === "InPlay"
               ? row.stageCounts["In play"]
@@ -294,8 +303,8 @@ function ConversionRow({
         return (
           <td
             key={stage.key}
-            className="px-3 py-2.5 text-center tabular-nums text-[var(--text-primary)]"
-            style={isTotal ? { fontWeight: 600 } : undefined}
+            className={`px-3 py-2.5 text-center tabular-nums ${isApps ? "text-[var(--text-secondary)]" : "text-[var(--text-primary)]"}`}
+            style={{ ...(isApps ? { background: APP_COL_BG } : {}), ...(isTotal ? { fontWeight: 600 } : {}) }}
           >
             {value}
             {stage.key === "PreCommittee" && (
@@ -375,6 +384,7 @@ export function FunnelTable({ deals, showGoals = false }: { deals: Deal[]; showG
                   key={stage.key}
                   title={stage.hint}
                   className="cursor-help px-3 py-2 text-center font-medium text-[var(--text-secondary)]"
+                  style={stage.key === "Aplicaciones" ? { background: APP_COL_BG } : undefined}
                 >
                   {stage.label}
                 </th>
@@ -441,14 +451,13 @@ export function FunnelTable({ deals, showGoals = false }: { deals: Deal[]; showG
         </table>
       </div>
       <p className="text-xs text-[var(--text-muted)]">
-        &ldquo;Entrada&rdquo; junta dos números: leads contactados alguna vez, y de ellos cuántos
-        son aplicación (formulario rellenado o videollamada) — es el tope de embudo, no una etapa
-        del funnel: una startup puede llegar a &ldquo;Cualificadas&rdquo; sin ser aplicación (el
-        equipo la movió a mano tras revisarla), así que &ldquo;Cualificadas&rdquo; no tiene por qué
-        ser menor o igual que la parte de aplicación de &ldquo;Entrada&rdquo;. Toca o haz clic en la
-        celda para ver cuántas de esa fila siguen en Contacted sin avanzar todavía, frente a las que
-        ya progresaron o murieron (y por qué). De &ldquo;Cualificadas&rdquo; en adelante sí son las
-        mismas etapas, en el mismo orden, que el &ldquo;Funnel — supervivencia absoluta&rdquo; de
+        &ldquo;Leads contactados&rdquo; es el total de la fila; toca o haz clic en la celda para ver
+        cuántos siguen en Contacted sin avanzar, frente a los que ya progresaron o murieron (y por
+        qué). &ldquo;Aplicaciones&rdquo; (columna atenuada) es cuántos de esos contactados rellenaron
+        formulario o tuvieron videollamada — un subconjunto del total, no una etapa del funnel: puede
+        quedar por debajo de &ldquo;Cualificadas&rdquo; porque una startup puede pasar a Cualificadas
+        sin aplicar (revisión manual del equipo). De &ldquo;Cualificadas&rdquo; en adelante sí son
+        las mismas etapas, en el mismo orden, que el &ldquo;Funnel — supervivencia absoluta&rdquo; de
         arriba. Cada celda cuenta startups que llegaron a esa etapa o más
         allá — incluye a las que después murieron, contando hasta dónde llegaron antes de caer.
         Esto significa que, por ejemplo, las startups de Maru que llegaron a &ldquo;In

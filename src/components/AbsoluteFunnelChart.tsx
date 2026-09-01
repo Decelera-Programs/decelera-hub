@@ -56,32 +56,60 @@ function HoverTooltip({ description, lines }: { description: string; lines: stri
 
 export function AbsoluteFunnelChart({ deals, showGoal }: { deals: Deal[]; showGoal: boolean }) {
   const { stages, total, selectedGoal } = buildAbsoluteFunnel(deals);
+  // "Aplicaciones" ya no es una fila propia: se dibuja como el tramo relleno de la barra de
+  // "Leads Contacted" para dejar claro que es un subconjunto del total, no una etapa aparte.
+  const appCount = stages.find((s) => s.key === "Aplicaciones")?.count ?? 0;
+  const rows = stages.filter((s) => s.key !== "Aplicaciones");
+  const appPct = total > 0 ? Math.round((appCount / total) * 100) : 0;
 
   return (
     <ChartCard title="Funnel — supervivencia absoluta" subtitle="¿Cuántos avanzan en cada gate?">
       <div className="flex flex-col gap-3">
-        {stages.map((stage, index) => {
+        {rows.map((stage, index) => {
+          const isContacted = stage.key === "Leads Contacted";
           const widthPct = total > 0 ? Math.max((stage.count / total) * 100, stage.count > 0 ? 6 : 0) : 0;
           const isSelected = stage.key === "Invested";
           const tooltip = stageTooltipContent(stage);
-          const prevStage = index > 0 ? stages[index - 1] : null;
+          const prevStage = index > 0 ? rows[index - 1] : null;
 
           return (
             <div key={stage.key} className="flex items-center gap-3">
               <span className="w-24 shrink-0 text-sm text-[var(--text-secondary)]">{stage.label}</span>
               <div className="group relative flex-1 cursor-help">
-                <div className="relative h-9 overflow-hidden rounded-lg" style={{ background: "var(--gridline)" }}>
-                  <div
-                    className="flex h-full items-center rounded-lg px-3 text-sm font-semibold text-white"
-                    style={{ width: `${widthPct}%`, background: "linear-gradient(90deg, var(--series-1), var(--series-2))" }}
-                  >
-                    {stage.count}
-                  </div>
+                <div className="relative flex h-9 overflow-hidden rounded-lg" style={{ background: "var(--gridline)" }}>
+                  {isContacted ? (
+                    <>
+                      <div
+                        className="flex h-full items-center px-3 text-sm font-semibold text-white"
+                        style={{ width: `${appPct}%`, background: "var(--series-1)" }}
+                        title={`Aplicaciones: ${appCount}`}
+                      >
+                        {appCount}
+                      </div>
+                      <div
+                        className="flex h-full flex-1 items-center justify-end px-3 text-sm font-semibold"
+                        style={{ background: "var(--series-other)", color: "var(--text-primary)" }}
+                      >
+                        {stage.count}
+                      </div>
+                    </>
+                  ) : (
+                    <div
+                      className="flex h-full items-center rounded-lg px-3 text-sm font-semibold text-white"
+                      style={{ width: `${widthPct}%`, background: "linear-gradient(90deg, var(--series-1), var(--series-2))" }}
+                    >
+                      {stage.count}
+                    </div>
+                  )}
                 </div>
                 <HoverTooltip description={tooltip.description} lines={tooltip.lines} />
               </div>
               <span className="w-28 shrink-0 text-right text-xs">
-                {isSelected && showGoal ? (
+                {isContacted ? (
+                  <span className="text-[var(--text-muted)]">
+                    {appCount} aplican ({appPct}%)
+                  </span>
+                ) : isSelected && showGoal ? (
                   <span
                     className="font-medium"
                     style={{ color: stage.count >= selectedGoal ? "var(--status-good)" : "var(--status-critical)" }}
@@ -101,9 +129,11 @@ export function AbsoluteFunnelChart({ deals, showGoal }: { deals: Deal[]; showGo
         })}
       </div>
       <p className="text-xs text-[var(--text-muted)]">
-        Cuántos de la etapa anterior avanzaron a esta, en número (no %) — así no se esconde el
-        colapso real del embudo detrás de una barra reescalada al 100%. Pasa el cursor sobre una
-        barra para ver su descripción y desglose.
+        La primera barra es el total de leads contactados; el tramo en azul son las{" "}
+        <strong>aplicaciones</strong> (formulario rellenado o videollamada), un subconjunto del
+        total. De ahí hacia abajo, cada barra es cuántos llegaron a esa etapa o más allá, en número
+        (no %), para no esconder el colapso real del embudo. Pasa el cursor sobre una barra para ver
+        su descripción y desglose.
       </p>
     </ChartCard>
   );
