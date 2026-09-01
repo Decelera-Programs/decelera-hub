@@ -41,6 +41,13 @@ export interface RawDeal {
    * than delimited text, and `transform.ts`'s `asText` handles either shape safely.
    */
   tier_1_ok: string | string[] | null;
+  /**
+   * Attio "Problem" — el primer campo largo del formulario de aplicación. Se usa solo como señal
+   * de "rellenó el formulario" (ver `Deal.hasApplicationForm`): cubre el 100% de los deals que
+   * tienen algún campo crudo del form, y a diferencia de `form_sumary`/`form_score` (que los
+   * genera el equipo al revisar) está desde que el founder envía la aplicación.
+   */
+  problem: string | null;
 }
 
 /** -1 = antes del inicio de la opencall, 1/2/3… = semana N desde el inicio, null = sin fecha. */
@@ -90,6 +97,16 @@ export interface Deal {
   contactStatus: string | null;
   /** Attio "Program" — set once program participation is actually confirmed ("Inversión Pre-Program"), distinct from the pipeline status reaching "Invested". Null if unset. */
   programStatus: string | null;
-  /** True if an analyst flagged this deal Tier 1 via signals (Attio "Tier 1 - OK"), independent of the form-score tier. */
+  /**
+   * True si un analista marcó el deal Tier 1 vía señales (Attio "Tier 1 - OK"), aparte del tier
+   * del formulario. Actualmente NO se usa: "Tier 1" = `formScore.tier === "Tier 1"` y nada más
+   * (decisión de Carlos, sept 2026). Se mantiene sincronizado por si se reactiva.
+   */
   tier1SignalOk: boolean;
+  /**
+   * True si el founder envió el formulario de aplicación (campo `problem` presente). Señal real de
+   * "aplicó", independiente de `stage` (un aplicante vía Maru queda en `stage="Leads Mexico 2026"`)
+   * y de `formScore`/`form_sumary` (resumen que genera el equipo al revisar, no siempre existe).
+   */
+  hasApplicationForm: boolean;
 }

@@ -2,7 +2,7 @@
 
 import { Area, AreaChart, CartesianGrid, Line, LineChart, ReferenceDot, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { ChartCard } from "./ChartCard";
-import { buildApplicationsOverTime, buildPaceVsPlan, CHANNEL_GOALS, TIER1_GOALS } from "@/lib/aggregate";
+import { buildApplicationsOverTime, buildPaceVsPlan, CHANNEL_GOALS, isTier1, TIER1_GOALS } from "@/lib/aggregate";
 import type { Deal } from "@/lib/types";
 
 const TOTAL_GOAL = CHANNEL_GOALS.TOTAL;
@@ -58,7 +58,17 @@ function OverTimeTooltip({
   );
 }
 
-function PaceVsPlanChart({ deals, goal, tier1Only }: { deals: Deal[]; goal: number; tier1Only: boolean }) {
+function PaceVsPlanChart({
+  deals,
+  goal,
+  tier1Only,
+  baseLabel,
+}: {
+  deals: Deal[];
+  goal: number;
+  tier1Only: boolean;
+  baseLabel: string;
+}) {
   const pace = buildPaceVsPlan(deals, goal);
   const { points, planPoints, totalDays, todayDay, todayReal, todayPlan, gap, actualPacePerWeek, requiredPacePerWeek } = pace;
 
@@ -76,12 +86,12 @@ function PaceVsPlanChart({ deals, goal, tier1Only }: { deals: Deal[]; goal: numb
   return (
     <ChartCard
       title="Ritmo vs objetivo"
-      subtitle={`¿Llegamos a la meta de ${goal} ${tier1Only ? "Tier 1" : "aplicaciones"}?`}
+      subtitle={`¿Llegamos a la meta de ${goal} ${tier1Only ? "Tier 1" : baseLabel.toLowerCase()}?`}
     >
       <div className="flex flex-wrap gap-4 text-xs text-[var(--text-secondary)]">
         <span className="flex items-center gap-1.5">
           <span aria-hidden className="inline-block h-2 w-2 rounded-full" style={{ background: "var(--series-1)" }} />
-          {tier1Only ? "Tier 1 acumuladas (real)" : "Aplicaciones acumuladas (real)"}
+          {tier1Only ? "Tier 1" : baseLabel} acumuladas (real)
         </span>
         <span className="flex items-center gap-1.5">
           <span aria-hidden className="inline-block h-2 w-2 rounded-full" style={{ background: "var(--text-muted)" }} />
@@ -154,7 +164,7 @@ function PaceVsPlanChart({ deals, goal, tier1Only }: { deals: Deal[]; goal: numb
       </div>
       <div className="grid grid-cols-2 gap-4 text-sm">
         <div>
-          <p className="text-xs text-[var(--text-muted)]">Aplicaciones / semana (real)</p>
+          <p className="text-xs text-[var(--text-muted)]">{tier1Only ? "Tier 1" : baseLabel} / semana (real)</p>
           <p className="text-lg font-semibold text-[var(--text-primary)]">{actualPacePerWeek.toFixed(1)}</p>
         </div>
         <div>
@@ -182,17 +192,20 @@ export function ApplicationsOverTimeChart({
   deals,
   showGoal = false,
   tier1Only = false,
+  baseLabel = "Aplicaciones",
 }: {
   deals: Deal[];
   showGoal?: boolean;
   tier1Only?: boolean;
+  baseLabel?: string;
 }) {
-  const scopedDeals = tier1Only ? deals.filter((d) => d.formScore.tier === "Tier 1") : deals;
+  const scopedDeals = tier1Only ? deals.filter(isTier1) : deals;
   const data = buildApplicationsOverTime(scopedDeals);
+  const title = `${baseLabel} en el tiempo`;
 
   if (data.length === 0) {
     return (
-      <ChartCard title="Aplicaciones en el tiempo" subtitle="Total acumulado por día de creación">
+      <ChartCard title={title} subtitle="Total acumulado por día de creación">
         <p className="text-sm text-[var(--text-muted)]">
           Ninguno de los deals en este filtro tiene fecha de creación.
         </p>
@@ -206,6 +219,7 @@ export function ApplicationsOverTimeChart({
         deals={scopedDeals}
         goal={tier1Only ? TIER1_TOTAL_GOAL : TOTAL_GOAL}
         tier1Only={tier1Only}
+        baseLabel={baseLabel}
       />
     );
   }
@@ -214,10 +228,8 @@ export function ApplicationsOverTimeChart({
 
   return (
     <ChartCard
-      title="Aplicaciones en el tiempo"
-      subtitle={
-        tier1Only ? "Total Tier 1 acumulado por día de creación" : "Total acumulado por día de creación"
-      }
+      title={title}
+      subtitle={`Total ${tier1Only ? "Tier 1 " : ""}acumulado por día de creación`}
     >
       <div className="h-64 w-full">
         <ResponsiveContainer width="100%" height="100%">

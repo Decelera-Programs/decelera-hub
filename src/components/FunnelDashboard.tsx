@@ -6,18 +6,23 @@ import { ApplicationsOverTimeChart } from "./ApplicationsOverTimeChart";
 import { FunnelTable } from "./FunnelTable";
 import { SummaryKpis } from "./SummaryKpis";
 import { WeeklyVolumeChart } from "./WeeklyVolumeChart";
+import { isApplication } from "@/lib/aggregate";
 import { computeWeek } from "@/lib/transform";
 import type { Deal } from "@/lib/types";
 
 type WeekOption = "all" | -1 | number;
 type ScopeOption = "all" | "tier1";
 type ViewMode = "total" | "currentAlive";
+type TrendBase = "applications" | "allLeads";
 
 const NO_OWNER = "Sin owner";
 const DEAD_STATUSES = ["Killed", "Not qualified"];
 
 const SCOPE_OPTIONS: ScopeOption[] = ["all", "tier1"];
 const SCOPE_LABEL: Record<ScopeOption, string> = { all: "Todas", tier1: "Tier 1" };
+
+const TREND_BASE_OPTIONS: TrendBase[] = ["applications", "allLeads"];
+const TREND_BASE_LABEL: Record<TrendBase, string> = { applications: "Aplicaciones", allLeads: "Leads totales" };
 
 const VIEW_MODE_OPTIONS: ViewMode[] = ["total", "currentAlive"];
 const VIEW_MODE_LABEL: Record<ViewMode, string> = { total: "Totales", currentAlive: "Currently Alive" };
@@ -136,6 +141,7 @@ export function FunnelDashboard({ deals }: { deals: Deal[] }) {
   const [selectedOwner, setSelectedOwner] = useState("all");
   const [tier1Only, setTier1Only] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("total");
+  const [trendBase, setTrendBase] = useState<TrendBase>("allLeads");
 
   const weekOptions = useMemo<WeekOption[]>(() => {
     const currentWeek = Math.max(0, computeWeek(new Date()).weekIndex ?? 0);
@@ -163,6 +169,11 @@ export function FunnelDashboard({ deals }: { deals: Deal[] }) {
 
   const filtered = aliveFiltered.filter((d) => selectedWeek === "all" || d.weekIndex === selectedWeek);
 
+  // Las dos gráficas de tendencia pueden mirar todos los leads captados o solo las aplicaciones
+  // reales (`isApplication`). En modo "Aplicaciones" no se enseña objetivo (aún sin definir).
+  const trendDeals = trendBase === "applications" ? aliveFiltered.filter(isApplication) : aliveFiltered;
+  const trendLabel = TREND_BASE_LABEL[trendBase];
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-1">
@@ -187,18 +198,39 @@ export function FunnelDashboard({ deals }: { deals: Deal[] }) {
         &ldquo;Total&rdquo; no filtran.
       </p>
       <AbsoluteFunnelChart deals={filtered} showGoal={true} />
-      <div className="flex items-center gap-2">
-        <span className="text-xs font-medium text-[var(--text-secondary)]">Alcance</span>
-        <TabGroup
-          options={SCOPE_OPTIONS}
-          selected={tier1Only ? "tier1" : "all"}
-          onSelect={(value) => setTier1Only(value === "tier1")}
-          label={(value) => SCOPE_LABEL[value]}
-        />
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium text-[var(--text-secondary)]">Alcance</span>
+          <TabGroup
+            options={SCOPE_OPTIONS}
+            selected={tier1Only ? "tier1" : "all"}
+            onSelect={(value) => setTier1Only(value === "tier1")}
+            label={(value) => SCOPE_LABEL[value]}
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium text-[var(--text-secondary)]">Base</span>
+          <TabGroup
+            options={TREND_BASE_OPTIONS}
+            selected={trendBase}
+            onSelect={setTrendBase}
+            label={(o) => TREND_BASE_LABEL[o]}
+          />
+        </div>
       </div>
+      <p className="text-xs text-[var(--text-muted)]">
+        {trendBase === "applications"
+          ? "Gráficas sobre las aplicaciones reales (formulario rellenado o videollamada). Sin objetivo por ahora."
+          : "Gráficas sobre todos los leads captados (leads + aplicaciones). Objetivo: meta combinada 2026."}
+      </p>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <WeeklyVolumeChart deals={aliveFiltered} tier1Only={tier1Only} />
-        <ApplicationsOverTimeChart deals={aliveFiltered} showGoal={true} tier1Only={tier1Only} />
+        <WeeklyVolumeChart deals={trendDeals} tier1Only={tier1Only} baseLabel={trendLabel} />
+        <ApplicationsOverTimeChart
+          deals={trendDeals}
+          showGoal={trendBase === "allLeads"}
+          tier1Only={tier1Only}
+          baseLabel={trendLabel}
+        />
       </div>
       <FunnelTable deals={filtered} showGoals={true} />
     </div>

@@ -2,7 +2,7 @@
 
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { ChartCard } from "./ChartCard";
-import { buildWeeklyVolume, ROW_LABEL, ROW_ORDER } from "@/lib/aggregate";
+import { buildWeeklyVolume, isTier1, ROW_LABEL, ROW_ORDER } from "@/lib/aggregate";
 import { ROW_COLOR } from "@/lib/colors";
 import type { Deal } from "@/lib/types";
 
@@ -37,18 +37,22 @@ function WeeklyTooltip({
   );
 }
 
-export function WeeklyVolumeChart({ deals, tier1Only = false }: { deals: Deal[]; tier1Only?: boolean }) {
-  const scopedDeals = tier1Only ? deals.filter((d) => d.formScore.tier === "Tier 1") : deals;
+export function WeeklyVolumeChart({
+  deals,
+  tier1Only = false,
+  baseLabel = "Aplicaciones",
+}: {
+  deals: Deal[];
+  tier1Only?: boolean;
+  baseLabel?: string;
+}) {
+  const scopedDeals = tier1Only ? deals.filter(isTier1) : deals;
   const data = buildWeeklyVolume(scopedDeals);
 
   return (
     <ChartCard
       title="Volumen semanal por canal"
-      subtitle={
-        tier1Only
-          ? "Deals Tier 1 creados por semana (no cambia con el filtro de semana)"
-          : "Deals creados por semana (no cambia con el filtro de semana)"
-      }
+      subtitle={`${baseLabel}${tier1Only ? " · solo Tier 1" : ""} creados por semana (no cambia con el filtro de semana)`}
     >
       <div className="h-64 w-full">
         <ResponsiveContainer width="100%" height="100%">

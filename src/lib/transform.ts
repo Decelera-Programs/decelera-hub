@@ -35,16 +35,6 @@ export function categorizeReference(reference: string | null): Channel {
   return REFERENCE_CHANNEL_MAP[reference] ?? "Otros";
 }
 
-/** Groups the raw Attio source labels by the channel they roll up into, for display in a legend. */
-export function buildChannelSources(): Record<Channel, string[]> {
-  const grouped: Record<Channel, string[]> = { Marketing: [], Referral: [], Outreach: [], Otros: [] };
-  for (const [source, channel] of Object.entries(REFERENCE_CHANNEL_MAP)) {
-    grouped[channel].push(source);
-  }
-  grouped.Otros.push("Sin fuente / no mapeada");
-  return grouped;
-}
-
 export const PIPELINE_ORDER: PipelineStatus[] = [
   "Contacted",
   "Qualified",
@@ -174,5 +164,6 @@ export function mapRawDeal(raw: RawDeal): Deal {
     contactStatus: asText(raw.contact_status),
     programStatus: asText(raw.program),
     tier1SignalOk: asText(raw.tier_1_ok) !== null,
+    hasApplicationForm: asText(raw.problem) !== null,
   };
 }

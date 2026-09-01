@@ -102,6 +102,22 @@ export const ROW_LABEL: Record<string, string> = Object.fromEntries(
 );
 
 /**
+ * Row key → qué valores de `reference_3` alimentan la fila, en texto plano. Vive aquí, pegado a
+ * `CONVERSION_ROWS`, para que si algún día cambia un `match` se actualice al lado. Es lo que
+ * renderiza `ChannelLegend`, así que la leyenda siempre describe exactamente las filas de la tabla.
+ */
+export const ROW_SOURCE_HINT: Record<string, string> = {
+  Referrals: 'Referral, Investor, Portfolio, Alumni, EM (+ "Mail from Decelera Team" con nota de persona)',
+  LinkedIn: "Contacted by LinkedIn, Decelera Team, Outbound",
+  Events: "Event",
+  Boardy: "Boardy",
+  OutboundEmailing: '"Mail from Decelera Team" sin nota de persona (mailing masivo real)',
+  Maru: "Maru",
+  Inbound: "Social media, Press, Google, Decelera Newsletter, startups@decelera",
+  Unclassified: '"Other", o sin fuente / no mapeada en Attio',
+};
+
+/**
  * Objetivos de la hoja de metas que compartió Carlos (columna "Mex '26 Applications"),
  * remapeados a las claves nuevas (Referral→Referrals, Outreach-Curado→LinkedIn,
  * Outreach-Event→Events, Outreach-MassMailing→OutboundEmailing, Outreach-Masivo→Maru).
@@ -147,6 +163,8 @@ export const MIN_SAMPLE_FOR_EFFICIENCY = 10;
 
 export interface FunnelMatrixRow {
   key: string;
+  /** Clave de `CONVERSION_ROWS` de la que sale el color de la fila — las filas de detalle por fuente y las sub-filas heredan la de su fila padre. */
+  colorKey: string;
   label: string;
   channel: Channel | null;
   group: CurationGroup | null;
@@ -178,7 +196,8 @@ function buildRow(
   label: string,
   channel: Channel | null,
   group: CurationGroup | null,
-  deals: Deal[]
+  deals: Deal[],
+  colorKey: string = key
 ): FunnelMatrixRow {
   const stageCounts = Object.fromEntries(
     PIPELINE_ORDER.map((stage) => [
@@ -189,11 +208,12 @@ function buildRow(
 
   return {
     key,
+    colorKey,
     label,
     channel,
     group,
     stageCounts,
-    tier1: deals.filter((d) => d.formScore.tier === "Tier 1").length,
+    tier1: deals.filter(isTier1).length,
     total: deals.length,
     applications: deals.filter(isApplication).length,
     investedConfirmed: deals.filter((d) => d.status === "Invested" && d.programStatus === PROGRAM_CONFIRMED_VALUE).length,
@@ -228,18 +248,28 @@ function groupBySourceLabel(deals: Deal[]): Map<string, Deal[]> {
 }
 
 /** One row per distinct raw `sourceLabel`, always — used where the group's own name is never a real source (Inbound/Other). */
-function buildSourceRows(channel: Channel | null, group: CurationGroup | null, deals: Deal[]): FunnelMatrixRow[] {
+function buildSourceRows(
+  channel: Channel | null,
+  group: CurationGroup | null,
+  deals: Deal[],
+  colorKey: string
+): FunnelMatrixRow[] {
   return Array.from(groupBySourceLabel(deals).entries())
     .map(([source, sourceDeals]) =>
-      buildRow(source, SOURCE_LABEL_OVERRIDES[source] ?? source, channel, group, sourceDeals)
+      buildRow(source, SOURCE_LABEL_OVERRIDES[source] ?? source, channel, group, sourceDeals, colorKey)
     )
     .sort((a, b) => b.total - a.total);
 }
 
 /** Splits a row's deals by raw `sourceLabel` — only worth showing when there's more than one distinct source. */
-function buildSourceSubRows(channel: Channel | null, group: CurationGroup | null, deals: Deal[]): FunnelMatrixRow[] {
+function buildSourceSubRows(
+  channel: Channel | null,
+  group: CurationGroup | null,
+  deals: Deal[],
+  colorKey: string
+): FunnelMatrixRow[] {
   if (groupBySourceLabel(deals).size < 2) return [];
-  return buildSourceRows(channel, group, deals);
+  return buildSourceRows(channel, group, deals, colorKey);
 }
 
 /** Funnel matrix: one row per conversion-table channel split (+ TOTAL), one column per live pipeline stage, plus Tier 1 and conversion-to-selection totals. */
@@ -251,11 +281,11 @@ export function buildFunnelMatrix(deals: Deal[]): FunnelMatrixRow[] {
     if (def.key === "Inbound" || def.key === "Unclassified") {
       // These are a bucket name, not a real source — always show the actual source(s), even if
       // there's only one, so the generic "Inbound"/"Other" label never appears in the table.
-      return buildSourceRows(def.channel, def.group, rowDeals);
+      return buildSourceRows(def.channel, def.group, rowDeals, def.key);
     }
 
     const row = buildRow(def.key, def.label, def.channel, def.group, rowDeals);
-    row.subRows = buildSourceSubRows(def.channel, null, rowDeals);
+    row.subRows = buildSourceSubRows(def.channel, null, rowDeals, def.key);
     return [row];
   });
 
@@ -397,9 +427,23 @@ export interface AbsoluteFunnel {
   selectedGoal: number;
 }
 
-/** A lead counts as an "Aplicación" once it's a real applicant, not just outreach: either it's in the Aplicaciones stage, or it actually got a videocall with the investment team. */
+/**
+ * Un deal cuenta como "Aplicación" cuando es un aplicante real, no solo outreach: o rellenó el
+ * formulario de aplicación (`hasApplicationForm`), o tuvo una videollamada con el equipo de
+ * inversión. No se usa `stage`: tras deduplicar los stubs de Maru, un aplicante que entró por
+ * Maru queda en `stage="Leads Mexico 2026"` aunque haya rellenado el formulario.
+ */
 export function isApplication(d: Deal): boolean {
-  return d.stage === "Mexico 2026" || d.contactStatus === "Videocall Done";
+  return d.hasApplicationForm || d.contactStatus === "Videocall Done";
+}
+
+/**
+ * "Tier 1" es exclusivamente `formScore.tier === "Tier 1"` (el tier calculado desde el
+ * formulario, columna `tier_5` de Attio). NO cuenta la señal manual de analista `tier1SignalOk`
+ * ("Tier 1 - OK"): decisión explícita de Carlos, sept 2026.
+ */
+export function isTier1(d: Deal): boolean {
+  return d.formScore.tier === "Tier 1";
 }
 
 const STAGE_DESCRIPTION: Record<string, string> = {
@@ -608,12 +652,9 @@ export function buildBestChannelByVolume(deals: Deal[]): BestChannelResult | nul
   return bestConversionRow(deals, () => true);
 }
 
-/**
- * Channel that brought in the most Tier 1 companies — counting Tier 1 either from the form
- * score, or from an analyst's screening signals ("Tier 1 - OK" in Attio), whichever flagged it.
- */
+/** Channel that brought in the most Tier 1 companies (`isTier1` — solo `formScore.tier === "Tier 1"`). */
 export function buildBestChannelByQuality(deals: Deal[]): BestChannelResult | null {
-  return bestConversionRow(deals, (d) => d.formScore.tier === "Tier 1" || d.tier1SignalOk);
+  return bestConversionRow(deals, isTier1);
 }
 
 export interface BestSourcerResult {

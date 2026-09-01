@@ -5,6 +5,7 @@ import {
   buildContactStatusCounts,
   CHANNEL_GOALS,
   isApplication,
+  isTier1,
 } from "@/lib/aggregate";
 import type { Deal } from "@/lib/types";
 
@@ -44,7 +45,7 @@ export function SummaryKpis({ deals, showGoal }: { deals: Deal[]; showGoal: bool
   const total = deals.length;
 
   const applicationsCount = deals.filter(isApplication).length;
-  const tier1Count = deals.filter((d) => d.formScore.tier === "Tier 1").length;
+  const tier1Count = deals.filter(isTier1).length;
 
   // La meta (1171) se definió para Leads + Aplicaciones combinados — comparar un subset
   // filtrado por stage contra la meta completa daría una desviación falsa.

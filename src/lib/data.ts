@@ -4,18 +4,25 @@ import { mapRawDeal } from "./transform";
 import type { RawDeal } from "./types";
 
 const DEAL_COLUMNS =
-  "record_id, name, stage, status, status_6, reference_3, created_at_entry, created_at_record, form_sumary, green_flags_form, tier_5, owner, referral, reconect, reason, contact_status, program, tier_1_ok";
+  "record_id, name, stage, status, status_6, reference_3, created_at_entry, created_at_record, form_sumary, green_flags_form, tier_5, owner, referral, reconect, reason, contact_status, program, tier_1_ok, problem";
 
 const OPENCALL_STAGES = ["Mexico 2026", "Leads Mexico 2026"];
 
+/**
+ * Vista `historico.deals_live` = `historico.deals WHERE deleted_at IS NULL` — refleja Attio hoy
+ * (excluye deals borrados/fusionados que el sync marca como soft-delete). La tabla base es el
+ * archivo histórico completo. Ver memoria "attio-sync-soft-delete".
+ */
+const DEALS_SOURCE = "deals_live";
+
 export async function getOpencallDeals() {
   const { data, error } = await historico
-    .from("deals")
+    .from(DEALS_SOURCE)
     .select(DEAL_COLUMNS)
     .in("stage", OPENCALL_STAGES);
 
   if (error) {
-    throw new Error(`Error consultando historico.deals: ${error.message}`);
+    throw new Error(`Error consultando historico.${DEALS_SOURCE}: ${error.message}`);
   }
 
   return (data as RawDeal[]).map(mapRawDeal);

@@ -1,20 +1,19 @@
-import { CHANNEL_COLOR, CHANNEL_ORDER } from "@/lib/colors";
-import { buildChannelSources } from "@/lib/transform";
+import { CONVERSION_ROWS, ROW_SOURCE_HINT } from "@/lib/aggregate";
+import { ROW_COLOR } from "@/lib/colors";
 
+/** One entry per row of the conversion table, describing which raw `reference_3` values feed it — same order, same colours as the table. */
 export function ChannelLegend() {
-  const sources = buildChannelSources();
-
   return (
     <dl className="flex flex-col gap-2 border-t border-[var(--gridline)] pt-3 text-xs sm:flex-row sm:flex-wrap sm:gap-x-6 sm:gap-y-2">
-      {CHANNEL_ORDER.map((channel) => (
-        <div key={channel} className="flex items-start gap-1.5">
+      {CONVERSION_ROWS.map((def) => (
+        <div key={def.key} className="flex items-start gap-1.5">
           <span
             aria-hidden
             className="mt-1 inline-block h-2 w-2 shrink-0 rounded-full"
-            style={{ background: CHANNEL_COLOR[channel] }}
+            style={{ background: ROW_COLOR[def.key] }}
           />
-          <dt className="font-medium text-[var(--text-secondary)]">{channel}:</dt>
-          <dd className="text-[var(--text-muted)]">{sources[channel].join(", ")}</dd>
+          <dt className="font-medium text-[var(--text-secondary)]">{def.label}:</dt>
+          <dd className="text-[var(--text-muted)]">{ROW_SOURCE_HINT[def.key]}</dd>
         </div>
       ))}
     </dl>
