@@ -177,7 +177,7 @@ export function HubHome({ apps }: { apps: HubApp[] }) {
       </header>
 
       <main className="mx-auto flex w-full max-w-[1320px] gap-8 px-6 pb-16 pt-10 lg:gap-10 lg:px-8">
-        <aside className="sticky top-28 hidden h-fit w-[172px] shrink-0 lg:-ml-4 lg:block xl:-ml-12">
+        <aside className="sticky top-28 hidden h-fit w-[172px] shrink-0 lg:-ml-[26px] lg:block xl:-ml-[58px]">
           <QuickLinksPanel />
         </aside>
 
