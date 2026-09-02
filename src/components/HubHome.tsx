@@ -1,7 +1,7 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element */
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { COMING_SOON_SLOTS, type HubApp } from "@/lib/apps";
 import { useHub } from "@/lib/useHub";
 import { IconTile, Label, SearchField, Star } from "./HubPrimitives";
@@ -29,6 +29,7 @@ export function HubHome({ apps }: { apps: HubApp[] }) {
     pinnedTools,
   } = useHub(apps);
   const searchRef = useRef<HTMLInputElement>(null);
+  const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -41,11 +42,30 @@ export function HubHome({ apps }: { apps: HubApp[] }) {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
+  // La barra superior está anclada (sticky); al hacer scroll "aterriza" sobre el contenido:
+  // gana fondo sólido, borde y sombra. Arriba del todo queda plana, sin materia.
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 4);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
   const filtering = query.trim() !== "" || category !== "Todos";
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[var(--page)] via-[var(--page)] to-[color-mix(in_srgb,var(--brand-water)_10%,var(--page))]">
-      <header className="sticky top-0 z-20 flex h-16 items-center gap-6 border-b border-[var(--border)] bg-[color-mix(in_srgb,var(--surface-1)_80%,transparent)] px-8 backdrop-blur-md">
+      <header
+        className="sticky top-0 z-30 flex h-16 items-center gap-6 px-8 transition-all duration-300 ease-out"
+        style={{
+          background: scrolled
+            ? "color-mix(in srgb, var(--surface-1) 92%, transparent)"
+            : "transparent",
+          backdropFilter: scrolled ? "blur(12px)" : "none",
+          borderBottom: `1px solid ${scrolled ? "var(--border)" : "transparent"}`,
+          boxShadow: scrolled ? "0 10px 30px -16px color-mix(in srgb, var(--brand-night) 45%, transparent)" : "none",
+        }}
+      >
         <div className="flex items-center gap-2.5">
           <img src="/decelera-mark.svg" alt="Decelera" className="h-7 w-7" />
           <div className="flex items-baseline gap-1.5">
