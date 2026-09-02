@@ -15,12 +15,16 @@ import { InvestmentTile } from "@/components/InvestmentTile";
 import { PendingTile } from "@/components/PendingTile";
 import { SnapshotBadge } from "@/components/SnapshotBadge";
 import { SquadSection } from "@/components/SquadSection";
+import { requireMember } from "@/lib/hub";
 
 export const metadata: Metadata = {
   title: "Control Panel | Decelera Hub",
 };
 
-export default function DvAmPage() {
+export const dynamic = "force-dynamic";
+
+export default async function DvAmPage() {
+  await requireMember();
   const meta = FUND_META["dv-am"];
 
   return (

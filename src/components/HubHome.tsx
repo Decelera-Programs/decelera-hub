@@ -4,6 +4,7 @@
 import { useEffect, useRef, useState } from "react";
 import { COMING_SOON_SLOTS, type HubApp } from "@/lib/apps";
 import { useHub } from "@/lib/useHub";
+import { AccountMenu, type AccountUser } from "./AccountMenu";
 import { IconTile, Label, SearchField, Star } from "./HubPrimitives";
 import { ComingSoonCard, ToolCard } from "./ToolCard";
 
@@ -104,7 +105,7 @@ function QuickLinksInline() {
   );
 }
 
-export function HubHome({ apps }: { apps: HubApp[] }) {
+export function HubHome({ apps, member }: { apps: HubApp[]; member: AccountUser }) {
   const {
     query,
     setQuery,
@@ -173,7 +174,7 @@ export function HubHome({ apps }: { apps: HubApp[] }) {
             inputRef={searchRef}
           />
         </div>
-        <div className="w-[180px]" aria-hidden />
+        <AccountMenu user={member} />
       </header>
 
       <main className="mx-auto flex w-full max-w-[1320px] gap-8 px-6 pb-16 pt-10 lg:gap-10 lg:px-8">

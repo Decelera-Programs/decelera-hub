@@ -27,6 +27,25 @@ Abre [http://localhost:3000](http://localhost:3000).
 desde Server Components / módulos server-only (`getOpencallDeals` en
 `src/lib/data.ts`). La key nunca llega al bundle del navegador.
 
+Ver `.env.local.example` para el resto: `SUPABASE_SERVICE_ROLE_KEY` (schema `hub`)
+y `AUTH_*` (NextAuth). Todas server-only.
+
+## Login (NextAuth + Google)
+
+El hub exige login con cuenta de Decelera (`@decelera.com` /
+`@decelerastartups.com`) vía **NextAuth v5** con Google — independiente de la Auth
+de Supabase. La sesión es un JWT en cookie; no hay tabla de sesiones.
+
+Los datos por usuario (miembros, favoritos, carpetas, visibilidad de apps) viven
+en el schema **`hub`** del mismo proyecto Supabase que `historico`. Ese schema
+tiene **RLS deny-all** (RLS activado, sin policies) y se accede solo desde el
+servidor con la **service-role key** (`src/lib/supabase/hub.ts`), que la salta.
+La autorización es 100% código: `src/lib/hub.ts` (`getMember` / `requireMember` /
+`requireAdmin`) — cada consulta a `hub` va scoped por el `id` del miembro.
+
+Alta de miembros: primer login con dominio válido → fila en `hub.members`
+(`role='member'`, `is_active=true`). Rol y bajas se editan a mano en Supabase.
+
 ## ⚠️ Nota de seguridad — RLS deshabilitado
 
 Las tablas del schema `historico` (incluida `deals`) tienen **Row Level Security

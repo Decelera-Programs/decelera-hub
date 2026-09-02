@@ -1,10 +1,12 @@
 import { Header } from "@/components/Header";
 import { MaruDashboard } from "@/components/MaruDashboard";
 import { getOpencallDeals } from "@/lib/data";
+import { requireMember } from "@/lib/hub";
 
 export const dynamic = "force-dynamic";
 
 export default async function MaruPage() {
+  await requireMember();
   const deals = await getOpencallDeals();
 
   return (
