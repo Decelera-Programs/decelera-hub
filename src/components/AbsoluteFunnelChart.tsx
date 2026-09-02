@@ -89,8 +89,9 @@ export function AbsoluteFunnelChart({ deals, showGoal }: { deals: Deal[]; showGo
                       <div
                         className="flex h-full flex-1 items-center justify-end px-3 text-sm font-semibold"
                         style={{ background: "var(--series-other)", color: "var(--text-primary)" }}
+                        title={`Leads sin aplicar: ${total - appCount}`}
                       >
-                        {stage.count}
+                        {total - appCount}
                       </div>
                     </>
                   ) : (
@@ -107,7 +108,7 @@ export function AbsoluteFunnelChart({ deals, showGoal }: { deals: Deal[]; showGo
               <span className="w-28 shrink-0 text-right text-xs">
                 {isContacted ? (
                   <span className="text-[var(--text-muted)]">
-                    {appCount} aplican ({appPct}%)
+                    {total} en total · {appPct}% aplican
                   </span>
                 ) : isSelected && showGoal ? (
                   <span
@@ -128,12 +129,27 @@ export function AbsoluteFunnelChart({ deals, showGoal }: { deals: Deal[]; showGo
           );
         })}
       </div>
+      <div className="flex flex-col gap-1 border-t border-[var(--gridline)] pt-2 text-xs text-[var(--text-secondary)]">
+        <span className="flex items-start gap-1.5">
+          <span aria-hidden className="mt-0.5 inline-block h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: "var(--series-1)" }} />
+          <span>
+            <strong>Aplicaciones</strong> — de los contactados, los que rellenaron el formulario de
+            aplicación o tuvieron una videollamada con el equipo de inversión.
+          </span>
+        </span>
+        <span className="flex items-start gap-1.5">
+          <span aria-hidden className="mt-0.5 inline-block h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: "var(--series-other)" }} />
+          <span>
+            <strong>Leads sin aplicar</strong> — el resto de contactados: sourcing / outreach que
+            nunca llegó a interactuar con el equipo.
+          </span>
+        </span>
+      </div>
       <p className="text-xs text-[var(--text-muted)]">
-        La primera barra es el total de leads contactados; el tramo en azul son las{" "}
-        <strong>aplicaciones</strong> (formulario rellenado o videollamada), un subconjunto del
-        total. De ahí hacia abajo, cada barra es cuántos llegaron a esa etapa o más allá, en número
-        (no %), para no esconder el colapso real del embudo. Pasa el cursor sobre una barra para ver
-        su descripción y desglose.
+        La primera barra es el total de leads contactados, partida en aplicaciones (azul) y leads sin
+        aplicar (gris). De ahí hacia abajo, cada barra es cuántos llegaron a esa etapa o más allá, en
+        número (no %), para no esconder el colapso real del embudo. Pasa el cursor sobre una barra
+        para ver su descripción y desglose.
       </p>
     </ChartCard>
   );
