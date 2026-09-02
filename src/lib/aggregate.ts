@@ -278,10 +278,17 @@ export function buildFunnelMatrix(deals: Deal[]): FunnelMatrixRow[] {
     const rowDeals = deals.filter(def.match);
     if (rowDeals.length === 0) return [];
 
-    if (def.key === "Inbound" || def.key === "Unclassified") {
-      // These are a bucket name, not a real source — always show the actual source(s), even if
-      // there's only one, so the generic "Inbound"/"Other" label never appears in the table.
+    if (def.key === "Inbound") {
+      // "Inbound" es un nombre de bucket, no una fuente real — se muestran las fuentes concretas
+      // (Social media, Press, Google, Newsletter, startups@decelera) aunque solo haya una, para
+      // que la etiqueta genérica "Inbound" nunca aparezca en la tabla.
       return buildSourceRows(def.channel, def.group, rowDeals, def.key);
+    }
+
+    if (def.key === "Unclassified") {
+      // Fila única "Other": incluye tanto `reference_3 = "Other"` como los deals sin fuente. No se
+      // desglosa — "sin fuente" no es una categoría que queramos ver como fila propia.
+      return [buildRow(def.key, def.label, def.channel, def.group, rowDeals)];
     }
 
     const row = buildRow(def.key, def.label, def.channel, def.group, rowDeals);
