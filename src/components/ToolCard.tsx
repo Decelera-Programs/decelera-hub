@@ -6,13 +6,18 @@ export function ToolCard({
   app,
   pinned,
   onTogglePin,
+  revealDelay = 0,
 }: {
   app: HubApp;
   pinned: boolean;
   onTogglePin: (slug: string) => void;
+  revealDelay?: number;
 }) {
   return (
-    <div className="card group relative flex min-h-[220px] flex-col gap-4 p-5 transition-all duration-150 hover:-translate-y-[3px] hover:shadow-lg">
+    <div
+      className="hub-card hub-reveal card group relative flex min-h-[224px] flex-col gap-4 p-5"
+      style={{ animationDelay: `${revealDelay}ms` }}
+    >
       <Link
         href={app.href}
         {...(app.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
@@ -22,7 +27,9 @@ export function ToolCard({
       </Link>
 
       <div className="relative z-10 flex items-start justify-between gap-3">
-        <IconTile category={app.category} initial={app.initial} />
+        <span className="hub-icon">
+          <IconTile category={app.category} initial={app.initial} />
+        </span>
         <div className="flex items-center gap-2.5">
           <StatusPill status={app.status} />
           <button
@@ -32,14 +39,14 @@ export function ToolCard({
               onTogglePin(app.slug);
             }}
             aria-label={pinned ? "Quitar de favoritos" : "Marcar como favorito"}
-            className="grid h-6 w-6 place-items-center"
+            className="grid h-6 w-6 place-items-center transition-transform hover:scale-125"
           >
             <Star active={pinned} />
           </button>
         </div>
       </div>
 
-      <div className="flex flex-1 flex-col gap-2">
+      <div className="relative z-10 flex flex-1 flex-col gap-2">
         <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">
           {app.category}
         </p>
@@ -47,8 +54,13 @@ export function ToolCard({
         <p className="text-sm leading-relaxed text-[var(--text-secondary)]">{app.description}</p>
       </div>
 
-      <div className="flex items-center justify-between border-t border-[var(--border)] pt-3.5">
-        <span className="text-sm font-semibold text-[var(--brand-sea)]">Abrir →</span>
+      <div className="relative z-10 flex items-center justify-between border-t border-[var(--border)] pt-3.5">
+        <span className="flex items-center gap-1 text-sm font-semibold text-[var(--brand-sea)]">
+          {app.external ? "Abrir en pestaña nueva" : "Abrir"}
+          <span aria-hidden className="hub-arrow">
+            {app.external ? "↗" : "→"}
+          </span>
+        </span>
         {app.meta && <span className="text-xs text-[var(--text-muted)]">{app.meta}</span>}
       </div>
     </div>
@@ -69,9 +81,12 @@ function PlusIcon() {
   );
 }
 
-export function ComingSoonCard() {
+export function ComingSoonCard({ revealDelay = 0 }: { revealDelay?: number }) {
   return (
-    <div className="flex min-h-[220px] flex-col gap-4 rounded-[20px] border border-dashed border-[var(--border)] p-5">
+    <div
+      className="hub-reveal flex min-h-[224px] flex-col gap-4 rounded-[20px] border border-dashed border-[var(--border)] p-5"
+      style={{ animationDelay: `${revealDelay}ms` }}
+    >
       <span
         className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-xl"
         style={{ background: "var(--pill-neutral-bg)", color: "var(--text-muted)" }}

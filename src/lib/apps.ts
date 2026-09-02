@@ -1,5 +1,6 @@
 export type AppStatus = "live" | "beta" | "soon";
 export type AppCategory = "Dashboard" | "Herramienta" | "Datos";
+export type AppGroup = "General View" | "Investment";
 
 export type HubApp = {
   slug: string;
@@ -8,11 +9,28 @@ export type HubApp = {
   description: string;
   href: string;
   category: AppCategory;
+  group: AppGroup;
   status: AppStatus;
   meta?: string;
   /** true si `href` apunta a una app externa — se abre en pestaña nueva. */
   external?: boolean;
 };
+
+/** Secciones de la home, en orden de aparición. Cada tarjeta declara su `group`. */
+export const HUB_GROUPS: { id: AppGroup; label: string; blurb: string; accent: string }[] = [
+  {
+    id: "General View",
+    label: "General View",
+    blurb: "Visión operativa transversal del equipo.",
+    accent: "var(--brand-water)",
+  },
+  {
+    id: "Investment",
+    label: "Investment",
+    blurb: "Deal flow, evaluación y decisión de inversión.",
+    accent: "var(--brand-sea)",
+  },
+];
 
 export const STATUS_LABEL: Record<AppStatus, string> = {
   live: "Activo",
@@ -37,6 +55,7 @@ export const hubApps: HubApp[] = [
       "Seguimiento del deal flow: canal de entrada, conversión por etapa del funnel y volumen semanal de aplicaciones.",
     href: "/opencall-mexico-2026",
     category: "Dashboard",
+    group: "Investment",
     status: "live",
     meta: "Datos en vivo",
   },
@@ -47,6 +66,7 @@ export const hubApps: HubApp[] = [
     description: "KPIs operativos por fondo: DV-I (Menorca) y DV-AM (LATAM).",
     href: "/motor-operativo",
     category: "Dashboard",
+    group: "General View",
     status: "live",
     meta: "Snapshot manual",
   },
@@ -57,6 +77,7 @@ export const hubApps: HubApp[] = [
     description: "Panel de administración de jueces: gestión de evaluadores y evaluaciones.",
     href: "https://judge-panel-production.up.railway.app/admin",
     category: "Herramienta",
+    group: "Investment",
     status: "live",
     meta: "App externa",
     external: true,
