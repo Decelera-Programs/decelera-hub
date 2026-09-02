@@ -15,8 +15,16 @@ const CATEGORY_TAB_LABEL: Record<string, string> = {
 };
 
 const EXTERNAL_LINKS: { name: string; href: string; icon: string }[] = [
-  { name: "Attio", href: "https://app.attio.com", icon: "https://attio.com/favicon.ico" },
-  { name: "Claude", href: "https://claude.ai", icon: "https://claude.ai/favicon.ico" },
+  {
+    name: "Attio",
+    href: "https://app.attio.com",
+    icon: "https://www.google.com/s2/favicons?domain=attio.com&sz=64",
+  },
+  {
+    name: "Claude",
+    href: "https://claude.ai",
+    icon: "https://www.google.com/s2/favicons?domain=claude.ai&sz=64",
+  },
 ];
 
 function LinkFavicon({ name, icon, size }: { name: string; icon: string; size: number }) {
@@ -168,8 +176,8 @@ export function HubHome({ apps }: { apps: HubApp[] }) {
         <div className="w-[180px]" aria-hidden />
       </header>
 
-      <main className="mx-auto flex w-full max-w-[1240px] gap-8 px-6 pb-16 pt-10 lg:gap-10 lg:px-8">
-        <aside className="sticky top-28 hidden h-fit w-[172px] shrink-0 lg:block">
+      <main className="mx-auto flex w-full max-w-[1320px] gap-8 px-6 pb-16 pt-10 lg:gap-10 lg:px-8">
+        <aside className="sticky top-28 hidden h-fit w-[172px] shrink-0 lg:-ml-4 lg:block xl:-ml-12">
           <QuickLinksPanel />
         </aside>
 
