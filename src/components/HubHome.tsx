@@ -7,8 +7,27 @@ import { useHub } from "@/lib/useHub";
 import { IconTile, Label, SearchField, Star } from "./HubPrimitives";
 import { ComingSoonCard, ToolCard } from "./ToolCard";
 
+const CATEGORY_TAB_LABEL: Record<string, string> = {
+  Todos: "Todos",
+  Dashboard: "Dashboards",
+  Herramienta: "Herramientas",
+  Datos: "Datos",
+};
+
 export function HubHome({ apps }: { apps: HubApp[] }) {
-  const { query, setQuery, groups, visibleCount, totalCount, togglePin, pinnedTools } = useHub(apps);
+  const {
+    query,
+    setQuery,
+    category,
+    setCategory,
+    categories,
+    counts,
+    groups,
+    visibleCount,
+    totalCount,
+    togglePin,
+    pinnedTools,
+  } = useHub(apps);
   const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -22,7 +41,7 @@ export function HubHome({ apps }: { apps: HubApp[] }) {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  const searching = query.trim() !== "";
+  const filtering = query.trim() !== "" || category !== "Todos";
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[var(--page)] via-[var(--page)] to-[color-mix(in_srgb,var(--brand-water)_10%,var(--page))]">
@@ -61,7 +80,7 @@ export function HubHome({ apps }: { apps: HubApp[] }) {
           </p>
         </div>
 
-        {pinnedTools.length > 0 && !searching && (
+        {pinnedTools.length > 0 && (
           <section className="hub-reveal flex flex-col gap-3.5" style={{ animationDelay: "60ms" }}>
             <Label>Accesos rápidos</Label>
             <div className="flex flex-wrap gap-2.5">
@@ -81,21 +100,45 @@ export function HubHome({ apps }: { apps: HubApp[] }) {
           </section>
         )}
 
+        <div className="hub-reveal flex items-center justify-between gap-4 border-b border-[var(--border)]" style={{ animationDelay: "90ms" }}>
+          <div className="flex gap-1">
+            {categories.map((c) => {
+              const on = c === category;
+              return (
+                <button
+                  key={c}
+                  onClick={() => setCategory(c)}
+                  className="relative whitespace-nowrap px-3.5 pb-3 pt-2 text-sm font-semibold transition-colors"
+                  style={{ color: on ? "var(--text-primary)" : "var(--text-muted)" }}
+                >
+                  {CATEGORY_TAB_LABEL[c] ?? c}{" "}
+                  <span className="font-medium text-[var(--text-muted)]">{counts[c] ?? 0}</span>
+                  <span
+                    aria-hidden
+                    className="absolute inset-x-2 -bottom-px h-0.5 rounded-full transition-all duration-200"
+                    style={{
+                      background: "var(--brand-water)",
+                      opacity: on ? 1 : 0,
+                      transform: on ? "scaleX(1)" : "scaleX(0.4)",
+                    }}
+                  />
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         {groups.map((group, gi) => {
           const isLast = gi === groups.length - 1;
           return (
             <section
               key={group.id}
               className="hub-reveal flex flex-col gap-4"
-              style={{ animationDelay: `${90 + gi * 90}ms` }}
+              style={{ animationDelay: `${120 + gi * 90}ms` }}
             >
               <div className="flex flex-col gap-1.5">
                 <div className="flex items-center gap-3">
-                  <span
-                    aria-hidden
-                    className="h-5 w-1 rounded-full"
-                    style={{ background: group.accent }}
-                  />
+                  <span aria-hidden className="h-5 w-1 rounded-full" style={{ background: group.accent }} />
                   <h2 className="text-lg font-semibold tracking-tight text-[var(--text-primary)]">
                     {group.label}
                   </h2>
@@ -119,13 +162,13 @@ export function HubHome({ apps }: { apps: HubApp[] }) {
                     app={app}
                     pinned={app.pinned}
                     onTogglePin={togglePin}
-                    revealDelay={120 + gi * 90 + ci * 55}
+                    revealDelay={150 + gi * 90 + ci * 55}
                   />
                 ))}
                 {isLast &&
-                  !searching &&
+                  !filtering &&
                   Array.from({ length: COMING_SOON_SLOTS }).map((_, i) => (
-                    <ComingSoonCard key={i} revealDelay={120 + gi * 90 + group.apps.length * 55 + i * 55} />
+                    <ComingSoonCard key={i} revealDelay={150 + gi * 90 + group.apps.length * 55 + i * 55} />
                   ))}
               </div>
             </section>
@@ -134,13 +177,13 @@ export function HubHome({ apps }: { apps: HubApp[] }) {
 
         {groups.length === 0 && (
           <p className="hub-reveal py-16 text-center text-sm text-[var(--text-muted)]">
-            Sin resultados para &ldquo;{query}&rdquo;.
+            Sin resultados{query.trim() ? ` para “${query}”` : " en esta categoría"}.
           </p>
         )}
 
-        {searching && groups.length > 0 && (
+        {filtering && groups.length > 0 && (
           <p className="text-xs text-[var(--text-muted)]">
-            {visibleCount} de {totalCount} coinciden con &ldquo;{query}&rdquo;.
+            {visibleCount} de {totalCount} módulos.
           </p>
         )}
       </main>
