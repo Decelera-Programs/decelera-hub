@@ -13,7 +13,11 @@ export function ToolCard({
 }) {
   return (
     <div className="card group relative flex min-h-[220px] flex-col gap-4 p-5 transition-all duration-150 hover:-translate-y-[3px] hover:shadow-lg">
-      <Link href={app.href} className="absolute inset-0 z-0 rounded-[20px]">
+      <Link
+        href={app.href}
+        {...(app.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+        className="absolute inset-0 z-0 rounded-[20px]"
+      >
         <span className="sr-only">Abrir {app.title}</span>
       </Link>
 

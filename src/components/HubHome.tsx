@@ -77,6 +77,7 @@ export function HubHome({ apps }: { apps: HubApp[] }) {
                 <a
                   key={t.slug}
                   href={t.href}
+                  {...(t.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
                   className="flex h-10 items-center gap-2.5 rounded-full border border-[var(--border)] bg-[var(--surface-1)] pl-3 pr-4 transition-colors hover:border-[var(--brand-water)]"
                 >
                   <IconTile category={t.category} initial={t.initial} size={22} />

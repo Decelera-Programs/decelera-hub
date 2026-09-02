@@ -10,6 +10,8 @@ export type HubApp = {
   category: AppCategory;
   status: AppStatus;
   meta?: string;
+  /** true si `href` apunta a una app externa — se abre en pestaña nueva. */
+  external?: boolean;
 };
 
 export const STATUS_LABEL: Record<AppStatus, string> = {
@@ -47,6 +49,17 @@ export const hubApps: HubApp[] = [
     category: "Dashboard",
     status: "live",
     meta: "Snapshot manual",
+  },
+  {
+    slug: "judges-admin-panel",
+    initial: "JP",
+    title: "Judges Admin Panel",
+    description: "Panel de administración de jueces: gestión de evaluadores y evaluaciones.",
+    href: "https://judge-panel-production.up.railway.app/admin",
+    category: "Herramienta",
+    status: "live",
+    meta: "App externa",
+    external: true,
   },
 ];
 
