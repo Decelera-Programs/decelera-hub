@@ -71,6 +71,10 @@ export function AbsoluteFunnelChart({ deals, showGoal }: { deals: Deal[]; showGo
           const isSelected = stage.key === "Invested";
           const tooltip = stageTooltipContent(stage);
           const prevStage = index > 0 ? rows[index - 1] : null;
+          // % de la derecha: "Cualificadas" se mide sobre las aplicaciones (no sobre el total de
+          // contactados); el resto de gates, sobre la etapa inmediatamente anterior.
+          const pctBase = stage.key === "Qualified" ? appCount : (prevStage?.count ?? 0);
+          const pctBaseLabel = stage.key === "Qualified" ? "aplicaciones" : (prevStage?.label.toLowerCase() ?? "");
 
           return (
             <div key={stage.key} className="flex items-center gap-3">
@@ -105,7 +109,7 @@ export function AbsoluteFunnelChart({ deals, showGoal }: { deals: Deal[]; showGo
                 </div>
                 <HoverTooltip description={tooltip.description} lines={tooltip.lines} />
               </div>
-              <span className="w-28 shrink-0 text-right text-xs">
+              <span className="w-32 shrink-0 text-right text-xs leading-tight">
                 {isContacted ? (
                   <span className="text-[var(--text-muted)]">
                     {total} en total · {appPct}% aplican
@@ -121,7 +125,7 @@ export function AbsoluteFunnelChart({ deals, showGoal }: { deals: Deal[]; showGo
                   <span className="text-[var(--text-muted)]">base</span>
                 ) : (
                   <span className="text-[var(--text-muted)]">
-                    {stage.count} de {prevStage.count}
+                    {pctBase > 0 ? Math.round((stage.count / pctBase) * 100) : 0}% de {pctBaseLabel}
                   </span>
                 )}
               </span>
