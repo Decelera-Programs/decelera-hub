@@ -14,6 +14,40 @@ const CATEGORY_TAB_LABEL: Record<string, string> = {
   Datos: "Datos",
 };
 
+const EXTERNAL_LINKS: { name: string; href: string; icon: string }[] = [
+  { name: "Attio", href: "https://app.attio.com", icon: "https://attio.com/favicon.ico" },
+  { name: "Claude", href: "https://claude.ai", icon: "https://claude.ai/favicon.ico" },
+];
+
+function ExternalLinkIcon({ name, href, icon, size }: { name: string; href: string; icon: string; size: number }) {
+  const [failed, setFailed] = useState(false);
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      title={`Abrir ${name}`}
+      aria-label={`Abrir ${name} en pestaña nueva`}
+      className="flex shrink-0 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--surface-1)] transition-all hover:-translate-y-0.5 hover:border-[var(--brand-water)] hover:shadow-md"
+      style={{ width: size, height: size }}
+    >
+      {failed ? (
+        <span className="text-xs font-bold text-[var(--text-secondary)]">{name[0]}</span>
+      ) : (
+        <img
+          src={icon}
+          alt=""
+          width={Math.round(size * 0.52)}
+          height={Math.round(size * 0.52)}
+          className="rounded"
+          referrerPolicy="no-referrer"
+          onError={() => setFailed(true)}
+        />
+      )}
+    </a>
+  );
+}
+
 export function HubHome({ apps }: { apps: HubApp[] }) {
   const {
     query,
@@ -56,7 +90,7 @@ export function HubHome({ apps }: { apps: HubApp[] }) {
   return (
     <div className="min-h-screen bg-gradient-to-br from-[var(--page)] via-[var(--page)] to-[color-mix(in_srgb,var(--brand-water)_10%,var(--page))]">
       <header
-        className="sticky top-0 z-30 flex h-16 items-center gap-6 px-8 transition-all duration-300 ease-out"
+        className="sticky top-0 z-30 flex h-16 items-center gap-3 px-4 transition-all duration-300 ease-out sm:gap-6 sm:px-8"
         style={{
           background: scrolled
             ? "color-mix(in srgb, var(--surface-1) 92%, transparent)"
@@ -66,12 +100,20 @@ export function HubHome({ apps }: { apps: HubApp[] }) {
           boxShadow: scrolled ? "0 10px 30px -16px color-mix(in srgb, var(--brand-night) 45%, transparent)" : "none",
         }}
       >
-        <div className="flex items-center gap-2.5">
-          <img src="/decelera-mark.svg" alt="Decelera" className="h-7 w-7" />
-          <div className="flex items-baseline gap-1.5">
-            <span className="text-base font-bold tracking-tight text-[var(--text-primary)]">Decelera</span>
-            <span className="text-base font-normal tracking-tight text-[var(--text-muted)]">Hub</span>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
+            <img src="/decelera-mark.svg" alt="Decelera" className="h-7 w-7" />
+            <div className="hidden items-baseline gap-1.5 sm:flex">
+              <span className="text-base font-bold tracking-tight text-[var(--text-primary)]">Decelera</span>
+              <span className="text-base font-normal tracking-tight text-[var(--text-muted)]">Hub</span>
+            </div>
           </div>
+          <span aria-hidden className="h-6 w-px bg-[var(--border)]" />
+          <nav aria-label="Enlaces externos" className="flex items-center gap-2">
+            {EXTERNAL_LINKS.map((l) => (
+              <ExternalLinkIcon key={l.name} {...l} size={32} />
+            ))}
+          </nav>
         </div>
         <div className="flex flex-1 justify-center">
           <SearchField
@@ -83,7 +125,7 @@ export function HubHome({ apps }: { apps: HubApp[] }) {
             inputRef={searchRef}
           />
         </div>
-        <div className="w-[180px]" aria-hidden />
+        <div className="hidden shrink-0 lg:block lg:w-[172px]" aria-hidden />
       </header>
 
       <main className="mx-auto flex max-w-6xl flex-col gap-10 px-8 pb-16 pt-10">
