@@ -19,44 +19,78 @@ const EXTERNAL_LINKS: { name: string; href: string; icon: string }[] = [
   { name: "Claude", href: "https://claude.ai", icon: "https://claude.ai/favicon.ico" },
 ];
 
-function ExternalLinkIcon({ name, href, icon, size }: { name: string; href: string; icon: string; size: number }) {
+function LinkFavicon({ name, icon, size }: { name: string; icon: string; size: number }) {
   const [failed, setFailed] = useState(false);
+  if (failed) {
+    return (
+      <span
+        className="grid shrink-0 place-items-center rounded-[6px] bg-[var(--pill-neutral-bg)] text-xs font-bold text-[var(--text-secondary)]"
+        style={{ width: size, height: size }}
+      >
+        {name[0]}
+      </span>
+    );
+  }
   return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      title={`Abrir ${name}`}
-      aria-label={`Abrir ${name} en pestaña nueva`}
-      className="flex shrink-0 items-center justify-center opacity-60 transition-all duration-200 hover:scale-110 hover:opacity-100"
-      style={{ width: size, height: size }}
-    >
-      {failed ? (
-        <span className="text-sm font-bold text-[var(--text-secondary)]">{name[0]}</span>
-      ) : (
-        <img
-          src={icon}
-          alt={name}
-          width={size}
-          height={size}
-          className="rounded-[6px] drop-shadow-sm"
-          referrerPolicy="no-referrer"
-          onError={() => setFailed(true)}
-        />
-      )}
-    </a>
+    <img
+      src={icon}
+      alt=""
+      width={size}
+      height={size}
+      className="shrink-0 rounded-[6px]"
+      referrerPolicy="no-referrer"
+      onError={() => setFailed(true)}
+    />
   );
 }
 
-/** Rail vertical fijo al margen izquierdo — sin fondo, se mantiene visible al hacer scroll. */
-function LeftRail() {
+/** Panel vertical de accesos directos — vive en la columna izquierda sticky (desktop). */
+function QuickLinksPanel() {
   return (
-    <nav
-      aria-label="Enlaces externos"
-      className="fixed left-1 top-1/2 z-30 flex -translate-y-1/2 flex-col items-center gap-4 sm:left-3"
-    >
+    <nav aria-label="Accesos directos" className="flex flex-col gap-2">
+      <span className="pl-1 text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--text-muted)]">
+        Accesos directos
+      </span>
       {EXTERNAL_LINKS.map((l) => (
-        <ExternalLinkIcon key={l.name} {...l} size={26} />
+        <a
+          key={l.name}
+          href={l.href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="group flex items-center gap-2.5 rounded-xl border border-[var(--border)] bg-[var(--surface-1)] px-2.5 py-2 transition-all hover:-translate-y-0.5 hover:border-[var(--brand-water)] hover:shadow-md"
+        >
+          <LinkFavicon name={l.name} icon={l.icon} size={22} />
+          <span className="text-sm font-semibold text-[var(--text-primary)]">{l.name}</span>
+          <span
+            aria-hidden
+            className="ml-auto text-xs text-[var(--text-muted)] transition-transform group-hover:translate-x-0.5"
+          >
+            ↗
+          </span>
+        </a>
+      ))}
+    </nav>
+  );
+}
+
+/** Versión compacta en fila — para pantallas sin columna lateral. */
+function QuickLinksInline() {
+  return (
+    <nav aria-label="Accesos directos" className="flex flex-wrap items-center gap-2 lg:hidden">
+      <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--text-muted)]">
+        Accesos directos
+      </span>
+      {EXTERNAL_LINKS.map((l) => (
+        <a
+          key={l.name}
+          href={l.href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface-1)] py-1.5 pl-2 pr-3 transition-all hover:border-[var(--brand-water)]"
+        >
+          <LinkFavicon name={l.name} icon={l.icon} size={18} />
+          <span className="text-xs font-semibold text-[var(--text-primary)]">{l.name}</span>
+        </a>
       ))}
     </nav>
   );
@@ -103,7 +137,6 @@ export function HubHome({ apps }: { apps: HubApp[] }) {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[var(--page)] via-[var(--page)] to-[color-mix(in_srgb,var(--brand-water)_10%,var(--page))]">
-      <LeftRail />
       <header
         className="sticky top-0 z-20 flex h-16 items-center gap-6 px-8 transition-all duration-300 ease-out"
         style={{
@@ -135,7 +168,13 @@ export function HubHome({ apps }: { apps: HubApp[] }) {
         <div className="w-[180px]" aria-hidden />
       </header>
 
-      <main className="mx-auto flex max-w-6xl flex-col gap-10 px-8 pb-16 pt-10">
+      <main className="mx-auto flex w-full max-w-[1240px] gap-8 px-6 pb-16 pt-10 lg:gap-10 lg:px-8">
+        <aside className="sticky top-28 hidden h-fit w-[172px] shrink-0 lg:block">
+          <QuickLinksPanel />
+        </aside>
+
+        <div className="flex min-w-0 flex-1 flex-col gap-10">
+        <QuickLinksInline />
         <div className="hub-reveal flex flex-col gap-1.5">
           <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-sea)]">
             Espacio de trabajo
@@ -224,7 +263,7 @@ export function HubHome({ apps }: { apps: HubApp[] }) {
                 <p className="pl-4 text-sm text-[var(--text-muted)]">{group.blurb}</p>
               </div>
 
-              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
                 {group.apps.map((app, ci) => (
                   <ToolCard
                     key={app.slug}
@@ -255,6 +294,7 @@ export function HubHome({ apps }: { apps: HubApp[] }) {
             {visibleCount} de {totalCount} módulos.
           </p>
         )}
+        </div>
       </main>
     </div>
   );
