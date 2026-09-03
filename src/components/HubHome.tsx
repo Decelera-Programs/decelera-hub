@@ -21,88 +21,6 @@ const CATEGORY_TAB_LABEL: Record<string, string> = {
   Datos: "Datos",
 };
 
-const EXTERNAL_LINKS: { name: string; href: string; icon: string }[] = [
-  { name: "Attio", href: "https://app.attio.com", icon: "https://www.google.com/s2/favicons?domain=attio.com&sz=64" },
-  { name: "Claude", href: "https://claude.ai", icon: "https://www.google.com/s2/favicons?domain=claude.ai&sz=64" },
-  {
-    name: "Drive",
-    href: "https://drive.google.com",
-    icon: "https://ssl.gstatic.com/images/branding/product/1x/drive_2020q4_48dp.png",
-  },
-];
-
-function LinkFavicon({ name, icon, size }: { name: string; icon: string; size: number }) {
-  const [failed, setFailed] = useState(false);
-  if (failed) {
-    return (
-      <span
-        className="grid shrink-0 place-items-center rounded-[6px] bg-[var(--pill-neutral-bg)] text-xs font-bold text-[var(--text-secondary)]"
-        style={{ width: size, height: size }}
-      >
-        {name[0]}
-      </span>
-    );
-  }
-  return (
-    <img
-      src={icon}
-      alt=""
-      width={size}
-      height={size}
-      className="shrink-0 rounded-[6px]"
-      referrerPolicy="no-referrer"
-      onError={() => setFailed(true)}
-    />
-  );
-}
-
-function QuickLinksPanel() {
-  return (
-    <nav aria-label="Accesos directos" className="flex flex-col gap-2">
-      <span className="pl-1 text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--text-muted)]">
-        Accesos directos
-      </span>
-      {EXTERNAL_LINKS.map((l) => (
-        <a
-          key={l.name}
-          href={l.href}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="group flex items-center gap-2.5 rounded-xl border border-[var(--border)] bg-[var(--surface-1)] px-2.5 py-2 transition-all hover:-translate-y-0.5 hover:border-[var(--brand-water)] hover:shadow-md"
-        >
-          <LinkFavicon name={l.name} icon={l.icon} size={22} />
-          <span className="text-sm font-semibold text-[var(--text-primary)]">{l.name}</span>
-          <span aria-hidden className="ml-auto text-xs text-[var(--text-muted)] transition-transform group-hover:translate-x-0.5">
-            ↗
-          </span>
-        </a>
-      ))}
-    </nav>
-  );
-}
-
-function QuickLinksInline() {
-  return (
-    <nav aria-label="Accesos directos" className="flex flex-wrap items-center gap-2 lg:hidden">
-      <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--text-muted)]">
-        Accesos directos
-      </span>
-      {EXTERNAL_LINKS.map((l) => (
-        <a
-          key={l.name}
-          href={l.href}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface-1)] py-1.5 pl-2 pr-3 transition-all hover:border-[var(--brand-water)]"
-        >
-          <LinkFavicon name={l.name} icon={l.icon} size={18} />
-          <span className="text-xs font-semibold text-[var(--text-primary)]">{l.name}</span>
-        </a>
-      ))}
-    </nav>
-  );
-}
-
 type CardEditorState = { sectionId: string; card: HubApp | null };
 
 export function HubHome({
@@ -199,13 +117,8 @@ export function HubHome({
         <AccountMenu user={member} />
       </header>
 
-      <main className="mx-auto flex w-full max-w-[1320px] gap-8 px-6 pb-16 pt-10 lg:gap-10 lg:px-8">
-        <aside className="sticky top-28 hidden h-fit w-[172px] shrink-0 lg:-ml-[26px] lg:block xl:-ml-[58px]">
-          <QuickLinksPanel />
-        </aside>
-
+      <main className="mx-auto flex w-full max-w-[1180px] flex-col px-6 pb-16 pt-10 lg:px-8">
         <div className="flex min-w-0 flex-1 flex-col gap-10">
-          <QuickLinksInline />
           <div className="hub-reveal flex flex-col gap-1.5">
             <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-sea)]">
               Espacio de trabajo
