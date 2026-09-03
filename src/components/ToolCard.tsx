@@ -17,6 +17,16 @@ export function ToolCard({
     <div
       className="hub-card hub-reveal card group relative flex min-h-[224px] flex-col gap-4 p-5"
       style={{ animationDelay: `${revealDelay}ms` }}
+      draggable
+      onDragStart={(e) => {
+        if ((e.target as HTMLElement).closest("button")) {
+          e.preventDefault();
+          return;
+        }
+        e.dataTransfer.setData("application/x-hub-app", app.slug);
+        e.dataTransfer.setData("text/plain", app.title);
+        e.dataTransfer.effectAllowed = "copy";
+      }}
     >
       <Link
         href={app.href}

@@ -44,6 +44,7 @@ export function SpaceFolder({
   const [collapsed, setCollapsed] = useState(false);
   const [adding, setAdding] = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
+  const [dropActive, setDropActive] = useState(false);
 
   function cycleColor() {
     const idx = color ? COLORS.indexOf(color) : -1;
@@ -72,7 +73,34 @@ export function SpaceFolder({
   const available = apps.filter((a) => !usedSlugs.has(a.slug));
 
   return (
-    <div className="card flex h-full flex-col gap-3 p-4">
+    <div
+      className="card flex h-full flex-col gap-3 p-4 transition-shadow"
+      style={
+        dropActive
+          ? { boxShadow: "0 0 0 2px var(--brand-water)", background: "color-mix(in srgb, var(--brand-water) 6%, var(--surface-1))" }
+          : undefined
+      }
+      onDragOver={(e) => {
+        if (!Array.from(e.dataTransfer.types).includes("application/x-hub-app")) return;
+        e.preventDefault();
+        e.stopPropagation();
+        e.dataTransfer.dropEffect = "copy";
+        setDropActive(true);
+      }}
+      onDragLeave={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node)) setDropActive(false);
+      }}
+      onDrop={(e) => {
+        const slug = e.dataTransfer.getData("application/x-hub-app");
+        setDropActive(false);
+        if (!slug) return;
+        e.preventDefault();
+        e.stopPropagation();
+        if (usedSlugs.has(slug)) return;
+        setCollapsed(false);
+        addApp(slug);
+      }}
+    >
       <div className="flex items-center gap-2">
         <button
           type="button"
