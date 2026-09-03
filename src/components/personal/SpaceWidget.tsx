@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Widget } from "@/lib/hub";
 import { deleteWidget, updateWidget } from "@/app/actions";
 import { CardMenu } from "./CardMenu";
@@ -105,13 +105,12 @@ export function SpaceWidget({ widget, onDeleted }: { widget: Widget; onDeleted: 
         </CardMenu>
       </div>
 
-      {!collapsed && (
-        <>
-          {widget.kind === "note" && <NoteBody widget={widget} />}
-          {widget.kind === "links" && <LinksBody widget={widget} />}
-          {widget.kind === "todo" && <TodoBody widget={widget} />}
-        </>
-      )}
+      {/* `hidden` en vez de desmontar: al colapsar no se pierde el guardado con debounce pendiente. */}
+      <div hidden={collapsed} className="flex flex-1 flex-col">
+        {widget.kind === "note" && <NoteBody widget={widget} />}
+        {widget.kind === "links" && <LinksBody widget={widget} />}
+        {widget.kind === "todo" && <TodoBody widget={widget} />}
+      </div>
     </div>
   );
 }
@@ -158,30 +157,58 @@ function WidgetGlyph({ kind }: { kind: Widget["kind"] }) {
   );
 }
 
-/** Guarda `data` con debounce; el estado local es la fuente de verdad en sesión. */
-function useDebouncedData<T>(widgetId: string, initial: T, delay = 700) {
+/**
+ * Guarda `data` con debounce; el estado local es la fuente de verdad en sesión.
+ * `flush()` fuerza el guardado pendiente ya — se llama al desmontar y en el `blur`
+ * de los campos, para no perder lo último escrito al colapsar/recargar/reordenar.
+ */
+function useDebouncedData<T>(widgetId: string, initial: T, delay = 500) {
   const [value, setValue] = useState<T>(initial);
+  const valueRef = useRef(value);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dirty = useRef(false);
   const first = useRef(true);
+
+  useEffect(() => {
+    valueRef.current = value;
+  }, [value]);
+
+  const flush = useCallback(() => {
+    if (timer.current) {
+      clearTimeout(timer.current);
+      timer.current = null;
+    }
+    if (!dirty.current) return;
+    dirty.current = false;
+    updateWidget(widgetId, { data: valueRef.current as unknown });
+  }, [widgetId]);
+
   useEffect(() => {
     if (first.current) {
       first.current = false;
       return;
     }
-    const t = setTimeout(() => {
-      updateWidget(widgetId, { data: value as unknown });
-    }, delay);
-    return () => clearTimeout(t);
-  }, [value, widgetId, delay]);
-  return [value, setValue] as const;
+    dirty.current = true;
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(flush, delay);
+    return () => {
+      if (timer.current) clearTimeout(timer.current);
+    };
+  }, [value, delay, flush]);
+
+  useEffect(() => flush, [flush]); // flush al desmontar
+
+  return [value, setValue, flush] as const;
 }
 
 function NoteBody({ widget }: { widget: Widget }) {
   const initial = typeof widget.data.text === "string" ? widget.data.text : "";
-  const [data, setData] = useDebouncedData(widget.id, { text: initial });
+  const [data, setData, flush] = useDebouncedData(widget.id, { text: initial });
   return (
     <textarea
       value={data.text}
       onChange={(e) => setData({ text: e.target.value })}
+      onBlur={flush}
       placeholder="Escribe aquí…"
       className="min-h-28 flex-1 resize-y rounded-lg border border-[var(--border)] bg-[var(--surface-1)] p-2 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]"
     />
