@@ -31,7 +31,7 @@ const EXTERNAL_LINKS: { name: string; href: string; icon: string }[] = [
   {
     name: "Drive",
     href: "https://drive.google.com",
-    icon: "https://www.google.com/s2/favicons?domain=drive.google.com&sz=64",
+    icon: "https://ssl.gstatic.com/images/branding/product/1x/drive_2020q4_48dp.png",
   },
 ];
 
