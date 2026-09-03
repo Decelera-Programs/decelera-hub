@@ -155,31 +155,19 @@ export async function deleteWidget(id: string): Promise<void> {
 }
 
 /**
- * Persiste el layout de "Tu espacio": una lista ordenada de ranuras. Cada ranura es una
- * carpeta o un grupo de widgets (1 = suelto, 2+ = pila vertical). Reescribe `position` 0..n-1
- * por ranura, y `stack_order` 0..k-1 dentro de cada pila.
+ * Persiste el layout de "Tu espacio". Cada carpeta/widget guarda su celda de la rejilla
+ * en `position` (colocación libre: puede haber huecos, no es 0..n-1).
  */
 export async function saveSpaceLayout(
-  slots: ({ type: "folder"; id: string } | { type: "widgets"; ids: string[] })[],
+  items: { type: "folder" | "widget"; id: string; cell: number }[],
 ): Promise<void> {
   const m = await requireMember();
-  const jobs: PromiseLike<unknown>[] = [];
-  slots.forEach((slot, i) => {
-    if (slot.type === "folder") {
-      jobs.push(
-        hubDb.from("folders").update({ position: i }).eq("id", slot.id).eq("member_id", m.id),
-      );
-    } else {
-      slot.ids.forEach((id, j) => {
-        jobs.push(
-          hubDb
-            .from("widgets")
-            .update({ position: i, stack_order: j })
-            .eq("id", id)
-            .eq("member_id", m.id),
-        );
-      });
-    }
-  });
+  const jobs: PromiseLike<unknown>[] = items.map((it) =>
+    hubDb
+      .from(it.type === "folder" ? "folders" : "widgets")
+      .update({ position: it.cell })
+      .eq("id", it.id)
+      .eq("member_id", m.id),
+  );
   await Promise.all(jobs);
 }

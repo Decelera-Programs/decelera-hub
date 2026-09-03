@@ -8,23 +8,38 @@ import { Label } from "@/components/HubPrimitives";
 import { SpaceFolder } from "./SpaceFolder";
 import { SpaceWidget } from "./SpaceWidget";
 
-// Cada celda de la rejilla es un elemento: una carpeta o un widget. Se reordena
-// arrastrando, estilo pantalla de inicio del móvil: los demás se apartan y, al
-// tirar hacia abajo, aparece una fila nueva donde soltar.
+// Rejilla de 3 columnas con colocación libre: cada carpeta/widget vive en una
+// celda concreta (`cell`) y puede haber huecos. En móvil (1 columna) se empaqueta
+// por orden de celda.
+const COLS = 3;
+const MIN_CELL_H = 224;
+
 type Entry =
-  | { key: string; type: "folder"; folder: Folder }
-  | { key: string; type: "widget"; widget: Widget };
+  | { key: string; cell: number; type: "folder"; folder: Folder }
+  | { key: string; cell: number; type: "widget"; widget: Widget };
 
 let KEY = 0;
 const nextKey = () => `e${KEY++}`;
 
 function build(folders: Folder[], widgets: Widget[]): Entry[] {
-  const merged = [
-    ...folders.map((f) => ({ e: { key: nextKey(), type: "folder", folder: f } as Entry, p: f.position })),
-    ...widgets.map((w) => ({ e: { key: nextKey(), type: "widget", widget: w } as Entry, p: w.position })),
+  const es: Entry[] = [
+    ...folders.map((f) => ({ key: nextKey(), cell: f.position, type: "folder" as const, folder: f })),
+    ...widgets.map((w) => ({ key: nextKey(), cell: w.position, type: "widget" as const, widget: w })),
   ];
-  merged.sort((a, b) => a.p - b.p);
-  return merged.map((m) => m.e);
+  // Repara colisiones o valores absurdos (p. ej. epoch de una creación antigua),
+  // conservando los huecos intencionados.
+  es.sort((a, b) => a.cell - b.cell);
+  const seen = new Set<number>();
+  let free = 0;
+  for (const e of es) {
+    if (e.cell < 0 || e.cell > 9999 || seen.has(e.cell)) {
+      while (seen.has(free)) free++;
+      e.cell = free;
+    }
+    seen.add(e.cell);
+    free = Math.max(free, e.cell + 1);
+  }
+  return es;
 }
 
 const ADD_OPTIONS: { key: "folder" | WidgetKind; label: string }[] = [
@@ -49,8 +64,10 @@ export function PersonalSpace({
   const [addOpen, setAddOpen] = useState(false);
   const [appDragging, setAppDragging] = useState(false);
   const [dragKey, setDragKey] = useState<string | null>(null);
-  // Espejo síncrono: los handlers de DnD se disparan antes de que React re-renderice.
+  const [dropCell, setDropCell] = useState<number | null>(null);
+  // Espejos síncronos: los handlers de DnD se disparan antes de que React re-renderice.
   const dragKeyRef = useRef<string | null>(null);
+  const dropCellRef = useRef<number | null>(null);
   const addRef = useRef<HTMLDivElement>(null);
 
   // Mientras se arrastra una tarjeta de app por la página, marcamos las carpetas como destino.
@@ -80,35 +97,36 @@ export function PersonalSpace({
     return () => document.removeEventListener("mousedown", onDown);
   }, [addOpen]);
 
-  function persistOrder(next: Entry[]) {
+  function persist(next: Entry[]) {
     startTransition(() => {
       saveSpaceLayout(
-        next.map((e) =>
-          e.type === "folder"
-            ? { type: "folder" as const, id: e.folder.id }
-            : { type: "widgets" as const, ids: [e.widget.id] },
-        ),
+        next.map((e) => ({
+          type: e.type,
+          id: e.type === "folder" ? e.folder.id : e.widget.id,
+          cell: e.cell,
+        })),
       );
     });
   }
 
   async function add(key: "folder" | WidgetKind) {
     setAddOpen(false);
-    const next = [...entries];
-    if (key === "folder") {
-      next.push({ key: nextKey(), type: "folder", folder: await createFolder() });
-    } else {
-      next.push({ key: nextKey(), type: "widget", widget: await createWidget(key) });
-    }
+    const used = new Set(entries.map((e) => e.cell));
+    let cell = 0;
+    while (used.has(cell)) cell++;
+    const entry: Entry =
+      key === "folder"
+        ? { key: nextKey(), cell, type: "folder", folder: await createFolder() }
+        : { key: nextKey(), cell, type: "widget", widget: await createWidget(key) };
+    const next = [...entries, entry];
     setEntries(next);
-    // Renumera 0..n ya, para que dos creaciones en el mismo segundo no compartan `position`.
-    persistOrder(next);
+    persist(next);
   }
 
   function removeEntry(key: string) {
     setEntries((cur) => {
       const next = cur.filter((x) => x.key !== key);
-      persistOrder(next);
+      persist(next);
       return next;
     });
   }
@@ -124,46 +142,45 @@ export function PersonalSpace({
     e.dataTransfer.effectAllowed = "move";
   }
 
-  function moveDragged(toIndex: (cur: Entry[]) => number) {
-    const dk = dragKeyRef.current;
-    if (!dk) return;
-    setEntries((cur) => {
-      const from = cur.findIndex((x) => x.key === dk);
-      let to = toIndex(cur);
-      if (from < 0 || to < 0) return cur;
-      to = Math.min(to, cur.length - 1);
-      if (from === to) return cur;
-      const next = cur.slice();
-      const [moved] = next.splice(from, 1);
-      next.splice(to, 0, moved);
-      return next;
-    });
-  }
-
-  function onOverCell(e: DragEvent, overKey: string) {
+  function onOverCell(e: DragEvent, cell: number) {
     if (!dragKeyRef.current) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = "move";
-    if (dragKeyRef.current === overKey) return;
-    moveDragged((cur) => cur.findIndex((x) => x.key === overKey));
-  }
-
-  function onOverEnd(e: DragEvent) {
-    if (!dragKeyRef.current) return;
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
-    moveDragged((cur) => cur.length - 1);
+    if (dropCellRef.current !== cell) {
+      dropCellRef.current = cell;
+      setDropCell(cell);
+    }
   }
 
   function endDrag() {
-    if (!dragKeyRef.current) return;
     dragKeyRef.current = null;
+    dropCellRef.current = null;
     setDragKey(null);
-    setEntries((cur) => {
-      persistOrder(cur);
-      return cur;
-    });
+    setDropCell(null);
   }
+
+  function onDropCell(e: DragEvent, cell: number) {
+    const dk = dragKeyRef.current;
+    if (dk == null) return; // no es nuestro drag (p. ej. un item de carpeta) — no interferir
+    e.preventDefault();
+    e.stopPropagation();
+    const dragged = entries.find((x) => x.key === dk);
+    if (!dragged || dragged.cell === cell) return endDrag();
+    const occupant = entries.find((x) => x.key !== dk && x.cell === cell);
+    const next = entries.map((x) => {
+      if (x.key === dk) return { ...x, cell };
+      if (occupant && x.key === occupant.key) return { ...x, cell: dragged.cell };
+      return x;
+    });
+    setEntries(next);
+    persist(next);
+    endDrag();
+  }
+
+  const maxCell = entries.reduce((m, e) => Math.max(m, e.cell), -1);
+  const rows = Math.max(1, Math.ceil((maxCell + 1) / COLS) + (dragKey ? 1 : 0));
+  const grid: (Entry | null)[] = Array.from({ length: rows * COLS }, () => null);
+  for (const e of entries) if (e.cell < grid.length) grid[e.cell] = e;
 
   return (
     <section className="hub-reveal flex flex-col gap-3.5" style={{ animationDelay: "40ms" }}>
@@ -202,44 +219,53 @@ export function PersonalSpace({
           Tu espacio está vacío. Usa <strong>+ Añadir</strong> para crear una carpeta o un widget.
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {entries.map((entry) => (
-            <div
-              key={entry.key}
-              draggable
-              onDragStart={(e) => onDragStart(e, entry.key)}
-              onDragOver={(e) => onOverCell(e, entry.key)}
-              onDrop={(e) => {
-                e.preventDefault();
-                endDrag();
-              }}
-              onDragEnd={endDrag}
-              className={dragKey === entry.key ? "opacity-40" : undefined}
-            >
-              {entry.type === "folder" ? (
-                <SpaceFolder
-                  folder={entry.folder}
-                  apps={apps}
-                  appDragging={appDragging}
-                  onDeleted={() => removeEntry(entry.key)}
-                />
-              ) : (
-                <SpaceWidget widget={entry.widget} onDeleted={() => removeEntry(entry.key)} />
-              )}
-            </div>
-          ))}
-
-          {dragKey && (
-            <div
-              onDragOver={onOverEnd}
-              onDrop={(e) => {
-                e.preventDefault();
-                endDrag();
-              }}
-              className="grid min-h-[140px] place-items-center rounded-[20px] border-2 border-dashed border-[var(--border)] text-xs font-semibold text-[var(--text-muted)] transition-colors"
-            >
-              Soltar aquí ↓
-            </div>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          {grid.map((entry, cell) =>
+            entry ? (
+              <div
+                key={entry.key}
+                draggable
+                onDragStart={(e) => onDragStart(e, entry.key)}
+                onDragEnd={endDrag}
+                onDragOver={(e) => onOverCell(e, cell)}
+                onDrop={(e) => onDropCell(e, cell)}
+                className="rounded-[20px] transition-shadow"
+                style={{
+                  opacity: dragKey === entry.key ? 0.4 : undefined,
+                  boxShadow:
+                    dropCell === cell && dragKey !== entry.key
+                      ? "0 0 0 2px var(--brand-water)"
+                      : undefined,
+                }}
+              >
+                {entry.type === "folder" ? (
+                  <SpaceFolder
+                    folder={entry.folder}
+                    apps={apps}
+                    appDragging={appDragging}
+                    onDeleted={() => removeEntry(entry.key)}
+                  />
+                ) : (
+                  <SpaceWidget widget={entry.widget} onDeleted={() => removeEntry(entry.key)} />
+                )}
+              </div>
+            ) : (
+              <div
+                key={`empty-${cell}`}
+                onDragOver={(e) => onOverCell(e, cell)}
+                onDrop={(e) => onDropCell(e, cell)}
+                className="hidden rounded-[20px] transition-colors md:block"
+                style={{
+                  minHeight: MIN_CELL_H,
+                  border: dragKey ? "2px dashed var(--border)" : undefined,
+                  borderColor: dropCell === cell ? "var(--brand-water)" : undefined,
+                  background:
+                    dropCell === cell
+                      ? "color-mix(in srgb, var(--brand-water) 8%, transparent)"
+                      : undefined,
+                }}
+              />
+            ),
           )}
         </div>
       )}
