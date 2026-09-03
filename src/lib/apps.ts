@@ -77,6 +77,18 @@ export const hubApps: HubApp[] = [
     meta: "Snapshot manual",
   },
   {
+    slug: "hoja-ruta-mex26",
+    initial: "HR",
+    title: "Hoja de Ruta Mex26",
+    description: "Hoja de cálculo con la planificación y los hitos del programa de México 2026.",
+    href: "https://docs.google.com/spreadsheets/d/13nTLn6JHq0K5Twy_kydqFked1bS3fqy0vqohEG8zkGo/edit?gid=1130289983#gid=1130289983",
+    category: "Herramienta",
+    group: "General View",
+    status: "live",
+    meta: "Google Sheets",
+    external: true,
+  },
+  {
     slug: "judges-admin-panel",
     initial: "JP",
     title: "Judges Admin Panel",
