@@ -37,23 +37,13 @@ El hub exige login con cuenta de Decelera (`@decelera.com` /
 de Supabase. La sesión es un JWT en cookie; no hay tabla de sesiones.
 
 Los datos por usuario (miembros, favoritos, carpetas, visibilidad de apps) viven
-en el schema **`hub`** del mismo proyecto Supabase que `historico`. Ese schema
-tiene **RLS deny-all** (RLS activado, sin policies) y se accede solo desde el
-servidor con la **service-role key** (`src/lib/supabase/hub.ts`), que la salta.
-La autorización es 100% código: `src/lib/hub.ts` (`getMember` / `requireMember` /
-`requireAdmin`) — cada consulta a `hub` va scoped por el `id` del miembro.
+en el schema **`hub`** del mismo proyecto Supabase que `historico`, y se acceden
+solo desde el servidor (`src/lib/supabase/hub.ts`). La autorización es 100%
+código: `src/lib/hub.ts` (`getMember` / `requireMember` / `requireAdmin`) — cada
+consulta a `hub` va scoped por el `id` del miembro.
 
 Alta de miembros: primer login con dominio válido → fila en `hub.members`
 (`role='member'`, `is_active=true`). Rol y bajas se editan a mano en Supabase.
-
-## ⚠️ Nota de seguridad — RLS deshabilitado
-
-Las tablas del schema `historico` (incluida `deals`) tienen **Row Level Security
-deshabilitado** en Supabase: cualquier cliente con la key `anon`/`publishable`
-puede leer (o escribir) todas las filas, sin restricción. Esta app mitiga el
-riesgo consultando Supabase **solo desde el servidor** (nunca desde el cliente),
-pero la key en sí sigue siendo de acceso total si se filtrara. Recomendación a
-medio plazo: habilitar RLS y añadir políticas de solo-lectura.
 
 ## Qué muestra
 
