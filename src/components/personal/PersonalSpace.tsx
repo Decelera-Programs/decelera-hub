@@ -60,6 +60,11 @@ export function PersonalSpace({
   const [dragKind, setDragKind] = useState<DragKind | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
   const [drop, setDrop] = useState<Drop | null>(null);
+  // Espejos síncronos: los handlers de DnD se disparan más rápido de lo que React
+  // vuelve a renderizar, así que `commitDrop`/`overSlot` leen de los refs, no del estado.
+  const dragKindRef = useRef<DragKind | null>(null);
+  const dragIdRef = useRef<string | null>(null);
+  const dropRef = useRef<Drop | null>(null);
   const addRef = useRef<HTMLDivElement>(null);
 
   // Mientras se arrastra una tarjeta de app por la página, marcamos las carpetas como destino.
@@ -126,7 +131,15 @@ export function PersonalSpace({
     );
   }
 
+  function setDropBoth(next: Drop | null) {
+    dropRef.current = next;
+    setDrop(next);
+  }
+
   function clearDrag() {
+    dragKindRef.current = null;
+    dragIdRef.current = null;
+    dropRef.current = null;
     setDragKind(null);
     setDragId(null);
     setDrop(null);
@@ -138,31 +151,37 @@ export function PersonalSpace({
       return;
     }
     e.stopPropagation();
+    dragKindRef.current = kind;
+    dragIdRef.current = id;
     setDragKind(kind);
     setDragId(id);
     e.dataTransfer.effectAllowed = "move";
   }
 
   function overSlot(e: DragEvent, slot: Slot) {
-    if (!dragKind) return;
+    const dk = dragKindRef.current;
+    if (!dk) return;
     e.preventDefault();
     e.stopPropagation();
     e.dataTransfer.dropEffect = "move";
     const r = e.currentTarget.getBoundingClientRect();
     const rel = (e.clientY - r.top) / Math.max(r.height, 1);
-    const canStack = slot.kind === "widgets" && dragKind !== "folder";
-    const pos: Drop["pos"] = canStack && rel > 0.6 ? "under" : "before";
-    setDrop((d) => (d && d.sid === slot.sid && d.pos === pos ? d : { sid: slot.sid, pos }));
+    const canStack = slot.kind === "widgets" && dk !== "folder";
+    const pos: Drop["pos"] = canStack && rel > 0.55 ? "under" : "before";
+    const dcur = dropRef.current;
+    if (!dcur || dcur.sid !== slot.sid || dcur.pos !== pos) setDropBoth({ sid: slot.sid, pos });
   }
 
   function overEnd(e: DragEvent) {
-    if (!dragKind) return;
+    if (!dragKindRef.current) return;
     e.preventDefault();
-    setDrop((d) => (d && d.sid === "__end__" ? d : { sid: "__end__", pos: "before" }));
+    if (dropRef.current?.sid !== "__end__") setDropBoth({ sid: "__end__", pos: "before" });
   }
 
   function commitDrop() {
-    const d = drop;
+    const d = dropRef.current;
+    const dragKind = dragKindRef.current;
+    const dragId = dragIdRef.current;
     if (!d || !dragKind || !dragId) {
       clearDrag();
       return;
@@ -391,13 +410,19 @@ function SlotView({
         </div>
       )}
 
+      {/* Overlay absoluto (no cambia la altura del slot → el cálculo de zona no oscila). */}
       {hint === "under" && (
         <div
           aria-hidden
-          className="pointer-events-none mt-3 grid h-16 place-items-center rounded-2xl border-2 border-dashed text-xs font-semibold"
-          style={{ borderColor: "var(--brand-water)", color: "var(--brand-water)" }}
+          className="pointer-events-none absolute inset-x-0 bottom-0 grid h-[45%] place-items-end justify-center rounded-b-[20px] pb-3 text-xs font-bold"
+          style={{
+            color: "var(--brand-water)",
+            background:
+              "linear-gradient(to bottom, transparent, color-mix(in srgb, var(--brand-water) 22%, transparent))",
+            boxShadow: "inset 0 -3px 0 var(--brand-water)",
+          }}
         >
-          Soltar aquí ▾
+          Apilar debajo ▾
         </div>
       )}
     </div>

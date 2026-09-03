@@ -29,8 +29,20 @@ export function ToolCard({
         e.dataTransfer.setData("application/x-hub-app", app.slug);
         e.dataTransfer.setData("text/plain", app.title);
         e.dataTransfer.effectAllowed = "copy";
-        // Sin setDragImage: el navegador arrastra una copia de la propia tarjeta,
-        // igual que al mover un widget entero en "Tu espacio".
+        // Fantasma = copia estática de la tarjeta. El snapshot nativo de la tarjeta
+        // viva sale recortado/en blanco por las animaciones de hover/entrada (hub-card,
+        // hub-reveal), así que clonamos, quitamos esas clases y usamos eso.
+        const card = e.currentTarget;
+        const rect = card.getBoundingClientRect();
+        const ghost = card.cloneNode(true) as HTMLElement;
+        ghost.classList.remove("hub-card", "hub-reveal", "group");
+        ghost.style.cssText +=
+          `;position:fixed;top:0;left:-9999px;margin:0;width:${rect.width}px;height:${rect.height}px;` +
+          "transform:none;animation:none;opacity:1;pointer-events:none;" +
+          "box-shadow:0 20px 45px -12px rgba(20,25,40,.35)";
+        document.body.appendChild(ghost);
+        e.dataTransfer.setDragImage(ghost, e.clientX - rect.left, e.clientY - rect.top);
+        requestAnimationFrame(() => ghost.remove());
         setDragging(true);
       }}
       onDragEnd={() => setDragging(false)}
