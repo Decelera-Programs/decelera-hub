@@ -21,12 +21,12 @@ export function ToolCard({
       <Link
         href={app.href}
         {...(app.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
-        className="absolute inset-0 z-0 rounded-[20px]"
+        className="absolute inset-0 z-10 rounded-[20px]"
       >
         <span className="sr-only">Abrir {app.title}</span>
       </Link>
 
-      <div className="relative z-10 flex items-start justify-between gap-3">
+      <div className="relative z-0 flex items-start justify-between gap-3">
         <span className="hub-icon">
           <IconTile category={app.category} initial={app.initial} />
         </span>
@@ -36,17 +36,18 @@ export function ToolCard({
             type="button"
             onClick={(e) => {
               e.preventDefault();
+              e.stopPropagation();
               onTogglePin(app.slug);
             }}
             aria-label={pinned ? "Quitar de favoritos" : "Marcar como favorito"}
-            className="grid h-6 w-6 place-items-center transition-transform hover:scale-125"
+            className="relative z-20 grid h-6 w-6 place-items-center transition-transform hover:scale-125"
           >
             <Star active={pinned} />
           </button>
         </div>
       </div>
 
-      <div className="relative z-10 flex flex-1 flex-col gap-2">
+      <div className="relative z-0 flex flex-1 flex-col gap-2">
         <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">
           {app.category}
         </p>
@@ -54,7 +55,7 @@ export function ToolCard({
         <p className="text-sm leading-relaxed text-[var(--text-secondary)]">{app.description}</p>
       </div>
 
-      <div className="relative z-10 flex items-center justify-between border-t border-[var(--border)] pt-3.5">
+      <div className="relative z-0 flex items-center justify-between border-t border-[var(--border)] pt-3.5">
         <span className="flex items-center gap-1 text-sm font-semibold text-[var(--brand-sea)]">
           {app.external ? "Abrir en pestaña nueva" : "Abrir"}
           <span aria-hidden className="hub-arrow">
