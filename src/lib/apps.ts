@@ -1,6 +1,6 @@
 export type AppStatus = "live" | "beta" | "soon";
 export type AppCategory = "Dashboard" | "Herramienta" | "Datos";
-export type AppGroup = "General View" | "Investment" | "Marketing";
+export type AppGroup = "General View" | "Investment" | "Tech / Data" | "Marketing";
 
 export type HubApp = {
   slug: string;
@@ -29,6 +29,12 @@ export const HUB_GROUPS: { id: AppGroup; label: string; blurb: string; accent: s
     label: "Investment",
     blurb: "Deal flow, evaluación y decisión de inversión.",
     accent: "var(--brand-sea)",
+  },
+  {
+    id: "Tech / Data",
+    label: "Tech / Data",
+    blurb: "Producto, repositorios y recursos técnicos.",
+    accent: "var(--brand-night)",
   },
   {
     id: "Marketing",
@@ -98,6 +104,30 @@ export const hubApps: HubApp[] = [
     group: "Investment",
     status: "live",
     meta: "App externa",
+    external: true,
+  },
+  {
+    slug: "tech-product-drive",
+    initial: "TP",
+    title: "Tech Product Drive Folder",
+    description: "Carpeta de Drive con la documentación y los recursos de producto tech.",
+    href: "https://drive.google.com/drive/u/0/folders/1Epi9bViOYIYbWkAeQgqO4yz0YLSEbO6S?ths=true",
+    category: "Herramienta",
+    group: "Tech / Data",
+    status: "live",
+    meta: "Drive",
+    external: true,
+  },
+  {
+    slug: "decelera-github",
+    initial: "GH",
+    title: "Decelera's Github",
+    description: "Organización de GitHub con los repositorios del equipo.",
+    href: "https://github.com/Decelera-Programs",
+    category: "Herramienta",
+    group: "Tech / Data",
+    status: "live",
+    meta: "GitHub",
     external: true,
   },
   {
