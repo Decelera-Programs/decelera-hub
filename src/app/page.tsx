@@ -1,11 +1,15 @@
 import { HubHome } from "@/components/HubHome";
 import { hubApps } from "@/lib/apps";
-import { requireMember } from "@/lib/hub";
+import { getFolders, getWidgets, requireMember } from "@/lib/hub";
 
 export const dynamic = "force-dynamic";
 
 export default async function Page() {
   const member = await requireMember();
+  const [folders, widgets] = await Promise.all([
+    getFolders(member.id),
+    getWidgets(member.id),
+  ]);
 
   return (
     <HubHome
@@ -16,6 +20,8 @@ export default async function Page() {
         avatarUrl: member.avatar_url,
         isAdmin: member.role === "admin",
       }}
+      folders={folders}
+      widgets={widgets}
     />
   );
 }

@@ -3,9 +3,11 @@
 /* eslint-disable @next/next/no-img-element */
 import { useEffect, useRef, useState } from "react";
 import { COMING_SOON_SLOTS, type HubApp } from "@/lib/apps";
+import type { Folder, Widget } from "@/lib/hub";
 import { useHub } from "@/lib/useHub";
 import { AccountMenu, type AccountUser } from "./AccountMenu";
 import { IconTile, Label, SearchField, Star } from "./HubPrimitives";
+import { PersonalSpace } from "./personal/PersonalSpace";
 import { ComingSoonCard, ToolCard } from "./ToolCard";
 
 const CATEGORY_TAB_LABEL: Record<string, string> = {
@@ -110,7 +112,17 @@ function QuickLinksInline() {
   );
 }
 
-export function HubHome({ apps, member }: { apps: HubApp[]; member: AccountUser }) {
+export function HubHome({
+  apps,
+  member,
+  folders,
+  widgets,
+}: {
+  apps: HubApp[];
+  member: AccountUser;
+  folders: Folder[];
+  widgets: Widget[];
+}) {
   const {
     query,
     setQuery,
@@ -201,6 +213,8 @@ export function HubHome({ apps, member }: { apps: HubApp[]; member: AccountUser 
             {totalCount === 1 ? "" : "s"}, organizados por área.
           </p>
         </div>
+
+        <PersonalSpace folders={folders} widgets={widgets} apps={apps} />
 
         {pinnedTools.length > 0 && (
           <section className="hub-reveal flex flex-col gap-3.5" style={{ animationDelay: "60ms" }}>

@@ -45,3 +45,59 @@ export async function requireAdmin(): Promise<Member> {
   if (member.role !== "admin") redirect("/no-access");
   return member;
 }
+
+// --- Espacio personal (carpetas + widgets, por miembro) ---
+
+export type FolderItem = {
+  id: string;
+  kind: "app" | "link";
+  app_slug: string | null;
+  url: string | null;
+  label: string | null;
+  position: number;
+};
+
+export type Folder = {
+  id: string;
+  name: string;
+  color: string | null;
+  position: number;
+  items: FolderItem[];
+};
+
+export type WidgetKind = "note" | "links" | "todo";
+
+export type Widget = {
+  id: string;
+  kind: WidgetKind;
+  title: string | null;
+  data: Record<string, unknown>;
+  position: number;
+};
+
+export const getFolders = cache(async (memberId: string): Promise<Folder[]> => {
+  const { data } = await hubDb
+    .from("folders")
+    .select("id, name, color, position, folder_items(id, kind, app_slug, url, label, position)")
+    .eq("member_id", memberId)
+    .order("position");
+
+  return (data ?? []).map((f) => ({
+    id: f.id as string,
+    name: f.name as string,
+    color: (f.color as string | null) ?? null,
+    position: f.position as number,
+    items: ((f.folder_items ?? []) as FolderItem[])
+      .slice()
+      .sort((a, b) => a.position - b.position),
+  }));
+});
+
+export const getWidgets = cache(async (memberId: string): Promise<Widget[]> => {
+  const { data } = await hubDb
+    .from("widgets")
+    .select("id, kind, title, data, position")
+    .eq("member_id", memberId)
+    .order("position");
+  return (data ?? []) as Widget[];
+});
