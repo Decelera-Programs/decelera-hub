@@ -8,6 +8,7 @@ import {
   addFolderItem,
   deleteFolder,
   removeFolderItem,
+  reorderFolderItems,
   updateFolder,
 } from "@/app/actions";
 import { IconTile } from "@/components/HubPrimitives";
@@ -47,6 +48,7 @@ export function SpaceFolder({
   const [dropActive, setDropActive] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [renaming, setRenaming] = useState(false);
+  const [dragItemId, setDragItemId] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -86,17 +88,38 @@ export function SpaceFolder({
     removeFolderItem(id);
   }
 
+  function onItemDragOver(overId: string) {
+    if (!dragItemId || dragItemId === overId) return;
+    setItems((cur) => {
+      const from = cur.findIndex((x) => x.id === dragItemId);
+      const over = cur.findIndex((x) => x.id === overId);
+      if (from < 0 || over < 0) return cur;
+      const next = cur.slice();
+      const [moved] = next.splice(from, 1);
+      next.splice(over, 0, moved);
+      return next;
+    });
+  }
+  function onItemDragEnd() {
+    setDragItemId(null);
+    setItems((cur) => {
+      reorderFolderItems(folder.id, cur.map((x) => x.id));
+      return cur;
+    });
+  }
+
   const usedSlugs = new Set(items.filter((i) => i.kind === "app").map((i) => i.app_slug));
   const available = apps.filter((a) => !usedSlugs.has(a.slug));
 
   return (
     <div
-      className="card flex h-full flex-col gap-3 p-4 transition-shadow"
-      style={
-        dropActive
+      className="card relative flex h-full flex-col gap-3 p-4 transition-shadow"
+      style={{
+        zIndex: menuOpen ? 40 : undefined,
+        ...(dropActive
           ? { boxShadow: "0 0 0 2px var(--brand-water)", background: "color-mix(in srgb, var(--brand-water) 6%, var(--surface-1))" }
-          : undefined
-      }
+          : {}),
+      }}
       onDragOver={(e) => {
         if (!Array.from(e.dataTransfer.types).includes("application/x-hub-app")) return;
         e.preventDefault();
@@ -166,7 +189,10 @@ export function SpaceFolder({
             ⋮
           </button>
           {menuOpen && (
-            <div className="absolute right-0 top-7 z-50 w-44 overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface-1)] py-1 shadow-md">
+            <div
+              className="absolute right-0 top-7 z-50 w-44 overflow-hidden rounded-xl border border-[var(--border)] py-1 shadow-lg"
+              style={{ background: "var(--surface-1)" }}
+            >
               <button
                 type="button"
                 onClick={() => {
@@ -221,12 +247,29 @@ export function SpaceFolder({
       {!collapsed && (
         <div className="flex flex-col gap-1.5">
           {items.map((it) => (
-            <FolderItemRow
+            <div
               key={it.id}
-              item={it}
-              app={it.kind === "app" ? apps.find((a) => a.slug === it.app_slug) : undefined}
-              onRemove={() => removeItem(it.id)}
-            />
+              draggable
+              onDragStart={(e) => {
+                e.stopPropagation();
+                setDragItemId(it.id);
+                e.dataTransfer.effectAllowed = "move";
+              }}
+              onDragOver={(e) => {
+                if (!dragItemId) return;
+                e.preventDefault();
+                e.stopPropagation();
+                onItemDragOver(it.id);
+              }}
+              onDragEnd={onItemDragEnd}
+              className={dragItemId === it.id ? "opacity-40" : undefined}
+            >
+              <FolderItemRow
+                item={it}
+                app={it.kind === "app" ? apps.find((a) => a.slug === it.app_slug) : undefined}
+                onRemove={() => removeItem(it.id)}
+              />
+            </div>
           ))}
 
           {adding ? (
@@ -281,9 +324,10 @@ function FolderItemRow({
   const external = isApp ? app?.external : true;
 
   return (
-    <div className="group flex items-center gap-2 rounded-lg px-1 py-1 transition-colors hover:bg-[var(--row-hover)]">
+    <div className="group flex cursor-grab items-center gap-2 rounded-lg px-1 py-1 transition-colors hover:bg-[var(--row-hover)] active:cursor-grabbing">
       <a
         href={href}
+        draggable={false}
         {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
         className="flex min-w-0 flex-1 items-center gap-2 text-sm text-[var(--text-primary)]"
       >

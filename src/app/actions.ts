@@ -97,6 +97,16 @@ type FolderItemRow = {
   position: number;
 };
 
+export async function reorderFolderItems(folderId: string, orderedIds: string[]): Promise<void> {
+  const m = await requireMember();
+  await assertOwnsFolder(m.id, folderId);
+  await Promise.all(
+    orderedIds.map((id, i) =>
+      hubDb.from("folder_items").update({ position: i }).eq("id", id).eq("folder_id", folderId),
+    ),
+  );
+}
+
 export async function removeFolderItem(itemId: string): Promise<void> {
   const m = await requireMember();
   const { data } = await hubDb
