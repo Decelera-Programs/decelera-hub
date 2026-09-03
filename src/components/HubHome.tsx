@@ -42,11 +42,35 @@ export function HubHome({
   const [scrolled, setScrolled] = useState(false);
   const [cardEditor, setCardEditor] = useState<CardEditorState | null>(null);
   const [sectionEditor, setSectionEditor] = useState<Section | null>(null);
+  const [editMode, setEditMode] = useState(false);
   const [, startAdmin] = useTransition();
   useDragAutoScroll();
 
   const isAdmin = member.isAdmin;
-  const canEdit = isAdmin && !filtering;
+  const canEdit = isAdmin && editMode && !filtering;
+
+  // El interruptor de edición se recuerda entre recargas (solo tiene efecto para admin).
+  useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect -- sync post-mount con localStorage */
+    try {
+      if (localStorage.getItem("hub:editmode") === "1") setEditMode(true);
+    } catch {
+      // sin localStorage — se queda apagado
+    }
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, []);
+
+  function toggleEditMode() {
+    setEditMode((v) => {
+      const next = !v;
+      try {
+        localStorage.setItem("hub:editmode", next ? "1" : "0");
+      } catch {
+        // sin persistencia
+      }
+      return next;
+    });
+  }
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -114,6 +138,33 @@ export function HubHome({
             inputRef={searchRef}
           />
         </div>
+        {isAdmin && (
+          <button
+            type="button"
+            onClick={toggleEditMode}
+            aria-pressed={editMode}
+            className="flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 text-sm font-semibold transition-colors"
+            style={{
+              borderColor: editMode ? "var(--brand-water)" : "var(--border)",
+              background: editMode
+                ? "color-mix(in srgb, var(--brand-water) 14%, transparent)"
+                : "var(--surface-1)",
+              color: editMode ? "var(--brand-water)" : "var(--text-secondary)",
+            }}
+          >
+            <span
+              aria-hidden
+              className="grid h-4 w-7 items-center rounded-full p-0.5 transition-colors"
+              style={{ background: editMode ? "var(--brand-water)" : "var(--border)" }}
+            >
+              <span
+                className="h-3 w-3 rounded-full bg-white transition-transform"
+                style={{ transform: editMode ? "translateX(12px)" : "translateX(0)" }}
+              />
+            </span>
+            Editar
+          </button>
+        )}
         <AccountMenu user={member} />
       </header>
 
