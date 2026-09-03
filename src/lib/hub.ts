@@ -72,8 +72,31 @@ export type Widget = {
   kind: WidgetKind;
   title: string | null;
   data: Record<string, unknown>;
+  /** Ranura en la rejilla de "Tu espacio". Varios widgets con la misma `position` = una pila vertical. */
   position: number;
+  /** Orden dentro de la pila (0 si el widget va suelto). */
+  stackOrder: number;
 };
+
+type WidgetRow = {
+  id: string;
+  kind: WidgetKind;
+  title: string | null;
+  data: Record<string, unknown> | null;
+  position: number;
+  stack_order: number;
+};
+
+export function rowToWidget(r: WidgetRow): Widget {
+  return {
+    id: r.id,
+    kind: r.kind,
+    title: r.title,
+    data: r.data ?? {},
+    position: r.position,
+    stackOrder: r.stack_order,
+  };
+}
 
 export const getFolders = cache(async (memberId: string): Promise<Folder[]> => {
   const { data } = await hubDb
@@ -96,8 +119,9 @@ export const getFolders = cache(async (memberId: string): Promise<Folder[]> => {
 export const getWidgets = cache(async (memberId: string): Promise<Widget[]> => {
   const { data } = await hubDb
     .from("widgets")
-    .select("id, kind, title, data, position")
+    .select("id, kind, title, data, position, stack_order")
     .eq("member_id", memberId)
-    .order("position");
-  return (data ?? []) as Widget[];
+    .order("position")
+    .order("stack_order");
+  return ((data ?? []) as WidgetRow[]).map(rowToWidget);
 });

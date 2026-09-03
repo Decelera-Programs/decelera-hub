@@ -1,7 +1,7 @@
 "use server";
 
 import { signOut } from "@/auth";
-import { requireMember, type Folder, type Widget, type WidgetKind } from "@/lib/hub";
+import { requireMember, rowToWidget, type Folder, type Widget, type WidgetKind } from "@/lib/hub";
 import { hubDb } from "@/lib/supabase/hub";
 
 export async function signOutAction() {
@@ -131,10 +131,10 @@ export async function createWidget(kind: WidgetKind): Promise<Widget> {
   const { data, error } = await hubDb
     .from("widgets")
     .insert({ member_id: m.id, kind, title: d.title, data: d.data, position: nextPos() })
-    .select("id, kind, title, data, position")
+    .select("id, kind, title, data, position, stack_order")
     .single();
   if (error || !data) throw new Error(error?.message ?? "create widget failed");
-  return data as Widget;
+  return rowToWidget(data);
 }
 
 export async function updateWidget(
@@ -154,16 +154,32 @@ export async function deleteWidget(id: string): Promise<void> {
   await hubDb.from("widgets").delete().eq("id", id).eq("member_id", m.id);
 }
 
-/** Reordena el espacio personal (carpetas + widgets mezclados) reescribiendo `position` 0..n-1. */
-export async function reorderSpace(
-  order: { type: "folder" | "widget"; id: string }[],
+/**
+ * Persiste el layout de "Tu espacio": una lista ordenada de ranuras. Cada ranura es una
+ * carpeta o un grupo de widgets (1 = suelto, 2+ = pila vertical). Reescribe `position` 0..n-1
+ * por ranura, y `stack_order` 0..k-1 dentro de cada pila.
+ */
+export async function saveSpaceLayout(
+  slots: ({ type: "folder"; id: string } | { type: "widgets"; ids: string[] })[],
 ): Promise<void> {
   const m = await requireMember();
-  await Promise.all(
-    order.map((o, i) =>
-      o.type === "folder"
-        ? hubDb.from("folders").update({ position: i }).eq("id", o.id).eq("member_id", m.id)
-        : hubDb.from("widgets").update({ position: i }).eq("id", o.id).eq("member_id", m.id),
-    ),
-  );
+  const jobs: PromiseLike<unknown>[] = [];
+  slots.forEach((slot, i) => {
+    if (slot.type === "folder") {
+      jobs.push(
+        hubDb.from("folders").update({ position: i }).eq("id", slot.id).eq("member_id", m.id),
+      );
+    } else {
+      slot.ids.forEach((id, j) => {
+        jobs.push(
+          hubDb
+            .from("widgets")
+            .update({ position: i, stack_order: j })
+            .eq("id", id)
+            .eq("member_id", m.id),
+        );
+      });
+    }
+  });
+  await Promise.all(jobs);
 }

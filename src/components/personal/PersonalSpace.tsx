@@ -3,22 +3,34 @@
 import { type DragEvent, useEffect, useRef, useState, useTransition } from "react";
 import type { HubApp } from "@/lib/apps";
 import type { Folder, Widget, WidgetKind } from "@/lib/hub";
-import { createFolder, createWidget, reorderSpace } from "@/app/actions";
+import { createFolder, createWidget, saveSpaceLayout } from "@/app/actions";
 import { Label } from "@/components/HubPrimitives";
 import { SpaceFolder } from "./SpaceFolder";
 import { SpaceWidget } from "./SpaceWidget";
 
-type Entry =
-  | { type: "folder"; id: string; folder: Folder }
-  | { type: "widget"; id: string; widget: Widget };
+// Una ranura de la rejilla: una carpeta, o un grupo de widgets (1 = suelto, 2+ = pila vertical).
+type FolderSlot = { sid: string; kind: "folder"; folder: Folder };
+type WidgetsSlot = { sid: string; kind: "widgets"; widgets: Widget[] };
+type Slot = FolderSlot | WidgetsSlot;
 
-function build(folders: Folder[], widgets: Widget[]): Entry[] {
-  const merged = [
-    ...folders.map((f) => ({ e: { type: "folder", id: f.id, folder: f } as Entry, p: f.position })),
-    ...widgets.map((w) => ({ e: { type: "widget", id: w.id, widget: w } as Entry, p: w.position })),
-  ];
-  merged.sort((a, b) => a.p - b.p);
-  return merged.map((m) => m.e);
+let SID = 0;
+const nextSid = () => `slot-${SID++}`;
+
+function build(folders: Folder[], widgets: Widget[]): Slot[] {
+  const byPos = new Map<number, Widget[]>();
+  for (const w of widgets) {
+    const arr = byPos.get(w.position) ?? [];
+    arr.push(w);
+    byPos.set(w.position, arr);
+  }
+  const rows: { pos: number; slot: Slot }[] = [];
+  for (const f of folders) rows.push({ pos: f.position, slot: { sid: nextSid(), kind: "folder", folder: f } });
+  for (const [pos, ws] of byPos) {
+    ws.sort((a, b) => a.stackOrder - b.stackOrder);
+    rows.push({ pos, slot: { sid: nextSid(), kind: "widgets", widgets: ws } });
+  }
+  rows.sort((a, b) => a.pos - b.pos);
+  return rows.map((r) => r.slot);
 }
 
 const ADD_OPTIONS: { key: "folder" | WidgetKind; label: string }[] = [
@@ -27,6 +39,9 @@ const ADD_OPTIONS: { key: "folder" | WidgetKind; label: string }[] = [
   { key: "links", label: "Lista de enlaces" },
   { key: "todo", label: "To-do" },
 ];
+
+type DragKind = "folder" | "widget" | "stack";
+type Drop = { sid: string; pos: "before" | "under" };
 
 export function PersonalSpace({
   folders,
@@ -37,13 +52,14 @@ export function PersonalSpace({
   widgets: Widget[];
   apps: HubApp[];
 }) {
-  // El estado local es la fuente de verdad en sesión; los server actions de aquí no revalidan,
-  // así que basta con sembrar al montar. Una recarga real remonta el componente.
-  const [entries, setEntries] = useState<Entry[]>(() => build(folders, widgets));
+  // El estado local es la fuente de verdad en sesión; los server actions de aquí no revalidan.
+  const [slots, setSlots] = useState<Slot[]>(() => build(folders, widgets));
   const [, startTransition] = useTransition();
   const [addOpen, setAddOpen] = useState(false);
-  const [dragId, setDragId] = useState<string | null>(null);
   const [appDragging, setAppDragging] = useState(false);
+  const [dragKind, setDragKind] = useState<DragKind | null>(null);
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [drop, setDrop] = useState<Drop | null>(null);
   const addRef = useRef<HTMLDivElement>(null);
 
   // Mientras se arrastra una tarjeta de app por la página, marcamos las carpetas como destino.
@@ -73,59 +89,144 @@ export function PersonalSpace({
     return () => document.removeEventListener("mousedown", onDown);
   }, [addOpen]);
 
-  function persistOrder(next: Entry[]) {
+  function persist(next: Slot[]) {
     startTransition(() => {
-      reorderSpace(next.map((e) => ({ type: e.type, id: e.id })));
+      saveSpaceLayout(
+        next.map((s) =>
+          s.kind === "folder"
+            ? { type: "folder" as const, id: s.folder.id }
+            : { type: "widgets" as const, ids: s.widgets.map((w) => w.id) },
+        ),
+      );
     });
   }
 
   async function add(key: "folder" | WidgetKind) {
     setAddOpen(false);
+    const next: Slot[] = [...slots];
     if (key === "folder") {
-      const f = await createFolder();
-      setEntries((e) => [...e, { type: "folder", id: f.id, folder: f }]);
+      next.push({ sid: nextSid(), kind: "folder", folder: await createFolder() });
     } else {
-      const w = await createWidget(key);
-      setEntries((e) => [...e, { type: "widget", id: w.id, widget: w }]);
+      next.push({ sid: nextSid(), kind: "widgets", widgets: [await createWidget(key)] });
     }
+    setSlots(next);
+    // Renumera posiciones 0..n ya, para que dos creaciones en el mismo segundo no
+    // acaben compartiendo `position` (y renderizándose como pila al recargar).
+    persist(next);
   }
 
-  function removeEntry(id: string) {
-    setEntries((e) => e.filter((x) => x.id !== id));
+  function removeFolder(id: string) {
+    setSlots((s) => s.filter((x) => !(x.kind === "folder" && x.folder.id === id)));
+  }
+  function removeWidget(id: string) {
+    setSlots((s) =>
+      s
+        .map((x) => (x.kind === "widgets" ? { ...x, widgets: x.widgets.filter((w) => w.id !== id) } : x))
+        .filter((x) => x.kind !== "widgets" || x.widgets.length > 0),
+    );
   }
 
-  function onDragStart(e: DragEvent, id: string) {
+  function clearDrag() {
+    setDragKind(null);
+    setDragId(null);
+    setDrop(null);
+  }
+
+  function beginDrag(e: DragEvent, kind: DragKind, id: string) {
     if ((e.target as HTMLElement).closest("input, textarea, [contenteditable='true']")) {
       e.preventDefault();
       return;
     }
+    e.stopPropagation();
+    setDragKind(kind);
     setDragId(id);
     e.dataTransfer.effectAllowed = "move";
   }
 
-  function onDragOver(e: DragEvent, overId: string) {
-    // Solo reaccionamos si es un reorden de carpeta/widget en curso; si no (p. ej. un item
-    // arrastrado fuera de su carpeta), dejamos que el drop caiga "en el vacío".
-    if (!dragId) return;
+  function overSlot(e: DragEvent, slot: Slot) {
+    if (!dragKind) return;
     e.preventDefault();
-    if (dragId === overId) return;
-    setEntries((cur) => {
-      const fromIdx = cur.findIndex((x) => x.id === dragId);
-      const overIdx = cur.findIndex((x) => x.id === overId);
-      if (fromIdx < 0 || overIdx < 0) return cur;
-      const next = cur.slice();
-      const [moved] = next.splice(fromIdx, 1);
-      next.splice(overIdx, 0, moved);
-      return next;
-    });
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = "move";
+    const r = e.currentTarget.getBoundingClientRect();
+    const rel = (e.clientY - r.top) / Math.max(r.height, 1);
+    const canStack = slot.kind === "widgets" && dragKind !== "folder";
+    const pos: Drop["pos"] = canStack && rel > 0.6 ? "under" : "before";
+    setDrop((d) => (d && d.sid === slot.sid && d.pos === pos ? d : { sid: slot.sid, pos }));
   }
 
-  function onDragEnd() {
-    setDragId(null);
-    setEntries((cur) => {
-      persistOrder(cur);
-      return cur;
-    });
+  function overEnd(e: DragEvent) {
+    if (!dragKind) return;
+    e.preventDefault();
+    setDrop((d) => (d && d.sid === "__end__" ? d : { sid: "__end__", pos: "before" }));
+  }
+
+  function commitDrop() {
+    const d = drop;
+    if (!d || !dragKind || !dragId) {
+      clearDrag();
+      return;
+    }
+
+    const cur: Slot[] = slots.map((s) =>
+      s.kind === "widgets" ? { ...s, widgets: [...s.widgets] } : { ...s },
+    );
+
+    // 1. Sacar la unidad arrastrada de donde esté.
+    let carriedFolder: Folder | null = null;
+    let carriedWidgets: Widget[] = [];
+
+    if (dragKind === "folder") {
+      const i = cur.findIndex((s) => s.kind === "folder" && s.folder.id === dragId);
+      if (i < 0) return clearDrag();
+      carriedFolder = (cur[i] as FolderSlot).folder;
+      cur.splice(i, 1);
+    } else if (dragKind === "stack") {
+      const i = cur.findIndex((s) => s.kind === "widgets" && s.sid === dragId);
+      if (i < 0) return clearDrag();
+      carriedWidgets = (cur[i] as WidgetsSlot).widgets;
+      cur.splice(i, 1);
+    } else {
+      const i = cur.findIndex((s) => s.kind === "widgets" && s.widgets.some((w) => w.id === dragId));
+      if (i < 0) return clearDrag();
+      const slot = cur[i] as WidgetsSlot;
+      const w = slot.widgets.find((x) => x.id === dragId);
+      if (!w) return clearDrag();
+      carriedWidgets = [w];
+      slot.widgets = slot.widgets.filter((x) => x.id !== dragId);
+      if (slot.widgets.length === 0) cur.splice(i, 1);
+    }
+
+    const makeSlot = (): Slot =>
+      carriedFolder
+        ? { sid: nextSid(), kind: "folder", folder: carriedFolder }
+        : { sid: nextSid(), kind: "widgets", widgets: carriedWidgets };
+
+    // 2. Insertar en el destino.
+    if (d.sid === "__end__") {
+      cur.push(makeSlot());
+    } else {
+      const t = cur.findIndex((s) => s.sid === d.sid);
+      if (t < 0) return clearDrag(); // el destino era la propia unidad arrastrada → sin cambios
+      const target = cur[t];
+      if (d.pos === "under" && target.kind === "widgets" && !carriedFolder) {
+        target.widgets.push(...carriedWidgets);
+      } else {
+        cur.splice(t, 0, makeSlot());
+      }
+    }
+
+    setSlots(cur);
+    persist(cur);
+    clearDrag();
+  }
+
+  function slotDimmed(slot: Slot): boolean {
+    if (dragKind === "folder") return slot.kind === "folder" && slot.folder.id === dragId;
+    if (dragKind === "stack") return slot.sid === dragId;
+    return (
+      slot.kind === "widgets" && slot.widgets.length === 1 && slot.widgets[0]?.id === dragId
+    );
   }
 
   return (
@@ -160,35 +261,145 @@ export function PersonalSpace({
         </div>
       </div>
 
-      {entries.length === 0 ? (
+      {slots.length === 0 ? (
         <div className="rounded-[20px] border border-dashed border-[var(--border)] px-5 py-8 text-center text-sm text-[var(--text-muted)]">
           Tu espacio está vacío. Usa <strong>+ Añadir</strong> para crear una carpeta o un widget.
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {entries.map((entry) => (
+        <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {slots.map((slot) => (
+            <SlotView
+              key={slot.sid}
+              slot={slot}
+              apps={apps}
+              appDragging={appDragging}
+              dimmed={slotDimmed(slot)}
+              dragWidgetId={dragKind === "widget" ? dragId : null}
+              hint={drop && drop.sid === slot.sid ? drop.pos : null}
+              onBeginDrag={beginDrag}
+              onOverSlot={overSlot}
+              onCommitDrop={commitDrop}
+              onDragEnd={clearDrag}
+              onFolderDeleted={removeFolder}
+              onWidgetDeleted={removeWidget}
+            />
+          ))}
+          {dragKind && (
             <div
-              key={entry.id}
+              onDragOver={overEnd}
+              onDrop={(e) => {
+                e.preventDefault();
+                commitDrop();
+              }}
+              className="min-h-[64px] rounded-2xl border-2 border-dashed transition-colors"
+              style={{
+                borderColor: drop?.sid === "__end__" ? "var(--brand-water)" : "var(--border)",
+              }}
+            />
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function SlotView({
+  slot,
+  apps,
+  appDragging,
+  dimmed,
+  dragWidgetId,
+  hint,
+  onBeginDrag,
+  onOverSlot,
+  onCommitDrop,
+  onDragEnd,
+  onFolderDeleted,
+  onWidgetDeleted,
+}: {
+  slot: Slot;
+  apps: HubApp[];
+  appDragging: boolean;
+  dimmed: boolean;
+  dragWidgetId: string | null;
+  hint: "before" | "under" | null;
+  onBeginDrag: (e: DragEvent, kind: DragKind, id: string) => void;
+  onOverSlot: (e: DragEvent, slot: Slot) => void;
+  onCommitDrop: () => void;
+  onDragEnd: () => void;
+  onFolderDeleted: (id: string) => void;
+  onWidgetDeleted: (id: string) => void;
+}) {
+  return (
+    <div
+      className="relative"
+      style={{ opacity: dimmed ? 0.4 : undefined }}
+      onDragOver={(e) => onOverSlot(e, slot)}
+      onDrop={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onCommitDrop();
+      }}
+    >
+      {hint === "before" && (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -top-2 left-0 right-0 h-1 rounded-full"
+          style={{ background: "var(--brand-water)" }}
+        />
+      )}
+
+      {slot.kind === "folder" ? (
+        <div
+          draggable
+          onDragStart={(e) => onBeginDrag(e, "folder", slot.folder.id)}
+          onDragEnd={onDragEnd}
+        >
+          <SpaceFolder
+            folder={slot.folder}
+            apps={apps}
+            appDragging={appDragging}
+            onDeleted={() => onFolderDeleted(slot.folder.id)}
+          />
+        </div>
+      ) : slot.widgets.length === 1 ? (
+        <div
+          draggable
+          onDragStart={(e) => onBeginDrag(e, "widget", slot.widgets[0]!.id)}
+          onDragEnd={onDragEnd}
+        >
+          <SpaceWidget widget={slot.widgets[0]!} onDeleted={() => onWidgetDeleted(slot.widgets[0]!.id)} />
+        </div>
+      ) : (
+        <div
+          draggable
+          onDragStart={(e) => onBeginDrag(e, "stack", slot.sid)}
+          onDragEnd={onDragEnd}
+          className="flex flex-col gap-4"
+        >
+          {slot.widgets.map((w) => (
+            <div
+              key={w.id}
               draggable
-              onDragStart={(e) => onDragStart(e, entry.id)}
-              onDragOver={(e) => onDragOver(e, entry.id)}
+              onDragStart={(e) => onBeginDrag(e, "widget", w.id)}
               onDragEnd={onDragEnd}
-              className={dragId === entry.id ? "opacity-40" : undefined}
+              style={{ opacity: dragWidgetId === w.id ? 0.4 : undefined }}
             >
-              {entry.type === "folder" ? (
-                <SpaceFolder
-                  folder={entry.folder}
-                  apps={apps}
-                  appDragging={appDragging}
-                  onDeleted={() => removeEntry(entry.id)}
-                />
-              ) : (
-                <SpaceWidget widget={entry.widget} onDeleted={() => removeEntry(entry.id)} />
-              )}
+              <SpaceWidget widget={w} onDeleted={() => onWidgetDeleted(w.id)} />
             </div>
           ))}
         </div>
       )}
-    </section>
+
+      {hint === "under" && (
+        <div
+          aria-hidden
+          className="pointer-events-none mt-3 grid h-16 place-items-center rounded-2xl border-2 border-dashed text-xs font-semibold"
+          style={{ borderColor: "var(--brand-water)", color: "var(--brand-water)" }}
+        >
+          Soltar aquí ▾
+        </div>
+      )}
+    </div>
   );
 }
