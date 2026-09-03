@@ -4,9 +4,10 @@
 import { useEffect, useRef, useState } from "react";
 import { COMING_SOON_SLOTS, type HubApp } from "@/lib/apps";
 import type { Folder, Widget } from "@/lib/hub";
+import { useDragAutoScroll } from "@/lib/useDragAutoScroll";
 import { useHub } from "@/lib/useHub";
 import { AccountMenu, type AccountUser } from "./AccountMenu";
-import { IconTile, Label, SearchField, Star } from "./HubPrimitives";
+import { SearchField } from "./HubPrimitives";
 import { PersonalSpace } from "./personal/PersonalSpace";
 import { ComingSoonCard, ToolCard } from "./ToolCard";
 
@@ -133,11 +134,10 @@ export function HubHome({
     groups,
     visibleCount,
     totalCount,
-    togglePin,
-    pinnedTools,
   } = useHub(apps);
   const searchRef = useRef<HTMLInputElement>(null);
   const [scrolled, setScrolled] = useState(false);
+  useDragAutoScroll();
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -216,26 +216,6 @@ export function HubHome({
 
         <PersonalSpace folders={folders} widgets={widgets} apps={apps} />
 
-        {pinnedTools.length > 0 && (
-          <section className="hub-reveal flex flex-col gap-3.5" style={{ animationDelay: "60ms" }}>
-            <Label>Accesos rápidos</Label>
-            <div className="flex flex-wrap gap-2.5">
-              {pinnedTools.map((t) => (
-                <a
-                  key={t.slug}
-                  href={t.href}
-                  {...(t.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
-                  className="flex h-10 items-center gap-2.5 rounded-full border border-[var(--border)] bg-[var(--surface-1)] pl-3 pr-4 transition-all hover:-translate-y-0.5 hover:border-[var(--brand-water)] hover:shadow-md"
-                >
-                  <IconTile category={t.category} initial={t.initial} size={22} />
-                  <span className="text-sm font-semibold text-[var(--text-primary)]">{t.title}</span>
-                  <Star active />
-                </a>
-              ))}
-            </div>
-          </section>
-        )}
-
         <div className="hub-reveal flex items-center justify-between gap-4 border-b border-[var(--border)]" style={{ animationDelay: "90ms" }}>
           <div className="flex gap-1">
             {categories.map((c) => {
@@ -293,13 +273,7 @@ export function HubHome({
 
               <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
                 {group.apps.map((app, ci) => (
-                  <ToolCard
-                    key={app.slug}
-                    app={app}
-                    pinned={app.pinned}
-                    onTogglePin={togglePin}
-                    revealDelay={150 + gi * 90 + ci * 55}
-                  />
+                  <ToolCard key={app.slug} app={app} revealDelay={150 + gi * 90 + ci * 55} />
                 ))}
                 {isLast &&
                   !filtering &&

@@ -3,17 +3,13 @@
 import { useState } from "react";
 import Link from "next/link";
 import type { HubApp } from "@/lib/apps";
-import { IconTile, Star, StatusPill } from "./HubPrimitives";
+import { IconTile, StatusPill } from "./HubPrimitives";
 
 export function ToolCard({
   app,
-  pinned,
-  onTogglePin,
   revealDelay = 0,
 }: {
   app: HubApp;
-  pinned: boolean;
-  onTogglePin: (slug: string) => void;
   revealDelay?: number;
 }) {
   const [dragging, setDragging] = useState(false);
@@ -51,21 +47,7 @@ export function ToolCard({
         <span className="hub-icon">
           <IconTile category={app.category} initial={app.initial} />
         </span>
-        <div className="flex items-center gap-2.5">
-          <StatusPill status={app.status} />
-          <button
-            type="button"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              onTogglePin(app.slug);
-            }}
-            aria-label={pinned ? "Quitar de favoritos" : "Marcar como favorito"}
-            className="relative z-20 grid h-6 w-6 place-items-center transition-transform hover:scale-125"
-          >
-            <Star active={pinned} />
-          </button>
-        </div>
+        <StatusPill status={app.status} />
       </div>
 
       <div className="relative z-0 flex flex-1 flex-col gap-2">
