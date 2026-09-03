@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { HUB_GROUPS, type AppCategory, type HubApp } from "./apps";
+import type { AppCategory, HubApp, Section } from "./apps";
 
 const norm = (s: string) =>
   s
@@ -11,7 +11,7 @@ const norm = (s: string) =>
 
 export type CategoryFilter = "Todos" | AppCategory;
 
-export function useHub(apps: HubApp[]) {
+export function useHub(apps: HubApp[], sections: Section[]) {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<CategoryFilter>("Todos");
   const [hydrated, setHydrated] = useState(false);
@@ -44,24 +44,31 @@ export function useHub(apps: HubApp[]) {
   }, [apps]);
 
   const q = norm(query.trim());
+  const filtering = query.trim() !== "" || category !== "Todos";
+
   const visible = useMemo(
     () =>
       apps.filter(
         (t) =>
           (category === "Todos" || t.category === category) &&
-          (!q || norm(`${t.title} ${t.description} ${t.category} ${t.group}`).includes(q)),
+          (!q || norm(`${t.title} ${t.description} ${t.category}`).includes(q)),
       ),
     [apps, q, category],
   );
 
-  // Secciones en el orden de HUB_GROUPS, saltando las que quedan vacías con los filtros actuales.
-  const groups = useMemo(
-    () =>
-      HUB_GROUPS.map((g) => ({ ...g, apps: visible.filter((t) => t.group === g.id) })).filter(
-        (g) => g.apps.length > 0,
-      ),
-    [visible],
-  );
+  // Secciones en orden. Sin filtros se muestran todas (aunque estén vacías, para poder
+  // añadirles tarjetas); con filtros activos se ocultan las que quedan sin resultados.
+  const groups = useMemo(() => {
+    const ordered = [...sections].sort((a, b) => a.position - b.position);
+    const withApps = ordered.map((s) => ({
+      ...s,
+      apps: visible
+        .filter((t) => t.sectionId === s.id)
+        .slice()
+        .sort((a, b) => a.position - b.position),
+    }));
+    return filtering ? withApps.filter((g) => g.apps.length > 0) : withApps;
+  }, [sections, visible, filtering]);
 
   return {
     query,
@@ -71,6 +78,7 @@ export function useHub(apps: HubApp[]) {
     categories,
     counts,
     groups,
+    filtering,
     visibleCount: visible.length,
     totalCount: apps.length,
   };

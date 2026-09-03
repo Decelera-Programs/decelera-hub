@@ -2,6 +2,7 @@ import "server-only";
 import { cache } from "react";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
+import type { AppCategory, AppStatus, HubApp, Section } from "@/lib/apps";
 import { hubDb } from "@/lib/supabase/hub";
 
 export type Member = {
@@ -45,6 +46,61 @@ export async function requireAdmin(): Promise<Member> {
   if (member.role !== "admin") redirect("/no-access");
   return member;
 }
+
+// --- Secciones y tarjetas del hub (compartidas: las ve todo el equipo) ---
+
+type SectionRow = { id: string; label: string; blurb: string | null; accent: string | null; position: number };
+type CardRow = {
+  id: string;
+  slug: string;
+  section_id: string | null;
+  initial: string | null;
+  title: string;
+  description: string | null;
+  href: string;
+  category: AppCategory;
+  status: AppStatus;
+  meta: string | null;
+  external: boolean;
+  position: number;
+};
+
+export const getSections = cache(async (): Promise<Section[]> => {
+  const { data } = await hubDb
+    .from("sections")
+    .select("id, label, blurb, accent, position")
+    .order("position");
+  return ((data ?? []) as SectionRow[]).map((s) => ({
+    id: s.id,
+    label: s.label,
+    blurb: s.blurb ?? "",
+    accent: s.accent ?? "var(--brand-water)",
+    position: s.position,
+  }));
+});
+
+export const getCards = cache(async (): Promise<HubApp[]> => {
+  const { data } = await hubDb
+    .from("cards")
+    .select(
+      "id, slug, section_id, initial, title, description, href, category, status, meta, external, position",
+    )
+    .order("position");
+  return ((data ?? []) as CardRow[]).map((c) => ({
+    id: c.id,
+    slug: c.slug,
+    sectionId: c.section_id,
+    initial: c.initial ?? "",
+    title: c.title,
+    description: c.description ?? "",
+    href: c.href,
+    category: c.category,
+    status: c.status,
+    meta: c.meta ?? undefined,
+    external: c.external,
+    position: c.position,
+  }));
+});
 
 // --- Espacio personal (carpetas + widgets, por miembro) ---
 
