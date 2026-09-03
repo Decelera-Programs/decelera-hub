@@ -16,11 +16,35 @@ const KIND_COLOR: Record<Widget["kind"], string> = {
   todo: "var(--brand-sea)",
 };
 
+const collapseKey = (id: string) => `hub:w:${id}:collapsed`;
+
 export function SpaceWidget({ widget, onDeleted }: { widget: Widget; onDeleted: () => void }) {
   const [title, setTitle] = useState(widget.title ?? "");
-  const [collapsed, setCollapsed] = useState(false);
+  // Por defecto colapsado; se recuerda por widget en localStorage. Se arranca en `true`
+  // para no desincronizar el HTML del servidor; el valor real se lee tras montar.
+  const [collapsed, setCollapsed] = useState(true);
   const [renaming, setRenaming] = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
+
+  useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect -- sync post-mount con localStorage */
+    try {
+      if (localStorage.getItem(collapseKey(widget.id)) === "0") setCollapsed(false);
+    } catch {
+      // localStorage no disponible — nos quedamos colapsados.
+    }
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [widget.id]);
+
+  function toggleCollapsed() {
+    const next = !collapsed;
+    setCollapsed(next);
+    try {
+      localStorage.setItem(collapseKey(widget.id), next ? "1" : "0");
+    } catch {
+      // sin persistencia — al menos cambia en esta sesión.
+    }
+  }
 
   function saveName() {
     updateWidget(widget.id, { title });
@@ -32,7 +56,7 @@ export function SpaceWidget({ widget, onDeleted }: { widget: Widget; onDeleted: 
       <div
         className="flex cursor-pointer select-none items-center gap-2"
         onClick={() => {
-          if (!renaming) setCollapsed((v) => !v);
+          if (!renaming) toggleCollapsed();
         }}
       >
         <WidgetGlyph kind={widget.kind} />
