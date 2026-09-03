@@ -3,52 +3,158 @@
 import { useEffect, useRef, useState } from "react";
 import type { Widget } from "@/lib/hub";
 import { deleteWidget, updateWidget } from "@/app/actions";
+import { CardMenu } from "./CardMenu";
+
+const KIND_LABEL: Record<Widget["kind"], string> = {
+  note: "Nota",
+  links: "Enlaces",
+  todo: "To-do",
+};
+const KIND_COLOR: Record<Widget["kind"], string> = {
+  note: "var(--brand-sun)",
+  links: "var(--brand-water)",
+  todo: "var(--brand-sea)",
+};
 
 export function SpaceWidget({ widget, onDeleted }: { widget: Widget; onDeleted: () => void }) {
   const [title, setTitle] = useState(widget.title ?? "");
+  const [collapsed, setCollapsed] = useState(false);
+  const [renaming, setRenaming] = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
 
+  function saveName() {
+    updateWidget(widget.id, { title });
+    setRenaming(false);
+  }
+
   return (
-    <div className="card flex h-full flex-col gap-3 p-4">
-      <div className="flex items-center gap-2">
-        <input
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          onBlur={() => updateWidget(widget.id, { title })}
-          className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-[var(--text-primary)] outline-none"
-          maxLength={60}
-        />
-        <span className="text-[10px] font-bold uppercase tracking-wide text-[var(--text-muted)]">
-          {widget.kind === "note" ? "Nota" : widget.kind === "links" ? "Enlaces" : "To-do"}
-        </span>
-        {confirmDel ? (
-          <button
-            type="button"
-            onClick={() => {
-              deleteWidget(widget.id);
-              onDeleted();
+    <div className="card relative flex h-full flex-col gap-3 p-4">
+      <div
+        className="flex cursor-pointer select-none items-center gap-2"
+        onClick={() => {
+          if (!renaming) setCollapsed((v) => !v);
+        }}
+      >
+        <WidgetGlyph kind={widget.kind} />
+
+        {renaming ? (
+          <input
+            autoFocus
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            onClick={(e) => e.stopPropagation()}
+            onBlur={saveName}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") saveName();
+              if (e.key === "Escape") {
+                setTitle(widget.title ?? "");
+                setRenaming(false);
+              }
             }}
-            className="text-xs font-semibold text-[var(--status-critical)]"
-          >
-            Borrar
-          </button>
+            className="min-w-0 flex-1 rounded bg-[var(--surface-1)] px-1 text-sm font-semibold text-[var(--text-primary)] outline-none ring-1 ring-[var(--brand-water)]"
+            maxLength={60}
+          />
         ) : (
-          <button
-            type="button"
-            onClick={() => setConfirmDel(true)}
-            onBlur={() => setConfirmDel(false)}
-            aria-label="Borrar widget"
-            className="text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--status-critical)]"
-          >
-            ✕
-          </button>
+          <span className="min-w-0 flex-1 truncate text-sm font-semibold text-[var(--text-primary)]">
+            {title || "Sin título"}
+          </span>
         )}
+
+        <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-[var(--text-muted)]">
+          {KIND_LABEL[widget.kind]}
+        </span>
+        <span aria-hidden className="shrink-0 text-xs text-[var(--text-muted)]">
+          {collapsed ? "▸" : "▾"}
+        </span>
+
+        <CardMenu label="Opciones del widget" onClose={() => setConfirmDel(false)}>
+          {(close) => (
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  setRenaming(true);
+                  close();
+                }}
+                className="block w-full px-3 py-1.5 text-left text-sm text-[var(--text-secondary)] transition-colors hover:bg-[var(--row-hover)] hover:text-[var(--text-primary)]"
+              >
+                Renombrar
+              </button>
+              {confirmDel ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    deleteWidget(widget.id);
+                    onDeleted();
+                  }}
+                  className="block w-full px-3 py-1.5 text-left text-sm font-semibold text-[var(--status-critical)] transition-colors hover:bg-[var(--row-hover)]"
+                >
+                  Confirmar borrado
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setConfirmDel(true)}
+                  className="block w-full px-3 py-1.5 text-left text-sm text-[var(--text-secondary)] transition-colors hover:bg-[var(--row-hover)] hover:text-[var(--status-critical)]"
+                >
+                  Borrar widget
+                </button>
+              )}
+            </>
+          )}
+        </CardMenu>
       </div>
 
-      {widget.kind === "note" && <NoteBody widget={widget} />}
-      {widget.kind === "links" && <LinksBody widget={widget} />}
-      {widget.kind === "todo" && <TodoBody widget={widget} />}
+      {!collapsed && (
+        <>
+          {widget.kind === "note" && <NoteBody widget={widget} />}
+          {widget.kind === "links" && <LinksBody widget={widget} />}
+          {widget.kind === "todo" && <TodoBody widget={widget} />}
+        </>
+      )}
     </div>
+  );
+}
+
+function WidgetGlyph({ kind }: { kind: Widget["kind"] }) {
+  const color = KIND_COLOR[kind];
+  return (
+    <span
+      aria-hidden
+      className="grid h-6 w-6 shrink-0 place-items-center rounded-md"
+      style={{ background: `color-mix(in srgb, ${color} 16%, transparent)` }}
+    >
+      <svg
+        width="13"
+        height="13"
+        viewBox="0 0 16 16"
+        fill="none"
+        stroke={color}
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        {kind === "note" && (
+          <>
+            <path d="M4 2.5h8v11H4z" />
+            <path d="M6 6h4M6 9h3" />
+          </>
+        )}
+        {kind === "links" && (
+          <>
+            <path d="m6.4 9.6 3.2-3.2" />
+            <path d="M8.2 4.6 9.3 3.5a2.4 2.4 0 0 1 3.4 3.4l-1.1 1.1" />
+            <path d="M7.8 11.4 6.7 12.5a2.4 2.4 0 0 1-3.4-3.4l1.1-1.1" />
+          </>
+        )}
+        {kind === "todo" && (
+          <>
+            <path d="M3 3.5h10v9H3z" />
+            <path d="m5.5 8 2 2 3.5-4" />
+          </>
+        )}
+      </svg>
+    </span>
   );
 }
 

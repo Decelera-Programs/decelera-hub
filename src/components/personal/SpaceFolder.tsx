@@ -1,7 +1,7 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element */
-import { type DragEvent, useEffect, useRef, useState } from "react";
+import { type DragEvent, useState } from "react";
 import type { HubApp } from "@/lib/apps";
 import type { Folder, FolderItem } from "@/lib/hub";
 import {
@@ -12,6 +12,7 @@ import {
   updateFolder,
 } from "@/app/actions";
 import { IconTile } from "@/components/HubPrimitives";
+import { CardMenu } from "./CardMenu";
 
 const COLORS = [
   "var(--brand-sea)",
@@ -48,22 +49,8 @@ export function SpaceFolder({
   const [adding, setAdding] = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
   const [dropActive, setDropActive] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [dragItemId, setDragItemId] = useState<string | null>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!menuOpen) return;
-    function onDown(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false);
-        setConfirmDel(false);
-      }
-    }
-    document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
-  }, [menuOpen]);
 
   function pickColor(c: string) {
     setColor(c);
@@ -124,7 +111,6 @@ export function SpaceFolder({
     <div
       className="card relative flex h-full flex-col gap-3 p-4 transition-shadow"
       style={{
-        zIndex: menuOpen ? 40 : undefined,
         ...(dropActive
           ? {
               boxShadow: "0 0 0 2px var(--brand-water)",
@@ -196,32 +182,14 @@ export function SpaceFolder({
           {collapsed ? "▸" : "▾"}
         </span>
 
-        <div ref={menuRef} className="relative shrink-0" onClick={(e) => e.stopPropagation()}>
-          <button
-            type="button"
-            onClick={() => {
-              setMenuOpen((v) => !v);
-              setConfirmDel(false);
-            }}
-            aria-label="Opciones de la carpeta"
-            className="grid h-6 w-5 place-items-center rounded text-[var(--text-muted)] transition-colors hover:bg-[var(--row-hover)] hover:text-[var(--text-primary)]"
-          >
-            ⋮
-          </button>
-          {menuOpen && (
-            <div
-              className="absolute right-0 top-7 z-50 w-44 overflow-hidden rounded-xl py-1"
-              style={{
-                background: "var(--surface-1)",
-                boxShadow:
-                  "0 14px 36px -10px rgba(20,25,40,0.4), 0 0 0 1px color-mix(in srgb, var(--text-primary) 12%, transparent)",
-              }}
-            >
+        <CardMenu label="Opciones de la carpeta" onClose={() => setConfirmDel(false)}>
+          {(close) => (
+            <>
               <button
                 type="button"
                 onClick={() => {
                   setRenaming(true);
-                  setMenuOpen(false);
+                  close();
                 }}
                 className="block w-full px-3 py-1.5 text-left text-sm text-[var(--text-secondary)] transition-colors hover:bg-[var(--row-hover)] hover:text-[var(--text-primary)]"
               >
@@ -263,9 +231,9 @@ export function SpaceFolder({
                   Borrar carpeta
                 </button>
               )}
-            </div>
+            </>
           )}
-        </div>
+        </CardMenu>
       </div>
 
       {!collapsed && (
