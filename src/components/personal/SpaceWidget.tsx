@@ -158,20 +158,16 @@ function WidgetGlyph({ kind }: { kind: Widget["kind"] }) {
 }
 
 /**
- * Guarda `data` con debounce; el estado local es la fuente de verdad en sesión.
- * `flush()` fuerza el guardado pendiente ya — se llama al desmontar y en el `blur`
- * de los campos, para no perder lo último escrito al colapsar/recargar/reordenar.
+ * Estado local = fuente de verdad en sesión. Dos formas de persistir en `hub.widgets.data`:
+ * - `setDebounced`: para texto que se teclea (la nota). Agrupa escrituras; `flush()` fuerza
+ *   el guardado pendiente ya — se llama al desmontar y en el `blur` del campo.
+ * - `setNow`: para cambios puntuales (añadir/borrar/marcar). Guarda al instante, sin ventana.
  */
-function useDebouncedData<T>(widgetId: string, initial: T, delay = 500) {
+function useWidgetData<T>(widgetId: string, initial: T, delay = 500) {
   const [value, setValue] = useState<T>(initial);
   const valueRef = useRef(value);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dirty = useRef(false);
-  const first = useRef(true);
-
-  useEffect(() => {
-    valueRef.current = value;
-  }, [value]);
 
   const flush = useCallback(() => {
     if (timer.current) {
@@ -183,31 +179,39 @@ function useDebouncedData<T>(widgetId: string, initial: T, delay = 500) {
     updateWidget(widgetId, { data: valueRef.current as unknown });
   }, [widgetId]);
 
-  useEffect(() => {
-    if (first.current) {
-      first.current = false;
-      return;
-    }
-    dirty.current = true;
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(flush, delay);
-    return () => {
+  const setDebounced = useCallback(
+    (next: T) => {
+      valueRef.current = next;
+      setValue(next);
+      dirty.current = true;
       if (timer.current) clearTimeout(timer.current);
-    };
-  }, [value, delay, flush]);
+      timer.current = setTimeout(flush, delay);
+    },
+    [flush, delay],
+  );
 
-  useEffect(() => flush, [flush]); // flush al desmontar
+  const setNow = useCallback(
+    (next: T) => {
+      valueRef.current = next;
+      setValue(next);
+      dirty.current = true;
+      flush();
+    },
+    [flush],
+  );
 
-  return [value, setValue, flush] as const;
+  useEffect(() => flush, [flush]); // flush al desmontar (colapsar oculta, no desmonta)
+
+  return { value, setDebounced, setNow, flush };
 }
 
 function NoteBody({ widget }: { widget: Widget }) {
   const initial = typeof widget.data.text === "string" ? widget.data.text : "";
-  const [data, setData, flush] = useDebouncedData(widget.id, { text: initial });
+  const { value, setDebounced, flush } = useWidgetData(widget.id, { text: initial });
   return (
     <textarea
-      value={data.text}
-      onChange={(e) => setData({ text: e.target.value })}
+      value={value.text}
+      onChange={(e) => setDebounced({ text: e.target.value })}
       onBlur={flush}
       placeholder="Escribe aquí…"
       className="min-h-28 flex-1 resize-y rounded-lg border border-[var(--border)] bg-[var(--surface-1)] p-2 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]"
@@ -219,22 +223,22 @@ type Link = { label: string; url: string };
 
 function LinksBody({ widget }: { widget: Widget }) {
   const initial = Array.isArray(widget.data.items) ? (widget.data.items as Link[]) : [];
-  const [data, setData] = useDebouncedData(widget.id, { items: initial });
+  const { value, setNow } = useWidgetData(widget.id, { items: initial });
   const [url, setUrl] = useState("");
   const [label, setLabel] = useState("");
 
-  const set = (items: Link[]) => setData({ items });
+  const set = (items: Link[]) => setNow({ items });
   const add = () => {
     if (!url.trim()) return;
     const u = /^https?:\/\//i.test(url.trim()) ? url.trim() : `https://${url.trim()}`;
-    set([...data.items, { url: u, label: label.trim() || u }]);
+    set([...value.items, { url: u, label: label.trim() || u }]);
     setUrl("");
     setLabel("");
   };
 
   return (
     <div className="flex flex-col gap-1.5">
-      {data.items.map((it, i) => (
+      {value.items.map((it, i) => (
         <div key={i} className="group flex items-center gap-2 text-sm">
           <a
             href={it.url}
@@ -246,7 +250,7 @@ function LinksBody({ widget }: { widget: Widget }) {
           </a>
           <button
             type="button"
-            onClick={() => set(data.items.filter((_, j) => j !== i))}
+            onClick={() => set(value.items.filter((_, j) => j !== i))}
             aria-label="Quitar"
             className="text-xs text-[var(--text-muted)] opacity-0 transition-opacity hover:text-[var(--status-critical)] group-hover:opacity-100"
           >
@@ -286,25 +290,25 @@ type Task = { text: string; done: boolean };
 
 function TodoBody({ widget }: { widget: Widget }) {
   const initial = Array.isArray(widget.data.items) ? (widget.data.items as Task[]) : [];
-  const [data, setData] = useDebouncedData(widget.id, { items: initial });
+  const { value, setNow } = useWidgetData(widget.id, { items: initial });
   const [text, setText] = useState("");
 
-  const set = (items: Task[]) => setData({ items });
+  const set = (items: Task[]) => setNow({ items });
   const add = () => {
     if (!text.trim()) return;
-    set([...data.items, { text: text.trim(), done: false }]);
+    set([...value.items, { text: text.trim(), done: false }]);
     setText("");
   };
 
   return (
     <div className="flex flex-col gap-1">
-      {data.items.map((t, i) => (
+      {value.items.map((t, i) => (
         <div key={i} className="group flex items-center gap-2 text-sm">
           <input
             type="checkbox"
             checked={t.done}
             onChange={() =>
-              set(data.items.map((x, j) => (j === i ? { ...x, done: !x.done } : x)))
+              set(value.items.map((x, j) => (j === i ? { ...x, done: !x.done } : x)))
             }
             className="accent-[var(--brand-sea)]"
           />
@@ -317,7 +321,7 @@ function TodoBody({ widget }: { widget: Widget }) {
           </span>
           <button
             type="button"
-            onClick={() => set(data.items.filter((_, j) => j !== i))}
+            onClick={() => set(value.items.filter((_, j) => j !== i))}
             aria-label="Quitar"
             className="text-xs text-[var(--text-muted)] opacity-0 transition-opacity hover:text-[var(--status-critical)] group-hover:opacity-100"
           >
