@@ -124,6 +124,35 @@ export function SpaceFolder({
           if (!renaming) setCollapsed((v) => !v);
         }}
       >
+        <FolderGlyph color={color} />
+
+        {renaming ? (
+          <input
+            autoFocus
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onClick={(e) => e.stopPropagation()}
+            onBlur={saveName}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") saveName();
+              if (e.key === "Escape") {
+                setName(folder.name);
+                setRenaming(false);
+              }
+            }}
+            className="min-w-0 flex-1 rounded bg-[var(--surface-1)] px-1 text-sm font-semibold text-[var(--text-primary)] outline-none ring-1 ring-[var(--brand-water)]"
+            maxLength={60}
+          />
+        ) : (
+          <span className="min-w-0 flex-1 truncate text-sm font-semibold text-[var(--text-primary)]">
+            {name || "Sin nombre"}
+          </span>
+        )}
+
+        <span aria-hidden className="shrink-0 text-xs text-[var(--text-muted)]">
+          {collapsed ? "▸" : "▾"}
+        </span>
+
         <div ref={menuRef} className="relative shrink-0" onClick={(e) => e.stopPropagation()}>
           <button
             type="button"
@@ -137,7 +166,7 @@ export function SpaceFolder({
             ⋮
           </button>
           {menuOpen && (
-            <div className="absolute left-0 top-7 z-50 w-44 overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface-1)] py-1 shadow-md">
+            <div className="absolute right-0 top-7 z-50 w-44 overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface-1)] py-1 shadow-md">
               <button
                 type="button"
                 onClick={() => {
@@ -187,39 +216,6 @@ export function SpaceFolder({
             </div>
           )}
         </div>
-
-        <span
-          aria-hidden
-          className="h-2.5 w-2.5 shrink-0 rounded-full"
-          style={{ background: color ?? "var(--pill-neutral-bg)" }}
-        />
-
-        {renaming ? (
-          <input
-            autoFocus
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            onClick={(e) => e.stopPropagation()}
-            onBlur={saveName}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") saveName();
-              if (e.key === "Escape") {
-                setName(folder.name);
-                setRenaming(false);
-              }
-            }}
-            className="min-w-0 flex-1 rounded bg-[var(--surface-1)] px-1 text-sm font-semibold text-[var(--text-primary)] outline-none ring-1 ring-[var(--brand-water)]"
-            maxLength={60}
-          />
-        ) : (
-          <span className="min-w-0 flex-1 truncate text-sm font-semibold text-[var(--text-primary)]">
-            {name || "Sin nombre"}
-          </span>
-        )}
-
-        <span aria-hidden className="shrink-0 text-xs text-[var(--text-muted)]">
-          {collapsed ? "▸" : "▾"}
-        </span>
       </div>
 
       {!collapsed && (
@@ -250,6 +246,23 @@ export function SpaceFolder({
         </div>
       )}
     </div>
+  );
+}
+
+function FolderGlyph({ color }: { color: string | null }) {
+  return (
+    <span
+      aria-hidden
+      className="grid h-6 w-6 shrink-0 place-items-center rounded-md"
+      style={{ background: color ? `color-mix(in srgb, ${color} 16%, transparent)` : "var(--pill-neutral-bg)" }}
+    >
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+        <path
+          d="M1.5 4.2c0-.66.54-1.2 1.2-1.2h3.05c.4 0 .77.2.99.53l.52.77c.22.33.6.53.99.53h4.55c.66 0 1.2.54 1.2 1.2v5.44c0 .66-.54 1.2-1.2 1.2H2.7c-.66 0-1.2-.54-1.2-1.2V4.2Z"
+          fill={color ?? "var(--text-muted)"}
+        />
+      </svg>
+    </span>
   );
 }
 
