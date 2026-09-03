@@ -1,6 +1,6 @@
 export type AppStatus = "live" | "beta" | "soon";
 export type AppCategory = "Dashboard" | "Herramienta" | "Datos";
-export type AppGroup = "General View" | "Investment";
+export type AppGroup = "General View" | "Investment" | "Marketing";
 
 export type HubApp = {
   slug: string;
@@ -29,6 +29,12 @@ export const HUB_GROUPS: { id: AppGroup; label: string; blurb: string; accent: s
     label: "Investment",
     blurb: "Deal flow, evaluación y decisión de inversión.",
     accent: "var(--brand-sea)",
+  },
+  {
+    id: "Marketing",
+    label: "Marketing",
+    blurb: "Marca, contenidos y materiales del equipo.",
+    accent: "var(--brand-sun)",
   },
 ];
 
@@ -80,6 +86,18 @@ export const hubApps: HubApp[] = [
     group: "Investment",
     status: "live",
     meta: "App externa",
+    external: true,
+  },
+  {
+    slug: "brand-assets",
+    initial: "BR",
+    title: "Logos y marca",
+    description: "Carpeta de Drive con los logos y el brand de Decelera.",
+    href: "https://drive.google.com/drive/u/0/folders/1faoyvaZTUBEMwn7Xwq3Upl5Eo1NiEHII?ths=true",
+    category: "Herramienta",
+    group: "Marketing",
+    status: "live",
+    meta: "Drive",
     external: true,
   },
 ];
