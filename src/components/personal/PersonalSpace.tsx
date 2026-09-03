@@ -43,7 +43,26 @@ export function PersonalSpace({
   const [, startTransition] = useTransition();
   const [addOpen, setAddOpen] = useState(false);
   const [dragId, setDragId] = useState<string | null>(null);
+  const [appDragging, setAppDragging] = useState(false);
   const addRef = useRef<HTMLDivElement>(null);
+
+  // Mientras se arrastra una tarjeta de app por la página, marcamos las carpetas como destino.
+  useEffect(() => {
+    const onStart = (e: globalThis.DragEvent) => {
+      if (Array.from(e.dataTransfer?.types ?? []).includes("application/x-hub-app")) {
+        setAppDragging(true);
+      }
+    };
+    const onEnd = () => setAppDragging(false);
+    document.addEventListener("dragstart", onStart);
+    document.addEventListener("dragend", onEnd);
+    document.addEventListener("drop", onEnd);
+    return () => {
+      document.removeEventListener("dragstart", onStart);
+      document.removeEventListener("dragend", onEnd);
+      document.removeEventListener("drop", onEnd);
+    };
+  }, []);
 
   useEffect(() => {
     if (!addOpen) return;
@@ -85,11 +104,13 @@ export function PersonalSpace({
   }
 
   function onDragOver(e: DragEvent, overId: string) {
+    // Solo reaccionamos si es un reorden de carpeta/widget en curso; si no (p. ej. un item
+    // arrastrado fuera de su carpeta), dejamos que el drop caiga "en el vacío".
+    if (!dragId) return;
     e.preventDefault();
-    const from = dragId;
-    if (!from || from === overId) return;
+    if (dragId === overId) return;
     setEntries((cur) => {
-      const fromIdx = cur.findIndex((x) => x.id === from);
+      const fromIdx = cur.findIndex((x) => x.id === dragId);
       const overIdx = cur.findIndex((x) => x.id === overId);
       if (fromIdx < 0 || overIdx < 0) return cur;
       const next = cur.slice();
@@ -155,7 +176,12 @@ export function PersonalSpace({
               className={dragId === entry.id ? "opacity-40" : undefined}
             >
               {entry.type === "folder" ? (
-                <SpaceFolder folder={entry.folder} apps={apps} onDeleted={() => removeEntry(entry.id)} />
+                <SpaceFolder
+                  folder={entry.folder}
+                  apps={apps}
+                  appDragging={appDragging}
+                  onDeleted={() => removeEntry(entry.id)}
+                />
               ) : (
                 <SpaceWidget widget={entry.widget} onDeleted={() => removeEntry(entry.id)} />
               )}

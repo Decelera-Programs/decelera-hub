@@ -26,6 +26,16 @@ export function ToolCard({
         e.dataTransfer.setData("application/x-hub-app", app.slug);
         e.dataTransfer.setData("text/plain", app.title);
         e.dataTransfer.effectAllowed = "copy";
+        // Ghost limpio: una píldora con el nombre, en vez del fantasma de la tarjeta entera.
+        const ghost = document.createElement("div");
+        ghost.textContent = app.title;
+        ghost.style.cssText =
+          "position:fixed;top:-9999px;left:-9999px;padding:8px 14px;border-radius:9999px;white-space:nowrap;" +
+          "background:var(--surface-1);color:var(--text-primary);font:600 13px system-ui,sans-serif;" +
+          "box-shadow:0 12px 30px -8px rgba(20,25,40,.4),0 0 0 1px color-mix(in srgb,var(--text-primary) 12%,transparent)";
+        document.body.appendChild(ghost);
+        e.dataTransfer.setDragImage(ghost, 16, 16);
+        requestAnimationFrame(() => ghost.remove());
       }}
     >
       <Link

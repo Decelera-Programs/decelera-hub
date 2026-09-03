@@ -1,7 +1,7 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element */
-import { useEffect, useRef, useState } from "react";
+import { type DragEvent, useEffect, useRef, useState } from "react";
 import type { HubApp } from "@/lib/apps";
 import type { Folder, FolderItem } from "@/lib/hub";
 import {
@@ -33,10 +33,12 @@ function faviconFor(url: string): string {
 export function SpaceFolder({
   folder,
   apps,
+  appDragging = false,
   onDeleted,
 }: {
   folder: Folder;
   apps: HubApp[];
+  appDragging?: boolean;
   onDeleted: () => void;
 }) {
   const [name, setName] = useState(folder.name);
@@ -100,8 +102,15 @@ export function SpaceFolder({
       return next;
     });
   }
-  function onItemDragEnd() {
+  function onItemDragEnd(e: DragEvent) {
+    const id = dragItemId;
     setDragItemId(null);
+    // dropEffect "none" = se soltó fuera de la carpeta (ningún destino lo aceptó) -> se quita.
+    if (id && e.dataTransfer.dropEffect === "none") {
+      setItems((cur) => cur.filter((x) => x.id !== id));
+      removeFolderItem(id);
+      return;
+    }
     setItems((cur) => {
       reorderFolderItems(folder.id, cur.map((x) => x.id));
       return cur;
@@ -117,10 +126,21 @@ export function SpaceFolder({
       style={{
         zIndex: menuOpen ? 40 : undefined,
         ...(dropActive
-          ? { boxShadow: "0 0 0 2px var(--brand-water)", background: "color-mix(in srgb, var(--brand-water) 6%, var(--surface-1))" }
-          : {}),
+          ? {
+              boxShadow: "0 0 0 2px var(--brand-water)",
+              background: "color-mix(in srgb, var(--brand-water) 8%, var(--surface-1))",
+            }
+          : appDragging
+            ? { boxShadow: "0 0 0 1.5px color-mix(in srgb, var(--brand-water) 45%, transparent)" }
+            : {}),
       }}
       onDragOver={(e) => {
+        // Arrastre interno de un item: soltar en cualquier punto de la carpeta = se queda.
+        if (dragItemId) {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = "move";
+          return;
+        }
         if (!Array.from(e.dataTransfer.types).includes("application/x-hub-app")) return;
         e.preventDefault();
         e.stopPropagation();
@@ -190,8 +210,12 @@ export function SpaceFolder({
           </button>
           {menuOpen && (
             <div
-              className="absolute right-0 top-7 z-50 w-44 overflow-hidden rounded-xl border border-[var(--border)] py-1 shadow-lg"
-              style={{ background: "var(--surface-1)" }}
+              className="absolute right-0 top-7 z-50 w-44 overflow-hidden rounded-xl py-1"
+              style={{
+                background: "var(--surface-1)",
+                boxShadow:
+                  "0 14px 36px -10px rgba(20,25,40,0.4), 0 0 0 1px color-mix(in srgb, var(--text-primary) 12%, transparent)",
+              }}
             >
               <button
                 type="button"
@@ -259,6 +283,7 @@ export function SpaceFolder({
                 if (!dragItemId) return;
                 e.preventDefault();
                 e.stopPropagation();
+                e.dataTransfer.dropEffect = "move";
                 onItemDragOver(it.id);
               }}
               onDragEnd={onItemDragEnd}
