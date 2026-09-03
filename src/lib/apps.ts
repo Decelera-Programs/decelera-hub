@@ -69,7 +69,7 @@ export const hubApps: HubApp[] = [
     category: "Dashboard",
     group: "Investment",
     status: "live",
-    meta: "Datos en vivo",
+    meta: "Dashboard en vivo",
   },
   {
     slug: "motor-operativo",

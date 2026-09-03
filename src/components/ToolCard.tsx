@@ -16,7 +16,7 @@ export function ToolCard({
 
   return (
     <div
-      className={`hub-card hub-reveal card group relative flex min-h-[224px] flex-col gap-4 p-5${
+      className={`hub-card hub-reveal card group relative flex min-h-[176px] flex-col gap-4 p-5${
         dragging ? " opacity-40" : ""
       }`}
       style={{ animationDelay: `${revealDelay}ms` }}
@@ -64,20 +64,10 @@ export function ToolCard({
 
       <div className="relative z-0 flex flex-1 flex-col gap-2">
         <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">
-          {app.category}
+          {app.meta ?? app.category}
         </p>
         <h2 className="text-xl font-semibold leading-tight text-[var(--text-primary)]">{app.title}</h2>
         <p className="text-sm leading-relaxed text-[var(--text-secondary)]">{app.description}</p>
-      </div>
-
-      <div className="relative z-0 flex items-center justify-between border-t border-[var(--border)] pt-3.5">
-        <span className="flex items-center gap-1 text-sm font-semibold text-[var(--brand-sea)]">
-          {app.external ? "Abrir en pestaña nueva" : "Abrir"}
-          <span aria-hidden className="hub-arrow">
-            {app.external ? "↗" : "→"}
-          </span>
-        </span>
-        {app.meta && <span className="text-xs text-[var(--text-muted)]">{app.meta}</span>}
       </div>
     </div>
   );
@@ -100,7 +90,7 @@ function PlusIcon() {
 export function ComingSoonCard({ revealDelay = 0 }: { revealDelay?: number }) {
   return (
     <div
-      className="hub-reveal flex min-h-[224px] flex-col gap-4 rounded-[20px] border border-dashed border-[var(--border)] p-5"
+      className="hub-reveal flex min-h-[176px] flex-col gap-4 rounded-[20px] border border-dashed border-[var(--border)] p-5"
       style={{ animationDelay: `${revealDelay}ms` }}
     >
       <span
