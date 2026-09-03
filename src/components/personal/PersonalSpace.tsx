@@ -258,7 +258,9 @@ export function PersonalSpace({
                 onDrop={(e) => onDropCell(e, cell)}
                 className="hidden rounded-[20px] transition-colors md:block"
                 style={{
-                  minHeight: MIN_CELL_H,
+                  // Sin arrastre no ocupa alto: una fila con todo colapsado se queda
+                  // a la altura de la tarjeta, aunque tenga huecos al lado.
+                  minHeight: dragKey ? MIN_CELL_H : 0,
                   border: dragKey ? "2px dashed var(--border)" : undefined,
                   borderColor: dropCell === cell ? "var(--brand-water)" : undefined,
                   background:
