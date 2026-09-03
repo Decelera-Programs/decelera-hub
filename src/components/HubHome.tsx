@@ -26,6 +26,11 @@ const EXTERNAL_LINKS: { name: string; href: string; icon: string }[] = [
     href: "https://claude.ai",
     icon: "https://www.google.com/s2/favicons?domain=claude.ai&sz=64",
   },
+  {
+    name: "Drive",
+    href: "https://drive.google.com",
+    icon: "https://www.google.com/s2/favicons?domain=drive.google.com&sz=64",
+  },
 ];
 
 function LinkFavicon({ name, icon, size }: { name: string; icon: string; size: number }) {
