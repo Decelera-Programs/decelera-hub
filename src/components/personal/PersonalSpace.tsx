@@ -12,7 +12,9 @@ import { SpaceWidget } from "./SpaceWidget";
 // celda concreta (`cell`) y puede haber huecos. En móvil (1 columna) se empaqueta
 // por orden de celda.
 const COLS = 3;
-const MIN_CELL_H = 224;
+// Alto de un hueco vacío (y zona de drop). Corto para que una fila con widgets
+// colapsados no quede inflada por un hueco al lado.
+const MIN_CELL_H = 120;
 
 type Entry =
   | { key: string; cell: number; type: "folder"; folder: Folder }
@@ -219,7 +221,7 @@ export function PersonalSpace({
           Tu espacio está vacío. Usa <strong>+ Añadir</strong> para crear una carpeta o un widget.
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-3">
           {grid.map((entry, cell) =>
             entry ? (
               <div
