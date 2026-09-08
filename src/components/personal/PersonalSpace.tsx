@@ -41,7 +41,21 @@ function build(folders: Folder[], widgets: Widget[]): Entry[] {
     seen.add(e.cell);
     free = Math.max(free, e.cell + 1);
   }
-  return es;
+  return stripLeadingRows(es);
+}
+
+/**
+ * Sube el contenido para que no haya filas enteras vacías por encima. Sin esto, si el
+ * único item está en la 2ª fila, esa 1ª fila mide 0px sin arrastre y salta a 120px al
+ * empezar a arrastrar, empujando el item y cancelando el drag nativo del navegador.
+ * Los huecos entre items o al lado se conservan.
+ */
+function stripLeadingRows(es: Entry[]): Entry[] {
+  if (es.length === 0) return es;
+  const minRow = Math.min(...es.map((e) => Math.floor(e.cell / COLS)));
+  if (minRow <= 0) return es;
+  const shift = minRow * COLS;
+  return es.map((e) => ({ ...e, cell: e.cell - shift }));
 }
 
 const ADD_OPTIONS: { key: "folder" | WidgetKind; label: string }[] = [
@@ -111,6 +125,13 @@ export function PersonalSpace({
     });
   }
 
+  /** Normaliza (sin filas vacías por encima), guarda estado local y persiste. */
+  function commit(next: Entry[]) {
+    const norm = stripLeadingRows(next);
+    setEntries(norm);
+    persist(norm);
+  }
+
   async function add(key: "folder" | WidgetKind) {
     setAddOpen(false);
     const used = new Set(entries.map((e) => e.cell));
@@ -120,17 +141,11 @@ export function PersonalSpace({
       key === "folder"
         ? { key: nextKey(), cell, type: "folder", folder: await createFolder() }
         : { key: nextKey(), cell, type: "widget", widget: await createWidget(key) };
-    const next = [...entries, entry];
-    setEntries(next);
-    persist(next);
+    commit([...entries, entry]);
   }
 
   function removeEntry(key: string) {
-    setEntries((cur) => {
-      const next = cur.filter((x) => x.key !== key);
-      persist(next);
-      return next;
-    });
+    commit(entries.filter((x) => x.key !== key));
   }
 
   function onDragStart(e: DragEvent, key: string) {
@@ -174,8 +189,7 @@ export function PersonalSpace({
       if (occupant && x.key === occupant.key) return { ...x, cell: dragged.cell };
       return x;
     });
-    setEntries(next);
-    persist(next);
+    commit(next);
     endDrag();
   }
 
