@@ -15,12 +15,29 @@ export type Member = {
 };
 
 /**
+ * Bypass SOLO para desarrollo local: si `HUB_DEV_EMAIL` está definido y no estamos en
+ * producción, el hub trata al visitante como ese miembro de `hub.members` sin pasar por
+ * Google (el login OAuth no funciona en local porque las credenciales reales viven en
+ * Railway). En Railway `NODE_ENV === "production"`, así que esto queda inerte.
+ */
+const DEV_EMAIL =
+  process.env.NODE_ENV !== "production"
+    ? process.env.HUB_DEV_EMAIL?.trim().toLowerCase() || undefined
+    : undefined;
+
+/** Email del visitante: el del bypass de dev si aplica, si no el de la sesión NextAuth. */
+async function sessionEmail(): Promise<string | undefined> {
+  if (DEV_EMAIL) return DEV_EMAIL;
+  const session = await auth();
+  return session?.user?.email?.toLowerCase();
+}
+
+/**
  * Miembro correspondiente a la sesión actual, o `null` si no hay sesión / el email no está en
  * `hub.members` / está desactivado. `cache()` deduplica dentro de un mismo render.
  */
 export const getMember = cache(async (): Promise<Member | null> => {
-  const session = await auth();
-  const email = session?.user?.email?.toLowerCase();
+  const email = await sessionEmail();
   if (!email) return null;
 
   const { data } = await hubDb
@@ -34,8 +51,8 @@ export const getMember = cache(async (): Promise<Member | null> => {
 
 /** Como `getMember` pero redirige: a `/login` si no hay sesión, a `/no-access` si no es miembro activo. */
 export async function requireMember(): Promise<Member> {
-  const session = await auth();
-  if (!session?.user?.email) redirect("/login");
+  const email = await sessionEmail();
+  if (!email) redirect("/login");
   const member = await getMember();
   if (!member) redirect("/no-access");
   return member;
