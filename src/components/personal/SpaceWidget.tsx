@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Widget } from "@/lib/hub";
 import { deleteWidget, updateWidget } from "@/app/actions";
+import { canEmbedUrl } from "@/lib/embed";
+import { useWorkspace } from "@/components/WorkspaceContext";
 import { CardMenu } from "./CardMenu";
 
 const KIND_LABEL: Record<Widget["kind"], string> = {
@@ -248,6 +250,7 @@ type Link = { label: string; url: string };
 function LinksBody({ widget }: { widget: Widget }) {
   const initial = Array.isArray(widget.data.items) ? (widget.data.items as Link[]) : [];
   const { value, setNow } = useWidgetData(widget.id, { items: initial });
+  const ws = useWorkspace();
   const [url, setUrl] = useState("");
   const [label, setLabel] = useState("");
 
@@ -264,14 +267,16 @@ function LinksBody({ widget }: { widget: Widget }) {
     <div className="flex flex-col gap-1.5">
       {value.items.map((it, i) => (
         <div key={i} className="group flex items-center gap-2 text-sm">
-          <a
-            href={it.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="min-w-0 flex-1 truncate text-[var(--text-primary)] hover:text-[var(--brand-sea)]"
+          <button
+            type="button"
+            onClick={() => ws.open({ kind: "url", href: it.url, title: it.label })}
+            className="flex min-w-0 flex-1 items-center gap-1.5 truncate text-left text-[var(--text-primary)] hover:text-[var(--brand-sea)]"
           >
-            {it.label}
-          </a>
+            <span className="truncate">{it.label}</span>
+            <span aria-hidden className="shrink-0 text-[10px] text-[var(--text-muted)]">
+              {canEmbedUrl(it.url) ? "⧉" : "↗"}
+            </span>
+          </button>
           <button
             type="button"
             onClick={() => set(value.items.filter((_, j) => j !== i))}

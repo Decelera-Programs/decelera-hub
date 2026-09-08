@@ -1,7 +1,7 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element */
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useSearchParams } from "next/navigation";
 import type { HubApp, Section, Subfolder } from "@/lib/apps";
 import type { Folder, Widget } from "@/lib/hub";
@@ -12,17 +12,32 @@ import {
   reorderSections,
   reorderSubfolders,
 } from "@/app/actions";
+import { canEmbedUrl } from "@/lib/embed";
 import { useDragAutoScroll } from "@/lib/useDragAutoScroll";
 import { useHub } from "@/lib/useHub";
 import { AccountMenu, type AccountUser } from "./AccountMenu";
 import { CardInfoDialog } from "./CardInfoDialog";
-import { EmbedPane } from "./EmbedPane";
+import { EmbedPane, type EmbedTarget } from "./EmbedPane";
 import { CardEditor } from "./hub-admin/CardEditor";
 import { SectionEditor } from "./hub-admin/SectionEditor";
 import { SubfolderEditor } from "./hub-admin/SubfolderEditor";
 import { HubTree, type HubTreeHandlers } from "./HubTree";
 import { SearchField } from "./HubPrimitives";
 import { PersonalSpace } from "./personal/PersonalSpace";
+import { WorkspaceProvider, type OpenTarget } from "./WorkspaceContext";
+
+type Active =
+  | { type: "card"; slug: string }
+  | { type: "url"; href: string; title: string }
+  | null;
+
+function readActive(sp: { get: (key: string) => string | null }): Active {
+  const abre = sp.get("abre");
+  if (abre) return { type: "card", slug: abre };
+  const url = sp.get("url");
+  if (url) return { type: "url", href: url, title: sp.get("t") || url };
+  return null;
+}
 
 const CATEGORY_TAB_LABEL: Record<string, string> = {
   Todos: "Todos",
@@ -53,7 +68,7 @@ export function HubHome({
     useHub(apps, sections, subfolders);
   const searchRef = useRef<HTMLInputElement>(null);
 
-  const [activeSlug, setActiveSlug] = useState<string | null>(() => searchParams.get("abre"));
+  const [active, setActiveState] = useState<Active>(() => readActive(searchParams));
   const [navOpen, setNavOpen] = useState(true);
   const [cardEditor, setCardEditor] = useState<CardEditorState | null>(null);
   const [sectionEditor, setSectionEditor] = useState<Section | null>(null);
@@ -66,8 +81,21 @@ export function HubHome({
   const isAdmin = member.isAdmin;
   const canEdit = isAdmin && editMode && !filtering;
 
-  const activeCard = activeSlug ? apps.find((a) => a.slug === activeSlug) ?? null : null;
-  const embedCard = activeCard && activeCard.embeddable ? activeCard : null;
+  const activeCard =
+    active?.type === "card" ? apps.find((a) => a.slug === active.slug) ?? null : null;
+
+  let embedTarget: EmbedTarget | null = null;
+  if (activeCard && activeCard.embeddable) {
+    embedTarget = {
+      title: activeCard.title,
+      href: activeCard.href,
+      category: activeCard.category,
+      initial: activeCard.initial,
+      meta: activeCard.meta,
+    };
+  } else if (active?.type === "url") {
+    embedTarget = { title: active.title, href: active.href };
+  }
 
   // Persistencia de interruptores (solo cliente).
   useEffect(() => {
@@ -81,13 +109,13 @@ export function HubHome({
     /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
 
-  function persist(key: string, on: boolean) {
+  const persist = useCallback((key: string, on: boolean) => {
     try {
       localStorage.setItem(key, on ? "1" : "0");
     } catch {
       // sin persistencia
     }
-  }
+  }, []);
   function toggleEditMode() {
     setEditMode((v) => {
       persist("hub:editmode", !v);
@@ -101,30 +129,51 @@ export function HubHome({
     });
   }
 
-  function setActive(slug: string | null) {
-    setActiveSlug(slug);
-    const url = slug ? `/?abre=${encodeURIComponent(slug)}` : "/";
+  const setNav = useCallback(
+    (on: boolean) => {
+      setNavOpen(on);
+      persist("hub:nav", on);
+    },
+    [persist],
+  );
+
+  const setActive = useCallback((next: Active) => {
+    setActiveState(next);
+    let url = "/";
+    if (next?.type === "card") url = `/?abre=${encodeURIComponent(next.slug)}`;
+    else if (next?.type === "url")
+      url = `/?url=${encodeURIComponent(next.href)}&t=${encodeURIComponent(next.title)}`;
     try {
       window.history.replaceState(window.history.state, "", url);
     } catch {
       // navegación no disponible — se queda solo en estado
     }
-  }
+  }, []);
 
-  function setNav(on: boolean) {
-    setNavOpen(on);
-    persist("hub:nav", on);
-  }
+  /** Abre en el panel si se puede embeber; si no, en pestaña nueva. */
+  const openTarget = useCallback(
+    (t: OpenTarget) => {
+      const onMobile = window.matchMedia("(max-width: 1023px)").matches;
+      if (t.kind === "card") {
+        if (t.card.embeddable) {
+          setActive({ type: "card", slug: t.card.slug });
+          if (onMobile) setNav(false);
+        } else {
+          window.open(t.card.href, "_blank", "noopener,noreferrer");
+        }
+        return;
+      }
+      if (canEmbedUrl(t.href)) {
+        setActive({ type: "url", href: t.href, title: t.title });
+        if (onMobile) setNav(false);
+      } else {
+        window.open(t.href, "_blank", "noopener,noreferrer");
+      }
+    },
+    [setActive, setNav],
+  );
 
-  /** Abre la tarjeta: en el panel si es embebible, en pestaña nueva si no. */
-  function openCard(card: HubApp) {
-    if (card.embeddable) {
-      setActive(card.slug);
-      if (window.matchMedia("(max-width: 1023px)").matches) setNav(false);
-    } else {
-      window.open(card.href, "_blank", "noopener,noreferrer");
-    }
-  }
+  const workspace = useMemo(() => ({ open: openTarget }), [openTarget]);
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -137,7 +186,7 @@ export function HubHome({
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
+  }, [persist]);
 
   function moveSection(index: number, dir: -1 | 1) {
     const ids = groups.map((g) => g.id);
@@ -174,7 +223,7 @@ export function HubHome({
   }
 
   const handlers: HubTreeHandlers = {
-    onActivate: openCard,
+    onActivate: (card) => openTarget({ kind: "card", card }),
     onInfo: (card) => setCardInfo(card),
     onEditSection: (s) => setSectionEditor(s),
     onEditSubfolder: (sf) => setSubfolderEditor(sf),
@@ -192,6 +241,7 @@ export function HubHome({
   };
 
   return (
+    <WorkspaceProvider value={workspace}>
     <div className="flex h-screen flex-col overflow-hidden bg-[var(--page)]">
       <header className="flex h-14 shrink-0 items-center gap-3 border-b border-[var(--border)] bg-[var(--surface-1)] px-3 sm:px-4">
         <button
@@ -214,10 +264,10 @@ export function HubHome({
           </div>
         </div>
 
-        {activeCard && (
+        {embedTarget && (
           <div className="ml-1 hidden min-w-0 items-center gap-1.5 text-sm text-[var(--text-muted)] md:flex">
             <span aria-hidden>/</span>
-            <span className="truncate font-medium text-[var(--text-secondary)]">{activeCard.title}</span>
+            <span className="truncate font-medium text-[var(--text-secondary)]">{embedTarget.title}</span>
           </div>
         )}
 
@@ -307,7 +357,7 @@ export function HubHome({
               canEdit={canEdit}
               filtering={filtering}
               handlers={handlers}
-              activeSlug={activeSlug ?? undefined}
+              activeSlug={active?.type === "card" ? active.slug : undefined}
             />
 
             {canEdit && (
@@ -334,8 +384,8 @@ export function HubHome({
         </aside>
 
         <main className="flex min-h-0 min-w-0 flex-1 flex-col">
-          {embedCard ? (
-            <EmbedPane key={embedCard.id} card={embedCard} onClose={() => setActive(null)} />
+          {embedTarget ? (
+            <EmbedPane key={embedTarget.href} target={embedTarget} onClose={() => setActive(null)} />
           ) : (
             <div className="min-h-0 flex-1 overflow-y-auto">
               <div className="mx-auto flex w-full max-w-[1180px] flex-col gap-8 px-6 py-10 lg:px-10">
@@ -375,5 +425,6 @@ export function HubHome({
       )}
       {cardInfo && <CardInfoDialog card={cardInfo} onClose={() => setCardInfo(null)} />}
     </div>
+    </WorkspaceProvider>
   );
 }

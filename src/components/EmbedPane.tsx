@@ -1,40 +1,36 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element */
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
-import type { HubApp } from "@/lib/apps";
+import type { AppCategory } from "@/lib/apps";
+import { toEmbedSrc } from "@/lib/embed";
 import { IconTile } from "./HubPrimitives";
 
-/**
- * Convierte el enlace en algo embebible cuando se puede. Google Docs/Sheets/Slides no
- * dejan embeber la vista de edición, pero sí `/preview` (solo lectura).
- */
-function toEmbedSrc(href: string): string {
+export type EmbedTarget = {
+  title: string;
+  href: string;
+  category?: AppCategory;
+  initial?: string;
+  meta?: string;
+};
+
+function faviconFor(url: string): string {
   try {
-    const u = new URL(href, window.location.origin);
-    if (u.hostname === "docs.google.com") {
-      const p = u.pathname.replace(/\/$/, "");
-      if (/\/(edit|view|htmlview)$/.test(p)) {
-        u.pathname = p.replace(/\/(edit|view|htmlview)$/, "/preview");
-        u.search = "";
-        u.hash = "";
-        return u.toString();
-      }
-    }
-    return href;
+    return `https://www.google.com/s2/favicons?domain=${new URL(url, window.location.origin).hostname}&sz=64`;
   } catch {
-    return href;
+    return "";
   }
 }
 
-/** Panel principal del workspace: muestra la tarjeta embebida con barra de acciones. */
-export function EmbedPane({ card, onClose }: { card: HubApp; onClose: () => void }) {
+/** Panel principal del workspace: muestra el destino embebido con barra de acciones. */
+export function EmbedPane({ target, onClose }: { target: EmbedTarget; onClose: () => void }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(true);
   const [isFs, setIsFs] = useState(false);
-  const src = useMemo(() => toEmbedSrc(card.href), [card.href]);
+  const src = useMemo(() => toEmbedSrc(target.href), [target.href]);
 
   useEffect(() => {
-    /* eslint-disable-next-line react-hooks/set-state-in-effect -- reset al cambiar de tarjeta */
+    /* eslint-disable-next-line react-hooks/set-state-in-effect -- reset al cambiar de destino */
     setLoading(true);
   }, [src]);
 
@@ -45,9 +41,8 @@ export function EmbedPane({ card, onClose }: { card: HubApp; onClose: () => void
   }, []);
 
   function openExternal() {
-    window.open(card.href, "_blank", "noopener,noreferrer");
+    window.open(target.href, "_blank", "noopener,noreferrer");
   }
-
   function toggleFullscreen() {
     if (document.fullscreenElement) void document.exitFullscreen();
     else void wrapRef.current?.requestFullscreen?.();
@@ -56,11 +51,22 @@ export function EmbedPane({ card, onClose }: { card: HubApp; onClose: () => void
   return (
     <div ref={wrapRef} className="flex h-full min-h-0 flex-col bg-[var(--surface-1)]">
       <div className="flex shrink-0 items-center gap-2.5 border-b border-[var(--border)] px-3 py-2">
-        <IconTile category={card.category} initial={card.initial} size={22} />
-        <span className="truncate text-sm font-semibold text-[var(--text-primary)]">{card.title}</span>
-        {card.meta && (
+        {target.category && target.initial != null ? (
+          <IconTile category={target.category} initial={target.initial} size={22} />
+        ) : (
+          <img
+            src={faviconFor(target.href)}
+            alt=""
+            width={20}
+            height={20}
+            referrerPolicy="no-referrer"
+            className="shrink-0 rounded-[5px]"
+          />
+        )}
+        <span className="truncate text-sm font-semibold text-[var(--text-primary)]">{target.title}</span>
+        {target.meta && (
           <span className="hidden truncate text-[11px] text-[var(--text-muted)] sm:inline">
-            {card.meta}
+            {target.meta}
           </span>
         )}
         <div className="ml-auto flex shrink-0 items-center gap-1">
@@ -82,13 +88,13 @@ export function EmbedPane({ card, onClose }: { card: HubApp; onClose: () => void
       <div className="relative min-h-0 flex-1">
         {loading && (
           <div className="absolute inset-0 grid place-items-center text-sm text-[var(--text-muted)]">
-            Cargando {card.title}…
+            Cargando {target.title}…
           </div>
         )}
         <iframe
           key={src}
           src={src}
-          title={card.title}
+          title={target.title}
           onLoad={() => setLoading(false)}
           className="h-full w-full border-0"
           allow="clipboard-write; fullscreen; clipboard-read"

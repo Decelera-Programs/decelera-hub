@@ -11,7 +11,9 @@ import {
   reorderFolderItems,
   updateFolder,
 } from "@/app/actions";
+import { canEmbedUrl } from "@/lib/embed";
 import { IconTile } from "@/components/HubPrimitives";
+import { useWorkspace } from "@/components/WorkspaceContext";
 import { CardMenu } from "./CardMenu";
 
 const COLORS = [
@@ -311,24 +313,33 @@ function FolderItemRow({
   app: HubApp | undefined;
   onRemove: () => void;
 }) {
+  const ws = useWorkspace();
   const isApp = item.kind === "app";
-  const href = isApp ? app?.href : item.url ?? "#";
-  const label = isApp ? app?.title ?? item.app_slug ?? "?" : item.label ?? item.url ?? "?";
-  const external = isApp ? app?.external : true;
+  const url = item.url ?? "";
+  const label = isApp ? app?.title ?? item.app_slug ?? "?" : item.label ?? url ?? "?";
+  const embeds = isApp ? Boolean(app?.embeddable) : canEmbedUrl(url);
+
+  function open() {
+    if (isApp) {
+      if (app) ws.open({ kind: "card", card: app });
+    } else if (url) {
+      ws.open({ kind: "url", href: url, title: label });
+    }
+  }
 
   return (
     <div className="group flex cursor-grab items-center gap-2 rounded-lg px-1 py-1 transition-colors hover:bg-[var(--row-hover)] active:cursor-grabbing">
-      <a
-        href={href}
+      <button
+        type="button"
+        onClick={open}
         draggable={false}
-        {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
-        className="flex min-w-0 flex-1 items-center gap-2 text-sm text-[var(--text-primary)]"
+        className="flex min-w-0 flex-1 items-center gap-2 text-left text-sm text-[var(--text-primary)]"
       >
         {isApp && app ? (
           <IconTile category={app.category} initial={app.initial} size={20} />
         ) : (
           <img
-            src={faviconFor(item.url ?? "")}
+            src={faviconFor(url)}
             alt=""
             width={18}
             height={18}
@@ -337,7 +348,10 @@ function FolderItemRow({
           />
         )}
         <span className="truncate">{label}</span>
-      </a>
+        <span aria-hidden className="shrink-0 text-[10px] text-[var(--text-muted)]">
+          {embeds ? "⧉" : "↗"}
+        </span>
+      </button>
       <button
         type="button"
         onClick={onRemove}
