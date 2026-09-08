@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { HubHome } from "@/components/HubHome";
 import {
   getCards,
@@ -21,18 +22,20 @@ export default async function Page() {
   ]);
 
   return (
-    <HubHome
-      sections={sections}
-      subfolders={subfolders}
-      apps={cards}
-      member={{
-        name: member.full_name,
-        email: member.email,
-        avatarUrl: member.avatar_url,
-        isAdmin: member.role === "admin",
-      }}
-      folders={folders}
-      widgets={widgets}
-    />
+    <Suspense>
+      <HubHome
+        sections={sections}
+        subfolders={subfolders}
+        apps={cards}
+        member={{
+          name: member.full_name,
+          email: member.email,
+          avatarUrl: member.avatar_url,
+          isAdmin: member.role === "admin",
+        }}
+        folders={folders}
+        widgets={widgets}
+      />
+    </Suspense>
   );
 }

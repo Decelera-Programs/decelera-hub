@@ -186,7 +186,7 @@ export async function saveSpaceLayout(
 const SECTION_COLS = "id, label, blurb, accent, position";
 const SUBFOLDER_COLS = "id, section_id, label, position";
 const CARD_COLS =
-  "id, slug, section_id, subfolder_id, initial, title, description, href, category, status, meta, external, position";
+  "id, slug, section_id, subfolder_id, initial, title, description, href, category, status, meta, external, embeddable, position";
 
 type CardInput = {
   title: string;
@@ -197,6 +197,7 @@ type CardInput = {
   status: AppStatus;
   meta: string;
   external: boolean;
+  embeddable: boolean;
 };
 
 function slugify(s: string): string {
@@ -244,6 +245,7 @@ function toCard(r: Record<string, unknown>): HubApp {
     status: r.status as AppStatus,
     meta: (r.meta as string | null) ?? undefined,
     external: Boolean(r.external),
+    embeddable: Boolean(r.embeddable),
     position: r.position as number,
   };
 }
@@ -259,6 +261,7 @@ function cleanCard(input: CardInput) {
     status: input.status,
     meta: input.meta.trim().slice(0, 40) || null,
     external: input.external,
+    embeddable: input.embeddable,
   };
 }
 
@@ -400,6 +403,7 @@ export async function updateCard(
   if (patch.status) clean.status = patch.status;
   if (typeof patch.meta === "string") clean.meta = patch.meta.trim().slice(0, 40) || null;
   if (typeof patch.external === "boolean") clean.external = patch.external;
+  if (typeof patch.embeddable === "boolean") clean.embeddable = patch.embeddable;
   if (typeof patch.sectionId === "string") clean.section_id = patch.sectionId;
   if ("subfolderId" in patch) clean.subfolder_id = patch.subfolderId ?? null;
   if (Object.keys(clean).length === 0) return;

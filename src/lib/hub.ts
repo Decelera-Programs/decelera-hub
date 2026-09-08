@@ -81,6 +81,7 @@ type CardRow = {
   status: AppStatus;
   meta: string | null;
   external: boolean;
+  embeddable: boolean;
   position: number;
 };
 
@@ -115,7 +116,7 @@ export const getCards = cache(async (): Promise<HubApp[]> => {
   const { data } = await hubDb
     .from("cards")
     .select(
-      "id, slug, section_id, subfolder_id, initial, title, description, href, category, status, meta, external, position",
+      "id, slug, section_id, subfolder_id, initial, title, description, href, category, status, meta, external, embeddable, position",
     )
     .order("position");
   return ((data ?? []) as CardRow[]).map((c) => ({
@@ -131,6 +132,7 @@ export const getCards = cache(async (): Promise<HubApp[]> => {
     status: c.status,
     meta: c.meta ?? undefined,
     external: c.external,
+    embeddable: c.embeddable,
     position: c.position,
   }));
 });

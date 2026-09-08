@@ -41,6 +41,8 @@ export type HubApp = {
   meta?: string;
   /** true si `href` apunta a una app externa — se abre en pestaña nueva. */
   external: boolean;
+  /** true si la tarjeta se puede mostrar embebida en el panel del workspace (iframe). */
+  embeddable: boolean;
   position: number;
 };
 

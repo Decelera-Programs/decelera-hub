@@ -21,6 +21,7 @@ type Draft = {
   category: HubApp["category"];
   status: HubApp["status"];
   external: boolean;
+  embeddable: boolean;
   sectionId: string;
   /** "" = directamente en la sección; si no, id de la subcarpeta. */
   subfolderId: string;
@@ -40,6 +41,7 @@ function draftFrom(
     category: card?.category ?? "Herramienta",
     status: card?.status ?? "live",
     external: card?.external ?? true,
+    embeddable: card?.embeddable ?? false,
     sectionId: card?.sectionId ?? sectionId,
     subfolderId: card?.subfolderId ?? subfolderId ?? "",
   };
@@ -81,6 +83,7 @@ export function CardEditor({
         category: d.category,
         status: d.status,
         external: d.external,
+        embeddable: d.embeddable,
       };
       const subfolder = d.subfolderId || null;
       if (card)
@@ -125,7 +128,9 @@ export function CardEditor({
           placeholder="https://…  o  /ruta-interna"
           onChange={(e) => {
             const v = e.target.value;
-            setD((p) => ({ ...p, href: v, external: /^https?:\/\//i.test(v.trim()) }));
+            const isExternal = /^https?:\/\//i.test(v.trim());
+            // heurística: interno → embebible, externo → pestaña nueva (ajustable abajo)
+            setD((p) => ({ ...p, href: v, external: isExternal, embeddable: !isExternal }));
           }}
         />
       </label>
@@ -216,15 +221,29 @@ export function CardEditor({
         </select>
       </label>
 
-      <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
-        <input
-          type="checkbox"
-          checked={d.external}
-          onChange={(e) => set("external", e.target.checked)}
-          className="accent-[var(--brand-sea)]"
-        />
-        Abre en pestaña nueva
-      </label>
+      <div className="flex flex-col gap-2">
+        <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
+          <input
+            type="checkbox"
+            checked={d.external}
+            onChange={(e) => set("external", e.target.checked)}
+            className="accent-[var(--brand-sea)]"
+          />
+          Abre en pestaña nueva
+        </label>
+        <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
+          <input
+            type="checkbox"
+            checked={d.embeddable}
+            onChange={(e) => set("embeddable", e.target.checked)}
+            className="accent-[var(--brand-sea)]"
+          />
+          Se puede embeber en el panel
+          <span className="text-[var(--text-muted)]">
+            (Drive, GitHub, Docs en edición… no dejan)
+          </span>
+        </label>
+      </div>
 
       <div className="mt-1 flex items-center justify-between">
         {card ? (
