@@ -17,7 +17,7 @@ import { useDragAutoScroll } from "@/lib/useDragAutoScroll";
 import { useHub } from "@/lib/useHub";
 import { AccountMenu, type AccountUser } from "./AccountMenu";
 import { CardInfoDialog } from "./CardInfoDialog";
-import { EmbedPane, type EmbedTarget } from "./EmbedPane";
+import { EmbedArea, type EmbedTab, type EmbedTarget } from "./EmbedArea";
 import { CardEditor } from "./hub-admin/CardEditor";
 import { SectionEditor } from "./hub-admin/SectionEditor";
 import { SubfolderEditor } from "./hub-admin/SubfolderEditor";
@@ -26,16 +26,29 @@ import { SearchField } from "./HubPrimitives";
 import { PersonalSpace } from "./personal/PersonalSpace";
 import { WorkspaceProvider, type OpenTarget } from "./WorkspaceContext";
 
-type Active =
-  | { type: "card"; slug: string }
-  | { type: "url"; href: string; title: string }
-  | null;
+/** Cuántas pestañas embebidas a la vez antes de descartar la más antigua. */
+const MAX_TABS = 8;
 
-function readActive(sp: { get: (key: string) => string | null }): Active {
+/** Pestaña inicial a partir de los parámetros de la URL (`?abre=` o `?url=&t=`). */
+function tabFromUrl(sp: { get: (key: string) => string | null }, apps: HubApp[]): EmbedTab | null {
   const abre = sp.get("abre");
-  if (abre) return { type: "card", slug: abre };
+  if (abre) {
+    const c = apps.find((a) => a.slug === abre);
+    if (!c || !c.embeddable) return null;
+    return {
+      key: `card:${c.slug}`,
+      target: {
+        slug: c.slug,
+        title: c.title,
+        href: c.href,
+        category: c.category,
+        initial: c.initial,
+        meta: c.meta,
+      },
+    };
+  }
   const url = sp.get("url");
-  if (url) return { type: "url", href: url, title: sp.get("t") || url };
+  if (url) return { key: `url:${url}`, target: { title: sp.get("t") || url, href: url } };
   return null;
 }
 
@@ -68,7 +81,14 @@ export function HubHome({
     useHub(apps, sections, subfolders);
   const searchRef = useRef<HTMLInputElement>(null);
 
-  const [active, setActiveState] = useState<Active>(() => readActive(searchParams));
+  const [tabs, setTabs] = useState<EmbedTab[]>(() => {
+    const t = tabFromUrl(searchParams, apps);
+    return t ? [t] : [];
+  });
+  const [activeKey, setActiveKey] = useState<string | null>(() => {
+    const t = tabFromUrl(searchParams, apps);
+    return t?.key ?? null;
+  });
   const [navOpen, setNavOpen] = useState(true);
   const [cardEditor, setCardEditor] = useState<CardEditorState | null>(null);
   const [sectionEditor, setSectionEditor] = useState<Section | null>(null);
@@ -81,33 +101,56 @@ export function HubHome({
   const isAdmin = member.isAdmin;
   const canEdit = isAdmin && editMode && !filtering;
 
-  const activeCard =
-    active?.type === "card" ? apps.find((a) => a.slug === active.slug) ?? null : null;
+  const activeTab = tabs.find((t) => t.key === activeKey) ?? tabs[tabs.length - 1] ?? null;
+  const openSlugs = useMemo(
+    () => new Set(tabs.map((t) => t.target.slug).filter((s): s is string => !!s)),
+    [tabs],
+  );
 
-  let embedTarget: EmbedTarget | null = null;
-  if (activeCard && activeCard.embeddable) {
-    embedTarget = {
-      title: activeCard.title,
-      href: activeCard.href,
-      category: activeCard.category,
-      initial: activeCard.initial,
-      meta: activeCard.meta,
-    };
-  } else if (active?.type === "url") {
-    embedTarget = { title: active.title, href: active.href };
-  }
-
-  // Persistencia de interruptores (solo cliente).
+  // Persistencia de interruptores + restauración de pestañas (solo cliente, post-mount).
   useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect -- sync post-mount con localStorage */
     try {
       if (localStorage.getItem("hub:editmode") === "1") setEditMode(true);
       if (localStorage.getItem("hub:nav") === "0") setNavOpen(false);
+      const raw = localStorage.getItem("hub:tabs");
+      const saved: EmbedTab[] = raw ? JSON.parse(raw) : [];
+      if (Array.isArray(saved) && saved.length > 0) {
+        setTabs((cur) => {
+          const have = new Set(cur.map((t) => t.key));
+          const merged = [
+            ...cur,
+            ...saved.filter((t) => t && typeof t.key === "string" && t.target && !have.has(t.key)),
+          ];
+          return merged.slice(0, MAX_TABS);
+        });
+        setActiveKey((cur) => cur ?? localStorage.getItem("hub:tabs:active") ?? saved[saved.length - 1]?.key ?? null);
+      }
     } catch {
-      // sin localStorage
+      // sin localStorage / JSON corrupto — se queda con lo que venga de la URL
     }
     /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
+
+  // Guardar pestañas + sincronizar la URL con la pestaña activa.
+  useEffect(() => {
+    try {
+      localStorage.setItem("hub:tabs", JSON.stringify(tabs));
+      if (activeTab) localStorage.setItem("hub:tabs:active", activeTab.key);
+      else localStorage.removeItem("hub:tabs:active");
+    } catch {
+      // sin persistencia
+    }
+    let url = "/";
+    if (activeTab?.target.slug) url = `/?abre=${encodeURIComponent(activeTab.target.slug)}`;
+    else if (activeTab)
+      url = `/?url=${encodeURIComponent(activeTab.target.href)}&t=${encodeURIComponent(activeTab.target.title)}`;
+    try {
+      window.history.replaceState(window.history.state, "", url);
+    } catch {
+      // navegación no disponible
+    }
+  }, [tabs, activeTab]);
 
   const persist = useCallback((key: string, on: boolean) => {
     try {
@@ -137,40 +180,56 @@ export function HubHome({
     [persist],
   );
 
-  const setActive = useCallback((next: Active) => {
-    setActiveState(next);
-    let url = "/";
-    if (next?.type === "card") url = `/?abre=${encodeURIComponent(next.slug)}`;
-    else if (next?.type === "url")
-      url = `/?url=${encodeURIComponent(next.href)}&t=${encodeURIComponent(next.title)}`;
-    try {
-      window.history.replaceState(window.history.state, "", url);
-    } catch {
-      // navegación no disponible — se queda solo en estado
-    }
-  }, []);
-
-  /** Abre en el panel si se puede embeber; si no, en pestaña nueva. */
+  /** Abre en una pestaña del panel si se puede embeber; si no, en pestaña nueva del navegador. */
   const openTarget = useCallback(
     (t: OpenTarget) => {
-      const onMobile = window.matchMedia("(max-width: 1023px)").matches;
+      let key: string;
+      let target: EmbedTarget;
       if (t.kind === "card") {
-        if (t.card.embeddable) {
-          setActive({ type: "card", slug: t.card.slug });
-          if (onMobile) setNav(false);
-        } else {
+        if (!t.card.embeddable) {
           window.open(t.card.href, "_blank", "noopener,noreferrer");
+          return;
         }
-        return;
-      }
-      if (canEmbedUrl(t.href)) {
-        setActive({ type: "url", href: t.href, title: t.title });
-        if (onMobile) setNav(false);
+        key = `card:${t.card.slug}`;
+        target = {
+          slug: t.card.slug,
+          title: t.card.title,
+          href: t.card.href,
+          category: t.card.category,
+          initial: t.card.initial,
+          meta: t.card.meta,
+        };
       } else {
-        window.open(t.href, "_blank", "noopener,noreferrer");
+        if (!canEmbedUrl(t.href)) {
+          window.open(t.href, "_blank", "noopener,noreferrer");
+          return;
+        }
+        key = `url:${t.href}`;
+        target = { title: t.title, href: t.href };
+      }
+
+      setTabs((cur) => {
+        if (cur.some((x) => x.key === key)) return cur;
+        const next = [...cur, { key, target }];
+        return next.length > MAX_TABS ? next.slice(next.length - MAX_TABS) : next;
+      });
+      setActiveKey(key);
+      if (window.matchMedia("(max-width: 1023px)").matches) setNav(false);
+    },
+    [setNav],
+  );
+
+  const closeTab = useCallback(
+    (key: string) => {
+      const idx = tabs.findIndex((t) => t.key === key);
+      if (idx < 0) return;
+      const next = tabs.filter((t) => t.key !== key);
+      setTabs(next);
+      if (activeKey === key) {
+        setActiveKey(next.length ? (next[idx] ?? next[idx - 1] ?? next[0]).key : null);
       }
     },
-    [setActive, setNav],
+    [tabs, activeKey],
   );
 
   const workspace = useMemo(() => ({ open: openTarget }), [openTarget]);
@@ -264,10 +323,12 @@ export function HubHome({
           </div>
         </div>
 
-        {embedTarget && (
+        {activeTab && (
           <div className="ml-1 hidden min-w-0 items-center gap-1.5 text-sm text-[var(--text-muted)] md:flex">
             <span aria-hidden>/</span>
-            <span className="truncate font-medium text-[var(--text-secondary)]">{embedTarget.title}</span>
+            <span className="truncate font-medium text-[var(--text-secondary)]">
+              {activeTab.target.title}
+            </span>
           </div>
         )}
 
@@ -357,7 +418,8 @@ export function HubHome({
               canEdit={canEdit}
               filtering={filtering}
               handlers={handlers}
-              activeSlug={active?.type === "card" ? active.slug : undefined}
+              activeSlug={activeTab?.target.slug}
+              openSlugs={openSlugs}
             />
 
             {canEdit && (
@@ -384,8 +446,13 @@ export function HubHome({
         </aside>
 
         <main className="flex min-h-0 min-w-0 flex-1 flex-col">
-          {embedTarget ? (
-            <EmbedPane key={embedTarget.href} target={embedTarget} onClose={() => setActive(null)} />
+          {tabs.length > 0 ? (
+            <EmbedArea
+              tabs={tabs}
+              activeKey={activeTab?.key ?? null}
+              onSelect={setActiveKey}
+              onClose={closeTab}
+            />
           ) : (
             <div className="min-h-0 flex-1 overflow-y-auto">
               <div className="mx-auto flex w-full max-w-[1180px] flex-col gap-8 px-6 py-10 lg:px-10">

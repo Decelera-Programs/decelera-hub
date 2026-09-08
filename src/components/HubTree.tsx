@@ -38,6 +38,7 @@ type Ctx = {
   filtering: boolean;
   handlers: HubTreeHandlers;
   activeSlug?: string;
+  openSlugs?: Set<string>;
 };
 
 /**
@@ -52,14 +53,16 @@ export function HubTree({
   filtering,
   handlers,
   activeSlug,
+  openSlugs,
 }: {
   groups: TreeSection[];
   canEdit: boolean;
   filtering: boolean;
   handlers: HubTreeHandlers;
   activeSlug?: string;
+  openSlugs?: Set<string>;
 }) {
-  const ctx: Ctx = { canEdit, filtering, handlers, activeSlug };
+  const ctx: Ctx = { canEdit, filtering, handlers, activeSlug, openSlugs };
   return (
     <div className="flex flex-col gap-1">
       {groups.map((section, i) => (
@@ -284,8 +287,9 @@ function LeafRow({
   ctx: Ctx;
   onMove: (dir: -1 | 1) => void;
 }) {
-  const { canEdit, handlers, activeSlug } = ctx;
+  const { canEdit, handlers, activeSlug, openSlugs } = ctx;
   const active = activeSlug === card.slug;
+  const open = !active && !!openSlugs?.has(card.slug);
   const opensInPane = card.embeddable;
 
   return (
@@ -306,10 +310,21 @@ function LeafRow({
         <IconTile category={card.category} initial={card.initial} size={22} />
         <span
           className="truncate text-[13px]"
-          style={{ color: active ? "var(--text-primary)" : "var(--text-secondary)", fontWeight: active ? 600 : 400 }}
+          style={{
+            color: active || open ? "var(--text-primary)" : "var(--text-secondary)",
+            fontWeight: active ? 600 : 400,
+          }}
         >
           {card.title}
         </span>
+        {open && (
+          <span
+            aria-hidden
+            title="Abierto en una pestaña"
+            className="h-1.5 w-1.5 shrink-0 rounded-full"
+            style={{ background: "var(--brand-water)" }}
+          />
+        )}
         <span
           aria-hidden
           className="shrink-0 text-[10px] text-[var(--text-muted)]"
