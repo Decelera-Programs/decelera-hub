@@ -446,33 +446,34 @@ export function HubHome({
         </aside>
 
         <main className="flex min-h-0 min-w-0 flex-1 flex-col">
-          {tabs.length > 0 ? (
+          {tabs.length > 0 && (
             <EmbedArea
               tabs={tabs}
               activeKey={activeTab?.key ?? null}
               onSelect={setActiveKey}
               onClose={closeTab}
             />
-          ) : (
-            <div className="min-h-0 flex-1 overflow-y-auto">
-              <div className="mx-auto flex w-full max-w-[1180px] flex-col gap-8 px-6 py-10 lg:px-10">
-                <div className="flex flex-col gap-1.5">
-                  <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-sea)]">
-                    Espacio de trabajo
-                  </span>
-                  <h1 className="text-3xl font-semibold tracking-tight text-[var(--text-primary)] sm:text-4xl">
-                    Herramientas del equipo
-                  </h1>
-                  <p className="max-w-lg text-[15px] text-[var(--text-secondary)]">
-                    Abre cualquier módulo desde el árbol de la izquierda. {totalCount} módulo
-                    {totalCount === 1 ? "" : "s"}, organizados por área.
-                  </p>
-                </div>
-
-                <PersonalSpace folders={folders} widgets={widgets} apps={apps} />
-              </div>
-            </div>
           )}
+          {/* Montado siempre (solo oculto con pestañas abiertas) para no perder el
+              layout local de "Tu espacio" al abrir/cerrar una pestaña. */}
+          <div className="min-h-0 flex-1 overflow-y-auto" hidden={tabs.length > 0}>
+            <div className="mx-auto flex w-full max-w-[1180px] flex-col gap-8 px-6 py-10 lg:px-10">
+              <div className="flex flex-col gap-1.5">
+                <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-sea)]">
+                  Espacio de trabajo
+                </span>
+                <h1 className="text-3xl font-semibold tracking-tight text-[var(--text-primary)] sm:text-4xl">
+                  Herramientas del equipo
+                </h1>
+                <p className="max-w-lg text-[15px] text-[var(--text-secondary)]">
+                  Abre cualquier módulo desde el árbol de la izquierda. {totalCount} módulo
+                  {totalCount === 1 ? "" : "s"}, organizados por área.
+                </p>
+              </div>
+
+              <PersonalSpace folders={folders} widgets={widgets} apps={apps} />
+            </div>
+          </div>
         </main>
       </div>
 
