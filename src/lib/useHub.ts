@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import type { AppCategory, HubApp, Section } from "./apps";
+import type { AppCategory, HubApp, Section, Subfolder } from "./apps";
 
 const norm = (s: string) =>
   s
@@ -11,7 +11,18 @@ const norm = (s: string) =>
 
 export type CategoryFilter = "Todos" | AppCategory;
 
-export function useHub(apps: HubApp[], sections: Section[]) {
+/** Subcarpeta con sus tarjetas ya resueltas y ordenadas. */
+export type TreeSubfolder = Subfolder & { apps: HubApp[] };
+
+/** Sección con su subárbol: subcarpetas + tarjetas sueltas (directas en la sección). */
+export type TreeSection = Section & {
+  subfolders: TreeSubfolder[];
+  apps: HubApp[];
+  /** Total de tarjetas visibles bajo la sección (sueltas + dentro de subcarpetas). */
+  count: number;
+};
+
+export function useHub(apps: HubApp[], sections: Section[], subfolders: Subfolder[]) {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<CategoryFilter>("Todos");
   const [hydrated, setHydrated] = useState(false);
@@ -51,24 +62,43 @@ export function useHub(apps: HubApp[], sections: Section[]) {
       apps.filter(
         (t) =>
           (category === "Todos" || t.category === category) &&
-          (!q || norm(`${t.title} ${t.description} ${t.category}`).includes(q)),
+          (!q || norm(`${t.title} ${t.description} ${t.category} ${t.meta ?? ""}`).includes(q)),
       ),
     [apps, q, category],
   );
 
-  // Secciones en orden. Sin filtros se muestran todas (aunque estén vacías, para poder
-  // añadirles tarjetas); con filtros activos se ocultan las que quedan sin resultados.
-  const groups = useMemo(() => {
-    const ordered = [...sections].sort((a, b) => a.position - b.position);
-    const withApps = ordered.map((s) => ({
-      ...s,
-      apps: visible
-        .filter((t) => t.sectionId === s.id)
-        .slice()
-        .sort((a, b) => a.position - b.position),
-    }));
-    return filtering ? withApps.filter((g) => g.apps.length > 0) : withApps;
-  }, [sections, visible, filtering]);
+  // Árbol: secciones en orden → subcarpetas en orden (cada una con sus tarjetas) +
+  // tarjetas sueltas de la sección. Sin filtros se muestra todo (aunque haya nodos
+  // vacíos, para poder añadirles contenido); con filtros se podan las ramas vacías.
+  const groups = useMemo<TreeSection[]>(() => {
+    const subsBySection = new Map<string, Subfolder[]>();
+    for (const sf of [...subfolders].sort((a, b) => a.position - b.position)) {
+      const list = subsBySection.get(sf.sectionId) ?? [];
+      list.push(sf);
+      subsBySection.set(sf.sectionId, list);
+    }
+
+    const byPos = (a: HubApp, b: HubApp) => a.position - b.position;
+
+    const tree = [...sections]
+      .sort((a, b) => a.position - b.position)
+      .map<TreeSection>((s) => {
+        const subs = (subsBySection.get(s.id) ?? []).map<TreeSubfolder>((sf) => ({
+          ...sf,
+          apps: visible.filter((t) => t.subfolderId === sf.id).sort(byPos),
+        }));
+        const direct = visible
+          .filter((t) => t.sectionId === s.id && !t.subfolderId)
+          .sort(byPos);
+        const count = direct.length + subs.reduce((n, sf) => n + sf.apps.length, 0);
+        return { ...s, subfolders: subs, apps: direct, count };
+      });
+
+    if (!filtering) return tree;
+    return tree
+      .filter((g) => g.count > 0)
+      .map((g) => ({ ...g, subfolders: g.subfolders.filter((sf) => sf.apps.length > 0) }));
+  }, [sections, subfolders, visible, filtering]);
 
   return {
     query,

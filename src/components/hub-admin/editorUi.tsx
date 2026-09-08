@@ -3,6 +3,32 @@
 import { type ReactNode, useEffect } from "react";
 import { createPortal } from "react-dom";
 
+/** Botón cuadrado de acción admin (editar / mover / …). Compartido por la home y el árbol. */
+export function AdminBtn({
+  children,
+  title,
+  onClick,
+  disabled,
+}: {
+  children: ReactNode;
+  title: string;
+  onClick: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      title={title}
+      aria-label={title}
+      disabled={disabled}
+      onClick={onClick}
+      className="relative z-10 grid h-6 w-6 place-items-center rounded-md border border-[var(--border)] bg-[var(--surface-1)] text-xs text-[var(--text-secondary)] shadow-sm transition-colors hover:border-[var(--brand-water)] hover:text-[var(--text-primary)] disabled:opacity-30 disabled:hover:border-[var(--border)]"
+    >
+      {children}
+    </button>
+  );
+}
+
 export const fieldCls =
   "rounded-lg border border-[var(--border)] bg-[var(--surface-1)] px-2.5 py-1.5 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--brand-water)]";
 export const labelCls =

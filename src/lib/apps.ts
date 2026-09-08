@@ -13,11 +13,25 @@ export type Section = {
   position: number;
 };
 
+/**
+ * Nivel intermedio del árbol: sección → subcarpeta → tarjeta. Se gestiona desde
+ * la base de datos (`hub.subfolders`). Una tarjeta con `subfolderId` null cuelga
+ * directamente de la sección.
+ */
+export type Subfolder = {
+  id: string;
+  sectionId: string;
+  label: string;
+  position: number;
+};
+
 /** Una tarjeta del hub. Se gestiona desde la base de datos (`hub.cards`). */
 export type HubApp = {
   id: string;
   slug: string;
   sectionId: string | null;
+  /** Subcarpeta a la que pertenece, o null si cuelga directamente de la sección. */
+  subfolderId: string | null;
   initial: string;
   title: string;
   description: string;

@@ -1,7 +1,14 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { CATEGORIES, STATUSES, STATUS_LABEL, type HubApp, type Section } from "@/lib/apps";
+import {
+  CATEGORIES,
+  STATUSES,
+  STATUS_LABEL,
+  type HubApp,
+  type Section,
+  type Subfolder,
+} from "@/lib/apps";
 import { createCard, deleteCard, updateCard } from "@/app/actions";
 import { Overlay, fieldCls, labelCls } from "./editorUi";
 
@@ -15,9 +22,15 @@ type Draft = {
   status: HubApp["status"];
   external: boolean;
   sectionId: string;
+  /** "" = directamente en la sección; si no, id de la subcarpeta. */
+  subfolderId: string;
 };
 
-function draftFrom(card: HubApp | null, sectionId: string): Draft {
+function draftFrom(
+  card: HubApp | null,
+  sectionId: string,
+  subfolderId: string | null,
+): Draft {
   return {
     title: card?.title ?? "",
     initial: card?.initial ?? "",
@@ -28,23 +41,33 @@ function draftFrom(card: HubApp | null, sectionId: string): Draft {
     status: card?.status ?? "live",
     external: card?.external ?? true,
     sectionId: card?.sectionId ?? sectionId,
+    subfolderId: card?.subfolderId ?? subfolderId ?? "",
   };
 }
 
 export function CardEditor({
   card,
   sectionId,
+  subfolderId = null,
   sections,
+  subfolders,
   onClose,
 }: {
   card: HubApp | null;
   sectionId: string;
+  subfolderId?: string | null;
   sections: Section[];
+  subfolders: Subfolder[];
   onClose: () => void;
 }) {
-  const [d, setD] = useState<Draft>(() => draftFrom(card, sectionId));
+  const [d, setD] = useState<Draft>(() => draftFrom(card, sectionId, subfolderId));
   const [pending, start] = useTransition();
   const set = <K extends keyof Draft>(k: K, v: Draft[K]) => setD((p) => ({ ...p, [k]: v }));
+
+  // Subcarpetas de la sección elegida (para el selector de ubicación).
+  const sectionSubfolders = subfolders
+    .filter((s) => s.sectionId === d.sectionId)
+    .sort((a, b) => a.position - b.position);
 
   function save() {
     if (!d.title.trim() || !d.href.trim()) return;
@@ -59,8 +82,10 @@ export function CardEditor({
         status: d.status,
         external: d.external,
       };
-      if (card) await updateCard(card.id, { ...payload, sectionId: d.sectionId });
-      else await createCard(d.sectionId, payload);
+      const subfolder = d.subfolderId || null;
+      if (card)
+        await updateCard(card.id, { ...payload, sectionId: d.sectionId, subfolderId: subfolder });
+      else await createCard(d.sectionId, subfolder, payload);
       onClose();
     });
   }
@@ -160,7 +185,10 @@ export function CardEditor({
           <select
             className={fieldCls}
             value={d.sectionId}
-            onChange={(e) => set("sectionId", e.target.value)}
+            onChange={(e) =>
+              // al cambiar de sección, la subcarpeta previa deja de aplicar
+              setD((p) => ({ ...p, sectionId: e.target.value, subfolderId: "" }))
+            }
           >
             {sections.map((s) => (
               <option key={s.id} value={s.id}>
@@ -170,6 +198,23 @@ export function CardEditor({
           </select>
         </label>
       </div>
+
+      <label className="flex flex-col gap-1">
+        <span className={labelCls}>Subcarpeta</span>
+        <select
+          className={fieldCls}
+          value={d.subfolderId}
+          onChange={(e) => set("subfolderId", e.target.value)}
+          disabled={sectionSubfolders.length === 0}
+        >
+          <option value="">— Directamente en la sección —</option>
+          {sectionSubfolders.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.label}
+            </option>
+          ))}
+        </select>
+      </label>
 
       <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
         <input

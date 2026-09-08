@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { signOut } from "@/auth";
-import type { AppCategory, AppStatus, HubApp, Section } from "@/lib/apps";
+import type { AppCategory, AppStatus, HubApp, Section, Subfolder } from "@/lib/apps";
 import {
   requireAdmin,
   requireMember,
@@ -184,8 +184,9 @@ export async function saveSpaceLayout(
 // --- Secciones y tarjetas del hub (solo admin) ---
 
 const SECTION_COLS = "id, label, blurb, accent, position";
+const SUBFOLDER_COLS = "id, section_id, label, position";
 const CARD_COLS =
-  "id, slug, section_id, initial, title, description, href, category, status, meta, external, position";
+  "id, slug, section_id, subfolder_id, initial, title, description, href, category, status, meta, external, position";
 
 type CardInput = {
   title: string;
@@ -220,11 +221,21 @@ function toSection(r: Record<string, unknown>): Section {
   };
 }
 
+function toSubfolder(r: Record<string, unknown>): Subfolder {
+  return {
+    id: r.id as string,
+    sectionId: r.section_id as string,
+    label: r.label as string,
+    position: r.position as number,
+  };
+}
+
 function toCard(r: Record<string, unknown>): HubApp {
   return {
     id: r.id as string,
     slug: r.slug as string,
     sectionId: (r.section_id as string | null) ?? null,
+    subfolderId: (r.subfolder_id as string | null) ?? null,
     initial: (r.initial as string | null) ?? "",
     title: r.title as string,
     description: (r.description as string | null) ?? "",
@@ -298,12 +309,66 @@ export async function reorderSections(ids: string[]): Promise<void> {
   revalidatePath("/");
 }
 
-export async function createCard(sectionId: string, input: CardInput): Promise<HubApp> {
+// --- Subcarpetas (nivel intermedio, solo admin) ---
+
+export async function createSubfolder(sectionId: string): Promise<Subfolder> {
   await requireAdmin();
   const { data: last } = await hubDb
-    .from("cards")
+    .from("subfolders")
     .select("position")
     .eq("section_id", sectionId)
+    .order("position", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const position = ((last?.position as number | undefined) ?? -1) + 1;
+  const { data, error } = await hubDb
+    .from("subfolders")
+    .insert({ section_id: sectionId, label: "Nueva subcarpeta", position })
+    .select(SUBFOLDER_COLS)
+    .single();
+  if (error || !data) throw new Error(error?.message ?? "create subfolder failed");
+  revalidatePath("/");
+  return toSubfolder(data);
+}
+
+export async function updateSubfolder(id: string, patch: { label?: string }): Promise<void> {
+  await requireAdmin();
+  const clean: Record<string, unknown> = {};
+  if (typeof patch.label === "string") clean.label = patch.label.trim().slice(0, 60) || "Sin nombre";
+  if (Object.keys(clean).length === 0) return;
+  await hubDb.from("subfolders").update(clean).eq("id", id);
+  revalidatePath("/");
+}
+
+export async function deleteSubfolder(id: string): Promise<void> {
+  await requireAdmin();
+  // FK on delete set null: las tarjetas de la subcarpeta vuelven al nivel de la sección.
+  await hubDb.from("subfolders").delete().eq("id", id);
+  revalidatePath("/");
+}
+
+export async function reorderSubfolders(sectionId: string, ids: string[]): Promise<void> {
+  await requireAdmin();
+  await Promise.all(
+    ids.map((id, i) =>
+      hubDb.from("subfolders").update({ position: i, section_id: sectionId }).eq("id", id),
+    ),
+  );
+  revalidatePath("/");
+}
+
+// --- Tarjetas (solo admin) ---
+
+export async function createCard(
+  sectionId: string,
+  subfolderId: string | null,
+  input: CardInput,
+): Promise<HubApp> {
+  await requireAdmin();
+  const scope = hubDb.from("cards").select("position").eq("section_id", sectionId);
+  const { data: last } = await (subfolderId
+    ? scope.eq("subfolder_id", subfolderId)
+    : scope.is("subfolder_id", null))
     .order("position", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -312,7 +377,7 @@ export async function createCard(sectionId: string, input: CardInput): Promise<H
   const slug = `${slugify(c.title)}-${Math.random().toString(36).slice(2, 6)}`;
   const { data, error } = await hubDb
     .from("cards")
-    .insert({ ...c, slug, section_id: sectionId, position })
+    .insert({ ...c, slug, section_id: sectionId, subfolder_id: subfolderId, position })
     .select(CARD_COLS)
     .single();
   if (error || !data) throw new Error(error?.message ?? "create card failed");
@@ -322,7 +387,7 @@ export async function createCard(sectionId: string, input: CardInput): Promise<H
 
 export async function updateCard(
   id: string,
-  patch: Partial<CardInput> & { sectionId?: string },
+  patch: Partial<CardInput> & { sectionId?: string; subfolderId?: string | null },
 ): Promise<void> {
   await requireAdmin();
   const clean: Record<string, unknown> = {};
@@ -336,6 +401,7 @@ export async function updateCard(
   if (typeof patch.meta === "string") clean.meta = patch.meta.trim().slice(0, 40) || null;
   if (typeof patch.external === "boolean") clean.external = patch.external;
   if (typeof patch.sectionId === "string") clean.section_id = patch.sectionId;
+  if ("subfolderId" in patch) clean.subfolder_id = patch.subfolderId ?? null;
   if (Object.keys(clean).length === 0) return;
   await hubDb.from("cards").update(clean).eq("id", id);
   revalidatePath("/");
@@ -347,11 +413,18 @@ export async function deleteCard(id: string): Promise<void> {
   revalidatePath("/");
 }
 
-export async function reorderCards(sectionId: string, cardIds: string[]): Promise<void> {
+export async function reorderCards(
+  sectionId: string,
+  subfolderId: string | null,
+  cardIds: string[],
+): Promise<void> {
   await requireAdmin();
   await Promise.all(
     cardIds.map((id, i) =>
-      hubDb.from("cards").update({ position: i, section_id: sectionId }).eq("id", id),
+      hubDb
+        .from("cards")
+        .update({ position: i, section_id: sectionId, subfolder_id: subfolderId })
+        .eq("id", id),
     ),
   );
   revalidatePath("/");

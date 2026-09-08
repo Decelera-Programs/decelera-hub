@@ -2,7 +2,7 @@ import "server-only";
 import { cache } from "react";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
-import type { AppCategory, AppStatus, HubApp, Section } from "@/lib/apps";
+import type { AppCategory, AppStatus, HubApp, Section, Subfolder } from "@/lib/apps";
 import { hubDb } from "@/lib/supabase/hub";
 
 export type Member = {
@@ -50,10 +50,12 @@ export async function requireAdmin(): Promise<Member> {
 // --- Secciones y tarjetas del hub (compartidas: las ve todo el equipo) ---
 
 type SectionRow = { id: string; label: string; blurb: string | null; accent: string | null; position: number };
+type SubfolderRow = { id: string; section_id: string; label: string; position: number };
 type CardRow = {
   id: string;
   slug: string;
   section_id: string | null;
+  subfolder_id: string | null;
   initial: string | null;
   title: string;
   description: string | null;
@@ -79,17 +81,31 @@ export const getSections = cache(async (): Promise<Section[]> => {
   }));
 });
 
+export const getSubfolders = cache(async (): Promise<Subfolder[]> => {
+  const { data } = await hubDb
+    .from("subfolders")
+    .select("id, section_id, label, position")
+    .order("position");
+  return ((data ?? []) as SubfolderRow[]).map((s) => ({
+    id: s.id,
+    sectionId: s.section_id,
+    label: s.label,
+    position: s.position,
+  }));
+});
+
 export const getCards = cache(async (): Promise<HubApp[]> => {
   const { data } = await hubDb
     .from("cards")
     .select(
-      "id, slug, section_id, initial, title, description, href, category, status, meta, external, position",
+      "id, slug, section_id, subfolder_id, initial, title, description, href, category, status, meta, external, position",
     )
     .order("position");
   return ((data ?? []) as CardRow[]).map((c) => ({
     id: c.id,
     slug: c.slug,
     sectionId: c.section_id,
+    subfolderId: c.subfolder_id,
     initial: c.initial ?? "",
     title: c.title,
     description: c.description ?? "",

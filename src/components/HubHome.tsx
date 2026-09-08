@@ -1,18 +1,26 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element */
-import { type ReactNode, useEffect, useRef, useState, useTransition } from "react";
-import type { HubApp, Section } from "@/lib/apps";
+import { useEffect, useRef, useState, useTransition } from "react";
+import type { HubApp, Section, Subfolder } from "@/lib/apps";
 import type { Folder, Widget } from "@/lib/hub";
-import { createSection, reorderCards, reorderSections } from "@/app/actions";
+import {
+  createSection,
+  createSubfolder,
+  reorderCards,
+  reorderSections,
+  reorderSubfolders,
+} from "@/app/actions";
 import { useDragAutoScroll } from "@/lib/useDragAutoScroll";
 import { useHub } from "@/lib/useHub";
 import { AccountMenu, type AccountUser } from "./AccountMenu";
+import { CardInfoDialog } from "./CardInfoDialog";
 import { CardEditor } from "./hub-admin/CardEditor";
 import { SectionEditor } from "./hub-admin/SectionEditor";
+import { SubfolderEditor } from "./hub-admin/SubfolderEditor";
+import { HubTree, type HubTreeHandlers } from "./HubTree";
 import { SearchField } from "./HubPrimitives";
 import { PersonalSpace } from "./personal/PersonalSpace";
-import { ToolCard } from "./ToolCard";
 
 const CATEGORY_TAB_LABEL: Record<string, string> = {
   Todos: "Todos",
@@ -21,27 +29,31 @@ const CATEGORY_TAB_LABEL: Record<string, string> = {
   Datos: "Datos",
 };
 
-type CardEditorState = { sectionId: string; card: HubApp | null };
+type CardEditorState = { sectionId: string; subfolderId: string | null; card: HubApp | null };
 
 export function HubHome({
   sections,
+  subfolders,
   apps,
   member,
   folders,
   widgets,
 }: {
   sections: Section[];
+  subfolders: Subfolder[];
   apps: HubApp[];
   member: AccountUser;
   folders: Folder[];
   widgets: Widget[];
 }) {
   const { query, setQuery, category, setCategory, categories, counts, groups, filtering, visibleCount, totalCount } =
-    useHub(apps, sections);
+    useHub(apps, sections, subfolders);
   const searchRef = useRef<HTMLInputElement>(null);
   const [scrolled, setScrolled] = useState(false);
   const [cardEditor, setCardEditor] = useState<CardEditorState | null>(null);
   const [sectionEditor, setSectionEditor] = useState<Section | null>(null);
+  const [subfolderEditor, setSubfolderEditor] = useState<Subfolder | null>(null);
+  const [cardInfo, setCardInfo] = useState<HubApp | null>(null);
   const [editMode, setEditMode] = useState(false);
   const [, startAdmin] = useTransition();
   useDragAutoScroll();
@@ -100,15 +112,48 @@ export function HubHome({
     });
   }
 
-  function moveCard(sectionId: string, cardIds: string[], index: number, dir: -1 | 1) {
+  function moveSubfolder(sectionId: string, subIds: string[], index: number, dir: -1 | 1) {
+    const j = index + dir;
+    if (j < 0 || j >= subIds.length) return;
+    const ids = [...subIds];
+    [ids[index], ids[j]] = [ids[j], ids[index]];
+    startAdmin(() => {
+      reorderSubfolders(sectionId, ids);
+    });
+  }
+
+  function moveCard(
+    sectionId: string,
+    subfolderId: string | null,
+    cardIds: string[],
+    index: number,
+    dir: -1 | 1,
+  ) {
     const j = index + dir;
     if (j < 0 || j >= cardIds.length) return;
     const ids = [...cardIds];
     [ids[index], ids[j]] = [ids[j], ids[index]];
     startAdmin(() => {
-      reorderCards(sectionId, ids);
+      reorderCards(sectionId, subfolderId, ids);
     });
   }
+
+  const handlers: HubTreeHandlers = {
+    onInfo: (card) => setCardInfo(card),
+    onEditSection: (s) => setSectionEditor(s),
+    onEditSubfolder: (sf) => setSubfolderEditor(sf),
+    onEditCard: (card) =>
+      setCardEditor({
+        sectionId: card.sectionId ?? sections[0]?.id ?? "",
+        subfolderId: card.subfolderId,
+        card,
+      }),
+    onAddCard: (sectionId, subfolderId) => setCardEditor({ sectionId, subfolderId, card: null }),
+    onAddSubfolder: (sectionId) => startAdmin(() => void createSubfolder(sectionId)),
+    onMoveSection: moveSection,
+    onMoveSubfolder: moveSubfolder,
+    onMoveCard: moveCard,
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[var(--page)] via-[var(--page)] to-[color-mix(in_srgb,var(--brand-water)_10%,var(--page))]">
@@ -216,86 +261,7 @@ export function HubHome({
             </div>
           </div>
 
-          {groups.map((group, gi) => {
-            const cardIds = group.apps.map((a) => a.id);
-            return (
-              <section
-                key={group.id}
-                className="hub-reveal flex flex-col gap-4"
-                style={{ animationDelay: `${120 + gi * 90}ms` }}
-              >
-                <div className="flex flex-col gap-1.5">
-                  <div className="flex items-center gap-3">
-                    <span aria-hidden className="h-5 w-1 rounded-full" style={{ background: group.accent }} />
-                    <h2 className="text-lg font-semibold tracking-tight text-[var(--text-primary)]">{group.label}</h2>
-                    <span
-                      className="rounded-full px-2 py-0.5 text-xs font-semibold"
-                      style={{
-                        background: `color-mix(in srgb, ${group.accent} 14%, transparent)`,
-                        color: group.accent,
-                      }}
-                    >
-                      {group.apps.length}
-                    </span>
-                    {canEdit && (
-                      <span className="flex items-center gap-0.5">
-                        <AdminBtn title="Editar sección" onClick={() => setSectionEditor(group)}>
-                          ✎
-                        </AdminBtn>
-                        <AdminBtn title="Subir sección" disabled={gi === 0} onClick={() => moveSection(gi, -1)}>
-                          ↑
-                        </AdminBtn>
-                        <AdminBtn
-                          title="Bajar sección"
-                          disabled={gi === groups.length - 1}
-                          onClick={() => moveSection(gi, 1)}
-                        >
-                          ↓
-                        </AdminBtn>
-                      </span>
-                    )}
-                  </div>
-                  {group.blurb && <p className="pl-4 text-sm text-[var(--text-muted)]">{group.blurb}</p>}
-                </div>
-
-                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
-                  {group.apps.map((app, ci) => (
-                    <div key={app.id} className="group/card relative">
-                      <ToolCard app={app} revealDelay={150 + gi * 90 + ci * 55} />
-                      {canEdit && (
-                        <div className="absolute right-2 top-2 z-30 flex gap-0.5 opacity-0 transition-opacity group-hover/card:opacity-100">
-                          <AdminBtn title="Mover a la izquierda" disabled={ci === 0} onClick={() => moveCard(group.id, cardIds, ci, -1)}>
-                            ←
-                          </AdminBtn>
-                          <AdminBtn
-                            title="Mover a la derecha"
-                            disabled={ci === group.apps.length - 1}
-                            onClick={() => moveCard(group.id, cardIds, ci, 1)}
-                          >
-                            →
-                          </AdminBtn>
-                          <AdminBtn title="Editar tarjeta" onClick={() => setCardEditor({ sectionId: group.id, card: app })}>
-                            ✎
-                          </AdminBtn>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-
-                  {canEdit && (
-                    <button
-                      type="button"
-                      onClick={() => setCardEditor({ sectionId: group.id, card: null })}
-                      className="flex min-h-[176px] flex-col items-center justify-center gap-2 rounded-[20px] border-2 border-dashed border-[var(--border)] text-sm font-semibold text-[var(--text-muted)] transition-colors hover:border-[var(--brand-water)] hover:text-[var(--text-primary)]"
-                    >
-                      <span className="text-2xl leading-none">+</span>
-                      Añadir tarjeta
-                    </button>
-                  )}
-                </div>
-              </section>
-            );
-          })}
+          <HubTree groups={groups} canEdit={canEdit} filtering={filtering} handlers={handlers} />
 
           {canEdit && (
             <button
@@ -325,36 +291,17 @@ export function HubHome({
         <CardEditor
           card={cardEditor.card}
           sectionId={cardEditor.sectionId}
+          subfolderId={cardEditor.subfolderId}
           sections={sections}
+          subfolders={subfolders}
           onClose={() => setCardEditor(null)}
         />
       )}
       {sectionEditor && <SectionEditor section={sectionEditor} onClose={() => setSectionEditor(null)} />}
+      {subfolderEditor && (
+        <SubfolderEditor subfolder={subfolderEditor} onClose={() => setSubfolderEditor(null)} />
+      )}
+      {cardInfo && <CardInfoDialog card={cardInfo} onClose={() => setCardInfo(null)} />}
     </div>
-  );
-}
-
-function AdminBtn({
-  children,
-  title,
-  onClick,
-  disabled,
-}: {
-  children: ReactNode;
-  title: string;
-  onClick: () => void;
-  disabled?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      title={title}
-      aria-label={title}
-      disabled={disabled}
-      onClick={onClick}
-      className="grid h-6 w-6 place-items-center rounded-md border border-[var(--border)] bg-[var(--surface-1)] text-xs text-[var(--text-secondary)] shadow-sm transition-colors hover:border-[var(--brand-water)] hover:text-[var(--text-primary)] disabled:opacity-30 disabled:hover:border-[var(--border)]"
-    >
-      {children}
-    </button>
   );
 }

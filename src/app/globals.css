@@ -72,6 +72,10 @@
   --info-fg: #8a5a12;
   --pill-info-bg: rgba(255, 185, 80, 0.22);
 
+  /* Árbol de la home: líneas conectoras (estilo diagrama de README). */
+  --tree-line: color-mix(in srgb, var(--text-muted) 42%, transparent);
+  --tree-line-active: color-mix(in srgb, var(--brand-water) 60%, transparent);
+
   --background: var(--page);
   --foreground: var(--text-primary);
 }
@@ -192,7 +196,52 @@ h3 {
   transform: scale(1.06) rotate(-2deg);
 }
 
+/* --- Hub home: árbol colapsable (estilo diagrama de README) --- */
+.tree-chevron {
+  transition: transform 0.16s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.tree-chevron[data-open="true"] {
+  transform: rotate(90deg);
+}
+
+/* Conectores. El color va en CSS (no inline) para que el hover pueda ganarle. */
+.tree-line {
+  background: var(--tree-line);
+  transition: background-color 0.15s ease;
+}
+.tree-elbow {
+  border-color: var(--tree-line);
+  transition: border-color 0.15s ease;
+}
+
+/* Al pasar por encima de una fila, sus conectores (y los de sus ancestros) se tiñen. */
+.tree-node:hover > .tree-branch > .tree-line {
+  background: var(--tree-line-active);
+}
+.tree-node:hover > .tree-branch > .tree-elbow {
+  border-color: var(--tree-line-active);
+}
+
+@keyframes tree-expand {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.tree-expand {
+  animation: tree-expand 0.18s ease both;
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .tree-chevron,
+  .tree-expand {
+    animation: none;
+    transition: none;
+  }
   .hub-reveal {
     animation: none;
   }

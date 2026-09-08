@@ -1,12 +1,20 @@
 import { HubHome } from "@/components/HubHome";
-import { getCards, getFolders, getSections, getWidgets, requireMember } from "@/lib/hub";
+import {
+  getCards,
+  getFolders,
+  getSections,
+  getSubfolders,
+  getWidgets,
+  requireMember,
+} from "@/lib/hub";
 
 export const dynamic = "force-dynamic";
 
 export default async function Page() {
   const member = await requireMember();
-  const [sections, cards, folders, widgets] = await Promise.all([
+  const [sections, subfolders, cards, folders, widgets] = await Promise.all([
     getSections(),
+    getSubfolders(),
     getCards(),
     getFolders(member.id),
     getWidgets(member.id),
@@ -15,6 +23,7 @@ export default async function Page() {
   return (
     <HubHome
       sections={sections}
+      subfolders={subfolders}
       apps={cards}
       member={{
         name: member.full_name,
