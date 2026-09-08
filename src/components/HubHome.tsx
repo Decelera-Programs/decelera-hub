@@ -8,6 +8,7 @@ import type { Folder, Widget } from "@/lib/hub";
 import {
   createSection,
   createSubfolder,
+  moveSubfolderToSection,
   reorderCards,
   reorderSections,
   reorderSubfolders,
@@ -21,7 +22,7 @@ import { EmbedArea, type EmbedTab, type EmbedTarget } from "./EmbedArea";
 import { CardEditor } from "./hub-admin/CardEditor";
 import { SectionEditor } from "./hub-admin/SectionEditor";
 import { SubfolderEditor } from "./hub-admin/SubfolderEditor";
-import { HubTree, type HubTreeHandlers } from "./HubTree";
+import { HubTree, type HubTreeHandlers, type TreeDrag, type TreeDrop } from "./HubTree";
 import { SearchField } from "./HubPrimitives";
 import { PersonalSpace } from "./personal/PersonalSpace";
 import { WorkspaceProvider, type OpenTarget } from "./WorkspaceContext";
@@ -281,6 +282,65 @@ export function HubHome({
     });
   }
 
+  /** Reubicación por arrastre en el árbol compartido. `reorderCards`/`reorderSubfolders`
+   *  ya reescriben `section_id`/`subfolder_id` de cada id que reciben, así que sirven
+   *  también para reparentar. */
+  function onTreeDrop(drag: TreeDrag, drop: TreeDrop) {
+    const cardGroup = (sectionId: string, subfolderId: string | null): string[] => {
+      const sec = groups.find((g) => g.id === sectionId);
+      if (!sec) return [];
+      if (subfolderId)
+        return sec.subfolders.find((s) => s.id === subfolderId)?.apps.map((a) => a.id) ?? [];
+      return sec.apps.map((a) => a.id);
+    };
+
+    if (drag.kind === "card") {
+      let sectionId: string;
+      let subfolderId: string | null;
+      let ids: string[];
+
+      if (drop.on === "card") {
+        sectionId = drop.card.sectionId ?? "";
+        subfolderId = drop.card.subfolderId;
+        ids = cardGroup(sectionId, subfolderId).filter((id) => id !== drag.id);
+        const ti = ids.indexOf(drop.card.id);
+        ids.splice(drop.edge === "before" ? ti : ti + 1, 0, drag.id);
+      } else if (drop.on === "subfolder") {
+        sectionId = drop.sub.sectionId;
+        subfolderId = drop.sub.id;
+        ids = [...drop.sub.apps.map((a) => a.id).filter((id) => id !== drag.id), drag.id];
+      } else {
+        sectionId = drop.section.id;
+        subfolderId = null;
+        ids = [...drop.section.apps.map((a) => a.id).filter((id) => id !== drag.id), drag.id];
+      }
+      if (!sectionId) return;
+      startAdmin(() => reorderCards(sectionId, subfolderId, ids));
+      return;
+    }
+
+    // drag.kind === "subfolder"
+    const targetSectionId =
+      drop.on === "section" ? drop.section.id : drop.on === "subfolder" ? drop.sub.sectionId : null;
+    if (!targetSectionId) return;
+    const sec = groups.find((g) => g.id === targetSectionId);
+    if (!sec) return;
+
+    const ids = sec.subfolders.map((s) => s.id).filter((id) => id !== drag.id);
+    if (drop.on === "subfolder") {
+      const ti = ids.indexOf(drop.sub.id);
+      ids.splice(drop.mode === "before" ? ti : ti + 1, 0, drag.id);
+    } else {
+      ids.push(drag.id);
+    }
+
+    if (targetSectionId === drag.sectionId) {
+      startAdmin(() => reorderSubfolders(targetSectionId, ids));
+    } else {
+      startAdmin(() => moveSubfolderToSection(drag.id, targetSectionId, ids));
+    }
+  }
+
   const handlers: HubTreeHandlers = {
     onActivate: (card) => openTarget({ kind: "card", card }),
     onInfo: (card) => setCardInfo(card),
@@ -297,6 +357,7 @@ export function HubHome({
     onMoveSection: moveSection,
     onMoveSubfolder: moveSubfolder,
     onMoveCard: moveCard,
+    onTreeDrop,
   };
 
   return (

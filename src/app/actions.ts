@@ -360,6 +360,25 @@ export async function reorderSubfolders(sectionId: string, ids: string[]): Promi
   revalidatePath("/");
 }
 
+/**
+ * Mueve una subcarpeta a otra sección: reubica la subcarpeta, arrastra sus tarjetas
+ * con ella (`cards.section_id`) y reordena las subcarpetas de la sección destino.
+ */
+export async function moveSubfolderToSection(
+  subfolderId: string,
+  sectionId: string,
+  orderedIds: string[],
+): Promise<void> {
+  await requireAdmin();
+  await hubDb.from("cards").update({ section_id: sectionId }).eq("subfolder_id", subfolderId);
+  await Promise.all(
+    orderedIds.map((id, i) =>
+      hubDb.from("subfolders").update({ position: i, section_id: sectionId }).eq("id", id),
+    ),
+  );
+  revalidatePath("/");
+}
+
 // --- Tarjetas (solo admin) ---
 
 export async function createCard(

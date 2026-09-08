@@ -1,17 +1,31 @@
 "use client";
 
 import {
+  type CSSProperties,
+  type DragEvent as ReactDragEvent,
   isValidElement,
   type ReactElement,
   type ReactNode,
   useCallback,
   useEffect,
+  useRef,
   useState,
 } from "react";
 import { STATUS_LABEL, type AppStatus, type HubApp } from "@/lib/apps";
 import type { TreeSection, TreeSubfolder } from "@/lib/useHub";
 import { AdminBtn } from "./hub-admin/editorUi";
 import { IconTile } from "./HubPrimitives";
+
+/** Qué se está arrastrando dentro del árbol (solo en modo Editar). */
+export type TreeDrag =
+  | { kind: "card"; id: string; sectionId: string; subfolderId: string | null }
+  | { kind: "subfolder"; id: string; sectionId: string };
+
+/** Dónde se suelta. */
+export type TreeDrop =
+  | { on: "card"; card: HubApp; edge: "before" | "after" }
+  | { on: "subfolder"; sub: TreeSubfolder; mode: "into" | "before" | "after" }
+  | { on: "section"; section: TreeSection };
 
 export type HubTreeHandlers = {
   /** Abrir la tarjeta: en el panel si es embebible, en pestaña nueva si no. */
@@ -31,6 +45,8 @@ export type HubTreeHandlers = {
     index: number,
     dir: -1 | 1,
   ) => void;
+  /** Reubicación por arrastre dentro del árbol compartido. */
+  onTreeDrop: (drag: TreeDrag, drop: TreeDrop) => void;
 };
 
 type Ctx = {
@@ -40,6 +56,39 @@ type Ctx = {
   activeSlug?: string;
   openSlugs?: Set<string>;
 };
+
+/**
+ * Payload del arrastre en curso. Módulo-global a propósito: `dataTransfer` no se
+ * puede leer en `dragover`, es estado efímero que nunca debe provocar render, y el
+ * árbol es único en la app.
+ */
+let currentDrag: TreeDrag | null = null;
+
+/** Fantasma de arrastre limpio (el snapshot nativo incluye hijos absolutos y sale raro). */
+function setDragGhost(e: ReactDragEvent, el: HTMLElement) {
+  const rect = el.getBoundingClientRect();
+  const ghost = el.cloneNode(true) as HTMLElement;
+  ghost.style.cssText +=
+    `;position:fixed;top:0;left:-9999px;width:${Math.round(rect.width)}px;margin:0;` +
+    "background:var(--surface-1);border:1px solid var(--border);border-radius:8px;" +
+    "box-shadow:0 14px 34px -10px rgba(20,25,40,.4);opacity:1;pointer-events:none";
+  document.body.appendChild(ghost);
+  e.dataTransfer.setDragImage(ghost, 14, rect.height / 2);
+  requestAnimationFrame(() => ghost.remove());
+}
+
+/** Estilo del resaltado según dónde caería el drop. */
+function hintStyle(hint: "into" | "before" | "after" | null): CSSProperties | undefined {
+  if (hint === "into")
+    return {
+      outline: "2px solid var(--brand-water)",
+      outlineOffset: "-2px",
+      background: "color-mix(in srgb, var(--brand-water) 8%, transparent)",
+    };
+  if (hint === "before") return { boxShadow: "inset 0 2px 0 0 var(--brand-water)" };
+  if (hint === "after") return { boxShadow: "inset 0 -2px 0 0 var(--brand-water)" };
+  return undefined;
+}
 
 /**
  * Árbol de navegación del hub (nav lateral del workspace): sección → subcarpeta →
@@ -87,8 +136,33 @@ function SectionNode({
 }) {
   const { canEdit, filtering, handlers } = ctx;
   const [open, toggle] = useCollapse(`sec:${section.id}`, true);
+  const [hint, setHint] = useState<"into" | null>(null);
   const isOpen = filtering || open;
   const accent = section.accent;
+
+  // Drop en la cabecera de la sección: mete la tarjeta al nivel de la sección, o
+  // mueve una subcarpeta a esta sección.
+  function canDrop() {
+    const d = currentDrag;
+    if (!canEdit || !d) return false;
+    if (d.kind === "card") return true;
+    if (d.kind === "subfolder") return d.sectionId !== section.id;
+    return false;
+  }
+  function onDragOver(e: ReactDragEvent) {
+    if (!canDrop()) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    if (hint !== "into") setHint("into");
+  }
+  function onDrop(e: ReactDragEvent) {
+    const d = currentDrag;
+    setHint(null);
+    if (!canDrop() || !d) return;
+    e.preventDefault();
+    e.stopPropagation();
+    handlers.onTreeDrop(d, { on: "section", section });
+  }
 
   const subIds = section.subfolders.map((s) => s.id);
   const directIds = section.apps.map((a) => a.id);
@@ -125,7 +199,13 @@ function SectionNode({
 
   return (
     <div className="select-none">
-      <div className="group relative flex items-center gap-1">
+      <div
+        className="group relative flex items-center gap-1 rounded-lg"
+        style={hintStyle(hint)}
+        onDragOver={onDragOver}
+        onDragLeave={() => setHint(null)}
+        onDrop={onDrop}
+      >
         <button
           type="button"
           onClick={toggle}
@@ -199,8 +279,38 @@ function SubfolderNode({
 }) {
   const { canEdit, filtering, handlers } = ctx;
   const [open, toggle] = useCollapse(`sf:${sub.id}`, false);
+  const [hint, setHint] = useState<"into" | "before" | "after" | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const rowRef = useRef<HTMLDivElement>(null);
   const isOpen = filtering || open;
   const cardIds = sub.apps.map((a) => a.id);
+
+  function onDragOver(e: ReactDragEvent) {
+    const d = currentDrag;
+    if (!canEdit || !d) return;
+    if (d.kind === "card") {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      if (hint !== "into") setHint("into");
+    } else if (d.kind === "subfolder" && d.id !== sub.id) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      const r = e.currentTarget.getBoundingClientRect();
+      const edge = e.clientY < r.top + r.height / 2 ? "before" : "after";
+      if (hint !== edge) setHint(edge);
+    }
+  }
+  function onDrop(e: ReactDragEvent) {
+    const d = currentDrag;
+    const h = hint;
+    setHint(null);
+    if (!canEdit || !d) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (d.kind === "card") handlers.onTreeDrop(d, { on: "subfolder", sub, mode: "into" });
+    else if (d.kind === "subfolder" && d.id !== sub.id)
+      handlers.onTreeDrop(d, { on: "subfolder", sub, mode: h === "before" ? "before" : "after" });
+  }
 
   const nodes: ReactNode[] = sub.apps.map((card, i) => (
     <LeafRow
@@ -224,8 +334,36 @@ function SubfolderNode({
   }
 
   return (
-    <div>
-      <div className="group relative flex items-center gap-1">
+    <div style={{ opacity: dragging ? 0.4 : undefined }}>
+      <div
+        ref={rowRef}
+        className="group relative flex items-center gap-1 rounded-lg"
+        style={hintStyle(hint)}
+        onDragOver={onDragOver}
+        onDragLeave={() => setHint(null)}
+        onDrop={onDrop}
+      >
+        {canEdit && (
+          <span
+            draggable
+            aria-hidden
+            title="Arrastrar para mover la subcarpeta"
+            onDragStart={(e) => {
+              e.stopPropagation();
+              currentDrag = { kind: "subfolder", id: sub.id, sectionId: section.id };
+              e.dataTransfer.effectAllowed = "move";
+              if (rowRef.current) setDragGhost(e, rowRef.current);
+              setDragging(true);
+            }}
+            onDragEnd={() => {
+              currentDrag = null;
+              setDragging(false);
+            }}
+            className="relative z-10 grid h-6 w-3.5 shrink-0 cursor-grab place-items-center text-[var(--text-muted)] hover:text-[var(--text-primary)] active:cursor-grabbing"
+          >
+            <GripIcon />
+          </span>
+        )}
         <button
           type="button"
           onClick={toggle}
@@ -292,33 +430,59 @@ function LeafRow({
   const open = !active && !!openSlugs?.has(card.slug);
   const opensInPane = card.embeddable;
   const [dragging, setDragging] = useState(false);
+  const [hint, setHint] = useState<"before" | "after" | null>(null);
+
+  function onDragOver(e: ReactDragEvent) {
+    const d = currentDrag;
+    if (!canEdit || d?.kind !== "card" || d.id === card.id) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    const r = e.currentTarget.getBoundingClientRect();
+    const edge = e.clientY < r.top + r.height / 2 ? "before" : "after";
+    if (hint !== edge) setHint(edge);
+  }
+  function onDrop(e: ReactDragEvent) {
+    const d = currentDrag;
+    const h = hint;
+    setHint(null);
+    if (!canEdit || d?.kind !== "card" || d.id === card.id) return;
+    e.preventDefault();
+    e.stopPropagation();
+    handlers.onTreeDrop(d, { on: "card", card, edge: h === "before" ? "before" : "after" });
+  }
 
   return (
     <div
       draggable
       onDragStart={(e) => {
-        // Arrastrar una tarjeta del árbol a una carpeta de "Tu espacio".
+        // Señal para soltar en una carpeta de "Tu espacio".
         e.dataTransfer.setData("application/x-hub-app", card.slug);
         e.dataTransfer.setData("text/plain", card.title);
-        e.dataTransfer.effectAllowed = "copy";
-        // Fantasma limpio: el snapshot nativo incluye el <button> absoluto y sale raro.
-        const row = e.currentTarget;
-        const rect = row.getBoundingClientRect();
-        const ghost = row.cloneNode(true) as HTMLElement;
-        ghost.style.cssText +=
-          `;position:fixed;top:0;left:-9999px;width:${rect.width}px;margin:0;` +
-          "background:var(--surface-1);border:1px solid var(--border);border-radius:8px;" +
-          "box-shadow:0 14px 34px -10px rgba(20,25,40,.4);opacity:1;pointer-events:none";
-        document.body.appendChild(ghost);
-        e.dataTransfer.setDragImage(ghost, 14, rect.height / 2);
-        requestAnimationFrame(() => ghost.remove());
+        e.dataTransfer.effectAllowed = canEdit ? "copyMove" : "copy";
+        // Señal para reubicar dentro del árbol compartido (solo en modo Editar).
+        if (canEdit) {
+          currentDrag = {
+            kind: "card",
+            id: card.id,
+            sectionId: card.sectionId ?? "",
+            subfolderId: card.subfolderId,
+          };
+        }
+        setDragGhost(e, e.currentTarget);
         setDragging(true);
       }}
-      onDragEnd={() => setDragging(false)}
+      onDragEnd={() => {
+        currentDrag = null;
+        setDragging(false);
+      }}
+      onDragOver={onDragOver}
+      onDragLeave={() => setHint(null)}
+      onDrop={onDrop}
       className="group relative flex items-center gap-1.5 rounded-lg px-2 py-1.5 transition-colors"
       style={{
         ...(active ? { background: "color-mix(in srgb, var(--brand-water) 16%, transparent)" } : {}),
         ...(dragging ? { opacity: 0.4 } : {}),
+        ...hintStyle(hint),
       }}
     >
       <button
@@ -503,6 +667,19 @@ function InfoIcon() {
       <circle cx="10" cy="10" r="7.25" stroke="currentColor" strokeWidth="1.5" />
       <path d="M10 9.25v4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
       <circle cx="10" cy="6.4" r="1" fill="currentColor" />
+    </svg>
+  );
+}
+
+function GripIcon() {
+  return (
+    <svg viewBox="0 0 10 16" className="h-3.5 w-2.5" fill="currentColor" aria-hidden>
+      <circle cx="3" cy="4" r="1.1" />
+      <circle cx="7" cy="4" r="1.1" />
+      <circle cx="3" cy="8" r="1.1" />
+      <circle cx="7" cy="8" r="1.1" />
+      <circle cx="3" cy="12" r="1.1" />
+      <circle cx="7" cy="12" r="1.1" />
     </svg>
   );
 }
