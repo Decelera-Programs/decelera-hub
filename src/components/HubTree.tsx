@@ -291,14 +291,39 @@ function LeafRow({
   const active = activeSlug === card.slug;
   const open = !active && !!openSlugs?.has(card.slug);
   const opensInPane = card.embeddable;
+  const [dragging, setDragging] = useState(false);
 
   return (
     <div
+      draggable
+      onDragStart={(e) => {
+        // Arrastrar una tarjeta del árbol a una carpeta de "Tu espacio".
+        e.dataTransfer.setData("application/x-hub-app", card.slug);
+        e.dataTransfer.setData("text/plain", card.title);
+        e.dataTransfer.effectAllowed = "copy";
+        // Fantasma limpio: el snapshot nativo incluye el <button> absoluto y sale raro.
+        const row = e.currentTarget;
+        const rect = row.getBoundingClientRect();
+        const ghost = row.cloneNode(true) as HTMLElement;
+        ghost.style.cssText +=
+          `;position:fixed;top:0;left:-9999px;width:${rect.width}px;margin:0;` +
+          "background:var(--surface-1);border:1px solid var(--border);border-radius:8px;" +
+          "box-shadow:0 14px 34px -10px rgba(20,25,40,.4);opacity:1;pointer-events:none";
+        document.body.appendChild(ghost);
+        e.dataTransfer.setDragImage(ghost, 14, rect.height / 2);
+        requestAnimationFrame(() => ghost.remove());
+        setDragging(true);
+      }}
+      onDragEnd={() => setDragging(false)}
       className="group relative flex items-center gap-1.5 rounded-lg px-2 py-1.5 transition-colors"
-      style={active ? { background: "color-mix(in srgb, var(--brand-water) 16%, transparent)" } : undefined}
+      style={{
+        ...(active ? { background: "color-mix(in srgb, var(--brand-water) 16%, transparent)" } : {}),
+        ...(dragging ? { opacity: 0.4 } : {}),
+      }}
     >
       <button
         type="button"
+        draggable={false}
         onClick={() => handlers.onActivate(card)}
         className="absolute inset-0 rounded-lg hover:bg-[var(--row-hover)]"
         style={active ? { background: "transparent" } : undefined}
