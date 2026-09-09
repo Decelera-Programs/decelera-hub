@@ -3,12 +3,14 @@
 /* eslint-disable @next/next/no-img-element */
 import { useEffect, useRef, useState } from "react";
 import { signOutAction } from "@/app/actions";
+import { TEAM_LABEL, type Team } from "@/lib/teams";
 
 export type AccountUser = {
   name: string | null;
   email: string;
   avatarUrl: string | null;
   isAdmin: boolean;
+  teams: Team[];
 };
 
 export function AccountMenu({ user }: { user: AccountUser }) {
@@ -61,6 +63,18 @@ export function AccountMenu({ user }: { user: AccountUser }) {
               <p className="truncate text-xs text-[var(--text-muted)]">{user.email}</p>
             </div>
           </div>
+          {user.teams.length > 0 && (
+            <div className="flex flex-wrap gap-1 border-b border-[var(--border)] px-3 py-2">
+              {user.teams.map((t) => (
+                <span
+                  key={t}
+                  className="rounded-full bg-[var(--pill-neutral-bg)] px-2 py-0.5 text-[11px] font-semibold text-[var(--text-secondary)]"
+                >
+                  {TEAM_LABEL[t]}
+                </span>
+              ))}
+            </div>
+          )}
           {user.isAdmin && (
             <a
               href="/admin"

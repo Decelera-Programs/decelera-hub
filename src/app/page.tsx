@@ -32,6 +32,7 @@ export default async function Page() {
           email: member.email,
           avatarUrl: member.avatar_url,
           isAdmin: member.role === "admin",
+          teams: member.teams,
         }}
         folders={folders}
         widgets={widgets}

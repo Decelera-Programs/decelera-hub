@@ -3,6 +3,7 @@ import { cache } from "react";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import type { AppCategory, AppStatus, HubApp, Section, Subfolder } from "@/lib/apps";
+import type { Team } from "@/lib/teams";
 import { hubDb } from "@/lib/supabase/hub";
 
 export type Member = {
@@ -12,6 +13,8 @@ export type Member = {
   avatar_url: string | null;
   role: "member" | "admin";
   is_active: boolean;
+  /** Equipos a los que pertenece (solo etiquetar/filtrar). */
+  teams: Team[];
 };
 
 /**
@@ -42,11 +45,21 @@ export const getMember = cache(async (): Promise<Member | null> => {
 
   const { data } = await hubDb
     .from("members")
-    .select("id, email, full_name, avatar_url, role, is_active")
+    .select("id, email, full_name, avatar_url, role, is_active, member_teams(team)")
     .eq("email", email)
     .maybeSingle();
 
-  return data && data.is_active ? (data as Member) : null;
+  if (!data || !data.is_active) return null;
+  const teams = ((data.member_teams ?? []) as { team: Team }[]).map((r) => r.team);
+  return {
+    id: data.id,
+    email: data.email,
+    full_name: data.full_name,
+    avatar_url: data.avatar_url,
+    role: data.role,
+    is_active: data.is_active,
+    teams,
+  };
 });
 
 /** Como `getMember` pero redirige: a `/login` si no hay sesión, a `/no-access` si no es miembro activo. */

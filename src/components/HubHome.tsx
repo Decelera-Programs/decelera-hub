@@ -23,6 +23,7 @@ import { CardEditor } from "./hub-admin/CardEditor";
 import { SectionEditor } from "./hub-admin/SectionEditor";
 import { SubfolderEditor } from "./hub-admin/SubfolderEditor";
 import { HubTree, type HubTreeHandlers, type TreeDrag, type TreeDrop } from "./HubTree";
+import { PageSwitcher } from "./PageSwitcher";
 import { SearchField } from "./HubPrimitives";
 import { PersonalSpace } from "./personal/PersonalSpace";
 import { WorkspaceProvider, type OpenTarget } from "./WorkspaceContext";
@@ -378,11 +379,13 @@ export function HubHome({
 
         <div className="flex items-center gap-2">
           <img src="/decelera-mark.svg" alt="Decelera" className="h-6 w-6" />
-          <div className="hidden items-baseline gap-1.5 sm:flex">
+          <div className="hidden items-baseline gap-1.5 lg:flex">
             <span className="text-sm font-bold tracking-tight text-[var(--text-primary)]">Decelera</span>
             <span className="text-sm font-normal tracking-tight text-[var(--text-muted)]">Hub</span>
           </div>
         </div>
+
+        <PageSwitcher />
 
         {activeTab && (
           <div className="ml-1 hidden min-w-0 items-center gap-1.5 text-sm text-[var(--text-muted)] md:flex">
