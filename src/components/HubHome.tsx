@@ -364,7 +364,7 @@ export function HubHome({
   return (
     <WorkspaceProvider value={workspace}>
     <div className="flex h-screen flex-col overflow-hidden bg-[var(--page)]">
-      <header className="flex h-14 shrink-0 items-center gap-3 border-b border-[var(--border)] bg-[var(--surface-1)] px-3 sm:px-4">
+      <header className="relative flex h-14 shrink-0 items-center gap-3 border-b border-[var(--border)] bg-[var(--surface-1)] px-3 sm:px-4">
         <button
           type="button"
           onClick={toggleNav}
@@ -385,16 +385,26 @@ export function HubHome({
           </div>
         </div>
 
-        <PageSwitcher />
+        {/* En móvil, sin sitio para centrarla: va en línea tras el logo. */}
+        <div className="sm:hidden">
+          <PageSwitcher />
+        </div>
 
         {activeTab && (
-          <div className="ml-1 hidden min-w-0 items-center gap-1.5 text-sm text-[var(--text-muted)] md:flex">
+          <div className="hidden min-w-0 items-center gap-1.5 pl-1 text-sm text-[var(--text-muted)] xl:flex">
             <span aria-hidden>/</span>
-            <span className="truncate font-medium text-[var(--text-secondary)]">
+            <span className="max-w-[220px] truncate font-medium text-[var(--text-secondary)]">
               {activeTab.target.title}
             </span>
           </div>
         )}
+
+        {/* Navegación de páginas centrada en la cabecera. */}
+        <div className="pointer-events-none absolute inset-0 hidden items-center justify-center sm:flex">
+          <div className="pointer-events-auto">
+            <PageSwitcher />
+          </div>
+        </div>
 
         <div className="flex-1" />
 
