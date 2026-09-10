@@ -135,7 +135,13 @@ export function ProjectCard({
   );
 }
 
-function OwnerAvatar({ owner }: { owner: NonNullable<Project["owner"]> }) {
+export function OwnerAvatar({
+  owner,
+  size = 20,
+}: {
+  owner: NonNullable<Project["owner"]>;
+  size?: number;
+}) {
   const initials = (owner.name ?? owner.email)
     .split(/[\s@.]+/)
     .filter(Boolean)
@@ -148,8 +154,8 @@ function OwnerAvatar({ owner }: { owner: NonNullable<Project["owner"]> }) {
         src={owner.avatarUrl}
         alt={owner.name ?? owner.email}
         title={owner.name ?? owner.email}
-        width={20}
-        height={20}
+        width={size}
+        height={size}
         referrerPolicy="no-referrer"
         className="shrink-0 rounded-full"
       />
@@ -159,8 +165,14 @@ function OwnerAvatar({ owner }: { owner: NonNullable<Project["owner"]> }) {
     <span
       aria-hidden
       title={owner.name ?? owner.email}
-      className="grid h-5 w-5 shrink-0 place-items-center rounded-full text-[9px] font-bold"
-      style={{ background: "var(--tile-1-bg)", color: "var(--tile-1-ink)" }}
+      className="grid shrink-0 place-items-center rounded-full font-bold"
+      style={{
+        width: size,
+        height: size,
+        fontSize: Math.max(8, size * 0.45),
+        background: "var(--tile-1-bg)",
+        color: "var(--tile-1-ink)",
+      }}
     >
       {initials || "?"}
     </span>

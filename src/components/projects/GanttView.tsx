@@ -1,14 +1,16 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import type { Project } from "@/lib/projects";
+import type { Project, ProjectColumn } from "@/lib/projects";
 import { HEALTH_COLOR, HEALTH_LABEL, PROJECT_HEALTHS, taskProgress } from "@/lib/projects";
 import { TEAM_ACCENT } from "@/lib/teams";
+import { OwnerAvatar } from "./ProjectCard";
 
 const DAY_MS = 86_400_000;
 const DAY_PX = 22; // ancho de un día en la línea de tiempo
-const ROW_H = 40;
-const LABEL_W = 220;
+const ROW_H = 52; // dos líneas en la columna de nombres: título, y columna+encargado
+const BAR_H = 26; // alto de la barra, independiente de ROW_H
+const LABEL_W = 240;
 
 function parseDate(iso: string): number {
   return new Date(`${iso}T00:00:00`).getTime();
@@ -43,13 +45,19 @@ type DragState = {
 
 export function GanttView({
   projects,
+  columns,
   onOpen,
   onReschedule,
 }: {
   projects: Project[];
+  columns: ProjectColumn[];
   onOpen: (id: string) => void;
   onReschedule: (id: string, startDate: string, endDate: string) => void;
 }) {
+  const columnLabel = useMemo(() => {
+    const m = new Map(columns.map((c) => [c.id, c.label]));
+    return (id: string | null) => (id ? m.get(id) : undefined) ?? "Sin columna";
+  }, [columns]);
   const [drag, setDrag] = useState<DragState | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   // Suprime el `click` que sigue a un arrastre real (si no, abriría el modal).
@@ -233,24 +241,43 @@ export function GanttView({
                 <button
                   type="button"
                   onClick={() => onOpen(p.id)}
-                  className="sticky left-0 z-10 flex shrink-0 items-center gap-2 border-r border-[var(--border)] bg-[var(--surface-1)] px-3 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--row-hover)]"
+                  className="sticky left-0 z-10 flex shrink-0 flex-col justify-center gap-1 border-r border-[var(--border)] bg-[var(--surface-1)] px-3 text-left hover:bg-[var(--row-hover)]"
                   style={{ width: LABEL_W }}
                 >
-                  <span
-                    aria-hidden
-                    className="h-2 w-2 shrink-0 rounded-full"
-                    style={{ background: HEALTH_COLOR[p.health] }}
-                  />
-                  <span className="truncate font-medium">{p.title}</span>
+                  <span className="flex min-w-0 items-center gap-1.5">
+                    <span
+                      aria-hidden
+                      title={HEALTH_LABEL[p.health]}
+                      className="h-2 w-2 shrink-0 rounded-full"
+                      style={{ background: HEALTH_COLOR[p.health] }}
+                    />
+                    <span className="truncate text-sm font-medium text-[var(--text-primary)]">
+                      {p.title}
+                    </span>
+                  </span>
+                  <span className="flex min-w-0 items-center gap-1.5 pl-3.5 text-[11px] text-[var(--text-muted)]">
+                    <span className="truncate rounded bg-[var(--pill-neutral-bg)] px-1.5 py-0.5 font-semibold">
+                      {columnLabel(p.columnId)}
+                    </span>
+                    {p.owner && (
+                      <span className="flex min-w-0 shrink-0 items-center gap-1">
+                        <OwnerAvatar owner={p.owner} size={15} />
+                        <span className="max-w-[90px] truncate">
+                          {(p.owner.name ?? p.owner.email).split(" ")[0]}
+                        </span>
+                      </span>
+                    )}
+                  </span>
                 </button>
 
                 <div className="relative" style={{ width }}>
                   <div
-                    className="group absolute top-1.5 flex items-center rounded-md text-white shadow-sm"
+                    className="group absolute flex items-center rounded-md text-white shadow-sm"
                     style={{
                       left: g.left,
+                      top: (ROW_H - BAR_H) / 2,
                       width: g.width,
-                      height: ROW_H - 12,
+                      height: BAR_H,
                       background: overdue ? "var(--status-critical)" : teamColor,
                       cursor: drag?.id === p.id ? "grabbing" : "grab",
                       // Borde = semáforo de seguimiento (siempre visible, independiente del

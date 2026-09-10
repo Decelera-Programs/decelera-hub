@@ -327,7 +327,7 @@ export function ProjectsBoard({
       </div>
 
       {view === "gantt" ? (
-        <GanttView projects={visible} onOpen={setOpenId} onReschedule={reschedule} />
+        <GanttView projects={visible} columns={columns} onOpen={setOpenId} onReschedule={reschedule} />
       ) : (
         <div className="flex min-h-0 flex-1 gap-3 overflow-x-auto p-4">
         {columns.map((col) => (
