@@ -1,12 +1,19 @@
-/* eslint-disable @next/next/no-img-element */
 import { AccountMenu } from "@/components/AccountMenu";
 import { PageSwitcher } from "@/components/PageSwitcher";
+import { ProjectsBoard } from "@/components/projects/ProjectsBoard";
 import { requireMember } from "@/lib/hub";
+import { getMemberOptions, getProjectColumns, getProjects } from "@/lib/supabase/projects";
 
 export const dynamic = "force-dynamic";
 
 export default async function ProyectosPage() {
   const member = await requireMember();
+  const [columns, projects, members] = await Promise.all([
+    getProjectColumns(),
+    getProjects(),
+    getMemberOptions(),
+  ]);
+
   const user = {
     name: member.full_name,
     email: member.email,
@@ -19,6 +26,7 @@ export default async function ProyectosPage() {
     <div className="flex h-screen flex-col overflow-hidden bg-[var(--page)]">
       <header className="relative flex h-14 shrink-0 items-center gap-3 border-b border-[var(--border)] bg-[var(--surface-1)] px-3 sm:px-4">
         <div className="flex items-center gap-2">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/decelera-mark.svg" alt="Decelera" className="h-6 w-6" />
           <div className="hidden items-baseline gap-1.5 lg:flex">
             <span className="text-sm font-bold tracking-tight text-[var(--text-primary)]">Decelera</span>
@@ -29,7 +37,6 @@ export default async function ProyectosPage() {
         <div className="sm:hidden">
           <PageSwitcher />
         </div>
-
         <div className="pointer-events-none absolute inset-0 hidden items-center justify-center sm:flex">
           <div className="pointer-events-auto">
             <PageSwitcher />
@@ -40,14 +47,12 @@ export default async function ProyectosPage() {
         <AccountMenu user={user} />
       </header>
 
-      <main className="grid flex-1 place-items-center p-8">
-        <div className="text-center">
-          <h1 className="text-2xl font-semibold tracking-tight text-[var(--text-primary)]">
-            Gestor de proyectos
-          </h1>
-          <p className="mt-2 text-sm text-[var(--text-muted)]">Próximamente — Kanban y Gantt.</p>
-        </div>
-      </main>
+      <ProjectsBoard
+        columns={columns}
+        projects={projects}
+        members={members}
+        currentMemberId={member.id}
+      />
     </div>
   );
 }

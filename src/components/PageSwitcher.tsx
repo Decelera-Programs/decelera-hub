@@ -19,12 +19,7 @@ export function PageSwitcher() {
             href={p.href}
             aria-current={on ? "page" : undefined}
             className="rounded-full px-4 py-1.5 text-sm font-semibold transition-colors hover:bg-[var(--row-hover)]"
-            style={{
-              color: on ? "var(--text-primary)" : "var(--text-muted)",
-              ...(on
-                ? { background: "color-mix(in srgb, var(--brand-water) 14%, transparent)" }
-                : {}),
-            }}
+            style={{ color: on ? "var(--text-primary)" : "var(--text-muted)" }}
           >
             {p.label}
           </Link>
