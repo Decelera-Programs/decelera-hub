@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useRouter } from "next/navigation";
 import {
   HEALTH_COLOR,
   HEALTH_LABEL,
@@ -13,16 +12,6 @@ import {
 } from "@/lib/projects";
 import { TEAMS, TEAM_LABEL, type Team } from "@/lib/teams";
 import { useWorkspace } from "@/components/WorkspaceContext";
-import {
-  addDoc,
-  addTask,
-  deleteDoc,
-  deleteProject,
-  deleteTask,
-  toggleTask,
-  updateProject,
-  updateTask,
-} from "@/app/proyectos/actions";
 
 const fieldCls =
   "rounded-lg border border-[var(--border)] bg-[var(--surface-1)] px-2.5 py-1.5 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--brand-water)]";
@@ -30,24 +19,45 @@ const labelCls = "text-[11px] font-semibold uppercase tracking-wide text-[var(--
 
 type Tab = "info" | "docs" | "checklist";
 
+export type ProjectFieldPatch = {
+  title?: string;
+  info?: string;
+  health?: ProjectHealth;
+  ownerId?: string | null;
+  team?: Team | null;
+  startDate?: string | null;
+  endDate?: string | null;
+};
+
+/** Callbacks optimistas: el board actualiza su estado y lanza la escritura. */
+export type ModalHandlers = {
+  patch: (projectId: string, patch: ProjectFieldPatch) => void;
+  addTask: (projectId: string, label: string) => void;
+  toggleTask: (projectId: string, taskId: string, done: boolean) => void;
+  updateTask: (projectId: string, taskId: string, label: string) => void;
+  deleteTask: (projectId: string, taskId: string) => void;
+  addDoc: (projectId: string, label: string, url: string) => void;
+  deleteDoc: (projectId: string, docId: string) => void;
+  remove: (projectId: string) => void;
+};
+
 export function ProjectModal({
   project,
   members,
+  handlers,
   onClose,
 }: {
   project: Project;
   members: ProjectOwner[];
+  handlers: ModalHandlers;
   onClose: () => void;
 }) {
-  const router = useRouter();
-  const [, start] = useTransition();
   const [tab, setTab] = useState<Tab>("info");
   const [title, setTitle] = useState(project.title);
   const [info, setInfo] = useState(project.info);
   const [confirmDel, setConfirmDel] = useState(false);
   const infoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Snapshot para el flush al desmontar (los closures del cleanup ven el valor inicial).
-  const pending = useRef<{ info: string }>({ info: project.info });
+  const infoRef = useRef(project.info);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -57,34 +67,24 @@ export function ProjectModal({
     return () => document.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  // Al cerrar el modal, guarda cualquier edición de "info" que quedara pendiente del debounce.
+  // Flush del debounce de "info" al cerrar.
   useEffect(() => {
-    const p = pending.current;
-    const original = project.info;
     const id = project.id;
+    const original = project.info;
     return () => {
       if (infoTimer.current) clearTimeout(infoTimer.current);
-      if (p.info !== original) void updateProject(id, { info: p.info });
+      if (infoRef.current !== original) handlers.patch(id, { info: infoRef.current });
     };
-  }, [project.id, project.info]);
+  }, [project.id, project.info, handlers]);
 
-  function run(fn: () => Promise<unknown>) {
-    start(async () => {
-      await fn();
-      router.refresh();
-    });
-  }
-  function save(patch: Parameters<typeof updateProject>[1]) {
-    run(() => updateProject(project.id, patch));
-  }
-  function saveTitle() {
-    if (title.trim() && title !== project.title) save({ title });
-  }
   function onInfoChange(v: string) {
     setInfo(v);
-    pending.current.info = v;
+    infoRef.current = v;
     if (infoTimer.current) clearTimeout(infoTimer.current);
-    infoTimer.current = setTimeout(() => save({ info: v }), 600);
+    infoTimer.current = setTimeout(() => handlers.patch(project.id, { info: v }), 500);
+  }
+  function saveTitle() {
+    if (title.trim() && title !== project.title) handlers.patch(project.id, { title });
   }
 
   return createPortal(
@@ -97,7 +97,6 @@ export function ProjectModal({
         className="flex max-h-[86vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface-1)] shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Cabecera: título + campos */}
         <div className="flex flex-col gap-3 border-b border-[var(--border)] p-4">
           <input
             value={title}
@@ -114,7 +113,7 @@ export function ProjectModal({
                 key={h}
                 health={h}
                 active={project.health === h}
-                onClick={() => save({ health: h })}
+                onClick={() => handlers.patch(project.id, { health: h })}
               />
             ))}
           </div>
@@ -125,7 +124,7 @@ export function ProjectModal({
               <select
                 className={fieldCls}
                 value={project.ownerId ?? ""}
-                onChange={(e) => save({ ownerId: e.target.value || null })}
+                onChange={(e) => handlers.patch(project.id, { ownerId: e.target.value || null })}
               >
                 <option value="">— Sin asignar —</option>
                 {members.map((m) => (
@@ -140,7 +139,9 @@ export function ProjectModal({
               <select
                 className={fieldCls}
                 value={project.team ?? ""}
-                onChange={(e) => save({ team: (e.target.value || null) as Team | null })}
+                onChange={(e) =>
+                  handlers.patch(project.id, { team: (e.target.value || null) as Team | null })
+                }
               >
                 <option value="">— Ninguno —</option>
                 {TEAMS.map((t) => (
@@ -156,22 +157,21 @@ export function ProjectModal({
                 type="date"
                 className={fieldCls}
                 value={project.startDate ?? ""}
-                onChange={(e) => save({ startDate: e.target.value || null })}
+                onChange={(e) => handlers.patch(project.id, { startDate: e.target.value || null })}
               />
             </label>
             <label className="flex flex-col gap-1">
-              <span className={labelCls}>Fin</span>
+              <span className={labelCls}>Fecha límite</span>
               <input
                 type="date"
                 className={fieldCls}
                 value={project.endDate ?? ""}
-                onChange={(e) => save({ endDate: e.target.value || null })}
+                onChange={(e) => handlers.patch(project.id, { endDate: e.target.value || null })}
               />
             </label>
           </div>
         </div>
 
-        {/* Pestañas */}
         <div className="flex gap-1 border-b border-[var(--border)] px-4">
           {(["info", "docs", "checklist"] as Tab[]).map((t) => (
             <button
@@ -202,24 +202,15 @@ export function ProjectModal({
               className="min-h-48 w-full resize-y rounded-lg border border-[var(--border)] bg-[var(--surface-1)] p-2.5 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--brand-water)]"
             />
           )}
-          {tab === "docs" && <DocsTab project={project} onChanged={() => router.refresh()} />}
-          {tab === "checklist" && (
-            <ChecklistTab project={project} onChanged={() => router.refresh()} />
-          )}
+          {tab === "docs" && <DocsTab project={project} handlers={handlers} />}
+          {tab === "checklist" && <ChecklistTab project={project} handlers={handlers} />}
         </div>
 
-        {/* Pie */}
         <div className="flex items-center justify-between border-t border-[var(--border)] p-3">
           {confirmDel ? (
             <button
               type="button"
-              onClick={() =>
-                start(async () => {
-                  await deleteProject(project.id);
-                  onClose();
-                  router.refresh();
-                })
-              }
+              onClick={() => handlers.remove(project.id)}
               className="text-sm font-semibold text-[var(--status-critical)]"
             >
               Confirmar borrado
@@ -274,25 +265,16 @@ function HealthPill({
   );
 }
 
-function DocsTab({ project, onChanged }: { project: Project; onChanged: () => void }) {
+function DocsTab({ project, handlers }: { project: Project; handlers: ModalHandlers }) {
   const ws = useWorkspace();
-  const [, start] = useTransition();
   const [label, setLabel] = useState("");
   const [url, setUrl] = useState("");
 
-  const run = (fn: () => Promise<unknown>) =>
-    start(async () => {
-      await fn();
-      onChanged();
-    });
-
   function add() {
     if (!url.trim()) return;
-    const l = label;
-    const u = url;
+    handlers.addDoc(project.id, label, url);
     setLabel("");
     setUrl("");
-    run(() => addDoc(project.id, l, u));
   }
 
   return (
@@ -301,7 +283,10 @@ function DocsTab({ project, onChanged }: { project: Project; onChanged: () => vo
         <p className="text-xs text-[var(--text-muted)]">Aún no hay documentos.</p>
       )}
       {project.docs.map((d) => (
-        <div key={d.id} className="group flex items-center gap-2 rounded-lg px-1 py-1 hover:bg-[var(--row-hover)]">
+        <div
+          key={d.id}
+          className="group flex items-center gap-2 rounded-lg px-1 py-1 hover:bg-[var(--row-hover)]"
+        >
           <button
             type="button"
             onClick={() => ws.open({ kind: "url", href: d.url, title: d.label })}
@@ -311,7 +296,7 @@ function DocsTab({ project, onChanged }: { project: Project; onChanged: () => vo
           </button>
           <button
             type="button"
-            onClick={() => run(() => deleteDoc(d.id))}
+            onClick={() => handlers.deleteDoc(project.id, d.id)}
             aria-label="Quitar documento"
             className="text-xs text-[var(--text-muted)] opacity-0 transition-opacity hover:text-[var(--status-critical)] group-hover:opacity-100"
           >
@@ -347,21 +332,13 @@ function DocsTab({ project, onChanged }: { project: Project; onChanged: () => vo
   );
 }
 
-function ChecklistTab({ project, onChanged }: { project: Project; onChanged: () => void }) {
-  const [, start] = useTransition();
+function ChecklistTab({ project, handlers }: { project: Project; handlers: ModalHandlers }) {
   const [text, setText] = useState("");
-
-  const run = (fn: () => Promise<unknown>) =>
-    start(async () => {
-      await fn();
-      onChanged();
-    });
 
   function add() {
     if (!text.trim()) return;
-    const t = text;
+    handlers.addTask(project.id, text.trim());
     setText("");
-    run(() => addTask(project.id, t));
   }
 
   return (
@@ -370,18 +347,22 @@ function ChecklistTab({ project, onChanged }: { project: Project; onChanged: () 
         <p className="text-xs text-[var(--text-muted)]">Sin tareas todavía.</p>
       )}
       {project.tasks.map((t) => (
-        <div key={t.id} className="group flex items-center gap-2 rounded-lg px-1 py-1 hover:bg-[var(--row-hover)]">
+        <div
+          key={t.id}
+          className="group flex items-center gap-2 rounded-lg px-1 py-1 hover:bg-[var(--row-hover)]"
+        >
           <input
             type="checkbox"
             checked={t.done}
-            onChange={() => run(() => toggleTask(t.id, !t.done))}
+            onChange={() => handlers.toggleTask(project.id, t.id, !t.done)}
             className="accent-[var(--brand-sea)]"
           />
           <input
             defaultValue={t.label}
+            key={t.label}
             onBlur={(e) => {
               if (e.target.value.trim() && e.target.value !== t.label)
-                run(() => updateTask(t.id, e.target.value));
+                handlers.updateTask(project.id, t.id, e.target.value.trim());
             }}
             className={`min-w-0 flex-1 bg-transparent text-sm outline-none ${
               t.done ? "text-[var(--text-muted)] line-through" : "text-[var(--text-primary)]"
@@ -389,7 +370,7 @@ function ChecklistTab({ project, onChanged }: { project: Project; onChanged: () 
           />
           <button
             type="button"
-            onClick={() => run(() => deleteTask(t.id))}
+            onClick={() => handlers.deleteTask(project.id, t.id)}
             aria-label="Quitar tarea"
             className="text-xs text-[var(--text-muted)] opacity-0 transition-opacity hover:text-[var(--status-critical)] group-hover:opacity-100"
           >

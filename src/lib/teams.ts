@@ -10,10 +10,13 @@ export const TEAM_LABEL: Record<Team, string> = {
   programa: "Programa",
 };
 
-/** Color de acento por equipo (para chips y, más adelante, tarjetas de proyecto). */
+/**
+ * Color de identidad por equipo. Tonos saturados y bien diferenciados entre sí para
+ * que se distingan de un vistazo en el Kanban (borde lateral, chip relleno).
+ */
 export const TEAM_ACCENT: Record<Team, string> = {
-  inversion: "var(--brand-sea)",
-  marketing: "var(--brand-sun)",
-  tech: "var(--brand-water)",
-  programa: "var(--series-2)",
+  inversion: "#1158e5", // azul
+  marketing: "#f5701a", // naranja
+  tech: "#0eb5c4", // turquesa
+  programa: "#9333ea", // violeta
 };

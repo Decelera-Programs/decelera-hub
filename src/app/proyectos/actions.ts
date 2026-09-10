@@ -1,12 +1,22 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { requireMember } from "@/lib/hub";
-import { PROJECT_HEALTHS, type ProjectHealth } from "@/lib/projects";
+import {
+  PROJECT_HEALTHS,
+  type ProjectColumn,
+  type ProjectDoc,
+  type ProjectHealth,
+  type ProjectTask,
+} from "@/lib/projects";
 import { TEAMS, type Team } from "@/lib/teams";
 import { hubDb } from "@/lib/supabase/hub";
 
-const PATH = "/proyectos";
+/**
+ * NOTA: estas acciones NO llaman `revalidatePath`. El board mantiene el estado en
+ * cliente y aplica cada cambio de forma optimista; revalidar aquí volvería a montar
+ * la lista y produciría el "tirón" que queremos evitar. En un fallo de escritura el
+ * cliente hace `router.refresh()` para resincronizar.
+ */
 
 function normalizeUrl(raw: string): string {
   const t = raw.trim();
@@ -16,7 +26,7 @@ function normalizeUrl(raw: string): string {
 
 // --- Columnas del Kanban ---
 
-export async function createColumn(): Promise<void> {
+export async function createColumn(): Promise<ProjectColumn> {
   await requireMember();
   const { data: last } = await hubDb
     .from("project_columns")
@@ -25,22 +35,27 @@ export async function createColumn(): Promise<void> {
     .limit(1)
     .maybeSingle();
   const position = ((last?.position as number | undefined) ?? -1) + 1;
-  await hubDb.from("project_columns").insert({ label: "Nueva columna", position });
-  revalidatePath(PATH);
+  const { data, error } = await hubDb
+    .from("project_columns")
+    .insert({ label: "Nueva columna", position })
+    .select("id, label, position")
+    .single();
+  if (error || !data) throw new Error(error?.message ?? "create column failed");
+  return { id: data.id, label: data.label, position: data.position };
 }
 
 export async function renameColumn(id: string, label: string): Promise<void> {
   await requireMember();
-  const clean = label.trim().slice(0, 40) || "Sin nombre";
-  await hubDb.from("project_columns").update({ label: clean }).eq("id", id);
-  revalidatePath(PATH);
+  await hubDb
+    .from("project_columns")
+    .update({ label: label.trim().slice(0, 40) || "Sin nombre" })
+    .eq("id", id);
 }
 
 export async function deleteColumn(id: string): Promise<void> {
   await requireMember();
   // on delete set null: los proyectos de la columna quedan "sin columna" (bandeja).
   await hubDb.from("project_columns").delete().eq("id", id);
-  revalidatePath(PATH);
 }
 
 export async function reorderColumns(ids: string[]): Promise<void> {
@@ -48,7 +63,6 @@ export async function reorderColumns(ids: string[]): Promise<void> {
   await Promise.all(
     ids.map((id, i) => hubDb.from("project_columns").update({ position: i }).eq("id", id)),
   );
-  revalidatePath(PATH);
 }
 
 // --- Proyectos ---
@@ -70,7 +84,6 @@ export async function createProject(columnId: string | null): Promise<string> {
     .select("id")
     .single();
   if (error || !data) throw new Error(error?.message ?? "create project failed");
-  revalidatePath(PATH);
   return data.id as string;
 }
 
@@ -96,13 +109,11 @@ export async function updateProject(id: string, patch: ProjectPatch): Promise<vo
   if ("endDate" in patch) clean.end_date = patch.endDate || null;
   if (Object.keys(clean).length === 0) return;
   await hubDb.from("projects").update(clean).eq("id", id);
-  revalidatePath(PATH);
 }
 
 export async function deleteProject(id: string): Promise<void> {
   await requireMember();
   await hubDb.from("projects").delete().eq("id", id);
-  revalidatePath(PATH);
 }
 
 /** Reordena/mueve proyectos: reescribe `column_id` y `position` de cada id recibido. */
@@ -113,15 +124,14 @@ export async function moveProjects(columnId: string | null, ids: string[]): Prom
       hubDb.from("projects").update({ position: i, column_id: columnId }).eq("id", id),
     ),
   );
-  revalidatePath(PATH);
 }
 
 // --- Checklist ---
 
-export async function addTask(projectId: string, label: string): Promise<void> {
+export async function addTask(projectId: string, label: string): Promise<ProjectTask | null> {
   await requireMember();
   const clean = label.trim().slice(0, 200);
-  if (!clean) return;
+  if (!clean) return null;
   const { data: last } = await hubDb
     .from("project_tasks")
     .select("position")
@@ -130,26 +140,28 @@ export async function addTask(projectId: string, label: string): Promise<void> {
     .limit(1)
     .maybeSingle();
   const position = ((last?.position as number | undefined) ?? -1) + 1;
-  await hubDb.from("project_tasks").insert({ project_id: projectId, label: clean, position });
-  revalidatePath(PATH);
+  const { data, error } = await hubDb
+    .from("project_tasks")
+    .insert({ project_id: projectId, label: clean, position })
+    .select("id, label, done, position")
+    .single();
+  if (error || !data) throw new Error(error?.message ?? "add task failed");
+  return { id: data.id, label: data.label, done: data.done, position: data.position };
 }
 
 export async function toggleTask(id: string, done: boolean): Promise<void> {
   await requireMember();
   await hubDb.from("project_tasks").update({ done }).eq("id", id);
-  revalidatePath(PATH);
 }
 
 export async function updateTask(id: string, label: string): Promise<void> {
   await requireMember();
   await hubDb.from("project_tasks").update({ label: label.trim().slice(0, 200) }).eq("id", id);
-  revalidatePath(PATH);
 }
 
 export async function deleteTask(id: string): Promise<void> {
   await requireMember();
   await hubDb.from("project_tasks").delete().eq("id", id);
-  revalidatePath(PATH);
 }
 
 export async function reorderTasks(projectId: string, ids: string[]): Promise<void> {
@@ -159,15 +171,18 @@ export async function reorderTasks(projectId: string, ids: string[]): Promise<vo
       hubDb.from("project_tasks").update({ position: i }).eq("id", id).eq("project_id", projectId),
     ),
   );
-  revalidatePath(PATH);
 }
 
 // --- Documentos ---
 
-export async function addDoc(projectId: string, label: string, url: string): Promise<void> {
+export async function addDoc(
+  projectId: string,
+  label: string,
+  url: string,
+): Promise<ProjectDoc | null> {
   await requireMember();
   const cleanUrl = normalizeUrl(url);
-  if (!cleanUrl) return;
+  if (!cleanUrl) return null;
   const { data: last } = await hubDb
     .from("project_docs")
     .select("position")
@@ -176,17 +191,21 @@ export async function addDoc(projectId: string, label: string, url: string): Pro
     .limit(1)
     .maybeSingle();
   const position = ((last?.position as number | undefined) ?? -1) + 1;
-  await hubDb.from("project_docs").insert({
-    project_id: projectId,
-    label: label.trim().slice(0, 120) || cleanUrl,
-    url: cleanUrl,
-    position,
-  });
-  revalidatePath(PATH);
+  const { data, error } = await hubDb
+    .from("project_docs")
+    .insert({
+      project_id: projectId,
+      label: label.trim().slice(0, 120) || cleanUrl,
+      url: cleanUrl,
+      position,
+    })
+    .select("id, label, url, position")
+    .single();
+  if (error || !data) throw new Error(error?.message ?? "add doc failed");
+  return { id: data.id, label: data.label, url: data.url, position: data.position };
 }
 
 export async function deleteDoc(id: string): Promise<void> {
   await requireMember();
   await hubDb.from("project_docs").delete().eq("id", id);
-  revalidatePath(PATH);
 }
