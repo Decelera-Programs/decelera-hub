@@ -19,11 +19,13 @@ import {
   updateProject,
   updateTask as updateTaskAction,
 } from "@/app/proyectos/actions";
+import { GanttView } from "./GanttView";
 import { ProjectCard } from "./ProjectCard";
 import { ProjectModal, type ModalHandlers } from "./ProjectModal";
 
 const NONE = "__none__";
 type Filter = { team: Team | "all"; mine: boolean };
+type View = "kanban" | "gantt";
 
 /** Proyecto en blanco recién creado (espejo de los defaults de la tabla). */
 function blankProject(id: string, columnId: string | null, position: number): Project {
@@ -60,9 +62,30 @@ export function ProjectsBoard({
   const [projects, setProjects] = useState(initialProjects);
   const [openId, setOpenId] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>({ team: "all", mine: false });
+  const [view, setViewState] = useState<View>("kanban");
   const [dragId, setDragId] = useState<string | null>(null);
   const [dropCol, setDropCol] = useState<string | null>(null);
   const dragRef = useRef<string | null>(null);
+
+  // Vista recordada entre recargas.
+  const [viewHydrated, setViewHydrated] = useState(false);
+  if (!viewHydrated) {
+    setViewHydrated(true);
+    try {
+      const v = localStorage.getItem("hub:proyectos:view");
+      if (v === "gantt" || v === "kanban") setViewState(v);
+    } catch {
+      // sin localStorage
+    }
+  }
+  function setView(v: View) {
+    setViewState(v);
+    try {
+      localStorage.setItem("hub:proyectos:view", v);
+    } catch {
+      // sin persistencia
+    }
+  }
 
   // Resincroniza con el servidor SOLO cuando llega un payload nuevo (tras `router.refresh`
   // en un fallo o navegación). Patrón "ajustar estado en render" de la doc de React.
@@ -92,6 +115,13 @@ export function ProjectsBoard({
       if (action) fire(action);
     },
     [fire],
+  );
+
+  const reschedule = useCallback(
+    (id: string, startDate: string, endDate: string) => {
+      patchProject(id, { startDate, endDate }, updateProject(id, { startDate, endDate }));
+    },
+    [patchProject],
   );
 
   const visible = useMemo(
@@ -257,6 +287,15 @@ export function ProjectsBoard({
   return (
     <>
       <div className="flex flex-wrap items-center gap-2 border-b border-[var(--border)] bg-[var(--surface-1)] px-4 py-2">
+        <div className="flex items-center gap-0.5 rounded-full border border-[var(--border)] p-0.5">
+          <ViewTab active={view === "kanban"} onClick={() => setView("kanban")}>
+            Kanban
+          </ViewTab>
+          <ViewTab active={view === "gantt"} onClick={() => setView("gantt")}>
+            Gantt
+          </ViewTab>
+        </div>
+        <span className="mx-1 h-4 w-px bg-[var(--border)]" />
         <span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">
           Filtrar
         </span>
@@ -276,16 +315,21 @@ export function ProjectsBoard({
         <Chip active={filter.mine} onClick={() => setFilter((f) => ({ ...f, mine: !f.mine }))}>
           Míos
         </Chip>
-        <button
-          type="button"
-          onClick={addColumn}
-          className="ml-auto rounded-full border border-dashed border-[var(--border)] px-3 py-1 text-xs font-semibold text-[var(--text-secondary)] transition-colors hover:border-[var(--brand-water)] hover:text-[var(--text-primary)]"
-        >
-          + Columna
-        </button>
+        {view === "kanban" && (
+          <button
+            type="button"
+            onClick={addColumn}
+            className="ml-auto rounded-full border border-dashed border-[var(--border)] px-3 py-1 text-xs font-semibold text-[var(--text-secondary)] transition-colors hover:border-[var(--brand-water)] hover:text-[var(--text-primary)]"
+          >
+            + Columna
+          </button>
+        )}
       </div>
 
-      <div className="flex min-h-0 flex-1 gap-3 overflow-x-auto p-4">
+      {view === "gantt" ? (
+        <GanttView projects={visible} onOpen={setOpenId} onReschedule={reschedule} />
+      ) : (
+        <div className="flex min-h-0 flex-1 gap-3 overflow-x-auto p-4">
         {columns.map((col) => (
           <Column
             key={col.id}
@@ -325,7 +369,8 @@ export function ProjectsBoard({
             onOpen={setOpenId}
           />
         )}
-      </div>
+        </div>
+      )}
 
       {openProject && (
         <ProjectModal
@@ -522,6 +567,30 @@ function Chip({
       style={{
         background: active ? "color-mix(in srgb, var(--brand-water) 16%, transparent)" : "transparent",
         color: active ? "var(--brand-sea)" : "var(--text-muted)",
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+function ViewTab({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="rounded-full px-3 py-1 text-xs font-semibold transition-colors"
+      style={{
+        background: active ? "var(--brand-sea)" : "transparent",
+        color: active ? "#fff" : "var(--text-muted)",
       }}
     >
       {children}
