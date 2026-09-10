@@ -2,7 +2,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import type { Project } from "@/lib/projects";
-import { HEALTH_COLOR, taskProgress } from "@/lib/projects";
+import { HEALTH_COLOR, HEALTH_LABEL, PROJECT_HEALTHS, taskProgress } from "@/lib/projects";
 import { TEAM_ACCENT } from "@/lib/teams";
 
 const DAY_MS = 86_400_000;
@@ -157,6 +157,20 @@ export function GanttView({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
+      {/* Leyenda: el relleno de la barra es el equipo, el borde/punto es el seguimiento. */}
+      <div className="flex flex-wrap items-center gap-3 border-b border-[var(--border)] px-4 py-1.5 text-[11px] text-[var(--text-muted)]">
+        <span className="font-semibold uppercase tracking-wide">Seguimiento</span>
+        {PROJECT_HEALTHS.map((h) => (
+          <span key={h} className="flex items-center gap-1">
+            <span
+              aria-hidden
+              className="h-2 w-2 rounded-full"
+              style={{ background: HEALTH_COLOR[h] }}
+            />
+            {HEALTH_LABEL[h]}
+          </span>
+        ))}
+      </div>
       <div
         ref={scrollRef}
         className="min-h-0 flex-1 overflow-auto"
@@ -239,7 +253,10 @@ export function GanttView({
                       height: ROW_H - 12,
                       background: overdue ? "var(--status-critical)" : teamColor,
                       cursor: drag?.id === p.id ? "grabbing" : "grab",
-                      outline: overdue ? "1px solid var(--status-critical)" : "none",
+                      // Borde = semáforo de seguimiento (siempre visible, independiente del
+                      // color de equipo del relleno); si está vencida, el relleno ya lo dice.
+                      outline: `2px solid ${overdue ? "var(--status-critical)" : HEALTH_COLOR[p.health]}`,
+                      outlineOffset: 1,
                     }}
                     onPointerDown={(e) => onPointerDown(e, p, "move")}
                     onClick={(e) => {
@@ -260,8 +277,20 @@ export function GanttView({
                       className="absolute inset-y-0 left-0 rounded-l-md"
                       style={{ width: `${pct}%`, background: "rgba(255,255,255,.22)" }}
                     />
-                    <span className="relative z-[1] truncate px-2 text-[11px] font-semibold">
-                      {p.title}
+                    <span className="relative z-[1] flex min-w-0 items-center gap-1.5 truncate px-2 text-[11px] font-semibold">
+                      <span
+                        aria-hidden
+                        title={HEALTH_LABEL[p.health]}
+                        className="h-1.5 w-1.5 shrink-0 rounded-full"
+                        style={{
+                          background: overdue ? "#fff" : HEALTH_COLOR[p.health],
+                          boxShadow: "0 0 0 1.5px rgba(255,255,255,.85)",
+                        }}
+                      />
+                      <span className="truncate">
+                        {overdue && "⚠ "}
+                        {p.title}
+                      </span>
                     </span>
                     {/* tirador derecho */}
                     <span
