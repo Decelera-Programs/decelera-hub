@@ -2,7 +2,14 @@
 
 import { useMemo, useRef, useState } from "react";
 import type { Project, ProjectColumn } from "@/lib/projects";
-import { HEALTH_COLOR, HEALTH_LABEL, PROJECT_HEALTHS, taskProgress } from "@/lib/projects";
+import {
+  HEALTH_COLOR,
+  HEALTH_LABEL,
+  PRIORITY_COLOR,
+  PRIORITY_LABEL,
+  PROJECT_HEALTHS,
+  taskProgress,
+} from "@/lib/projects";
 import { TEAM_ACCENT } from "@/lib/teams";
 import { OwnerAvatar } from "./ProjectCard";
 
@@ -245,6 +252,17 @@ export function GanttView({
                   style={{ width: LABEL_W }}
                 >
                   <span className="flex min-w-0 items-center gap-1.5">
+                    {/* Solo se marca la prioridad alta: la única que pide atención ya. */}
+                    {p.priority === "high" && (
+                      <span
+                        aria-hidden
+                        title={`Prioridad ${PRIORITY_LABEL.high.toLowerCase()}`}
+                        className="shrink-0 text-[10px] leading-none"
+                        style={{ color: PRIORITY_COLOR.high }}
+                      >
+                        ▲
+                      </span>
+                    )}
                     <span
                       aria-hidden
                       title={HEALTH_LABEL[p.health]}

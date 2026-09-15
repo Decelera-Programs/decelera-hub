@@ -16,7 +16,7 @@ export default async function Page() {
   const [sections, subfolders, cards, folders, widgets] = await Promise.all([
     getSections(),
     getSubfolders(),
-    getCards(),
+    getCards(member.id, member.role === "admin"),
     getFolders(member.id),
     getWidgets(member.id),
   ]);

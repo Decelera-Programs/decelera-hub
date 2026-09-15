@@ -5,10 +5,14 @@ import { createPortal } from "react-dom";
 import {
   HEALTH_COLOR,
   HEALTH_LABEL,
+  PRIORITY_COLOR,
+  PRIORITY_LABEL,
   PROJECT_HEALTHS,
+  PROJECT_PRIORITIES,
   type Project,
   type ProjectHealth,
   type ProjectOwner,
+  type ProjectPriority,
 } from "@/lib/projects";
 import { TEAMS, TEAM_LABEL, type Team } from "@/lib/teams";
 import { useWorkspace } from "@/components/WorkspaceContext";
@@ -23,6 +27,7 @@ export type ProjectFieldPatch = {
   title?: string;
   info?: string;
   health?: ProjectHealth;
+  priority?: ProjectPriority;
   ownerId?: string | null;
   team?: Team | null;
   startDate?: string | null;
@@ -107,15 +112,32 @@ export function ProjectModal({
             className="w-full bg-transparent text-lg font-semibold text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]"
           />
 
-          <div className="flex flex-wrap gap-1">
-            {PROJECT_HEALTHS.map((h) => (
-              <HealthPill
-                key={h}
-                health={h}
-                active={project.health === h}
-                onClick={() => handlers.patch(project.id, { health: h })}
-              />
-            ))}
+          <div className="flex flex-col gap-1.5">
+            <span className={labelCls}>Seguimiento</span>
+            <div className="flex flex-wrap gap-1">
+              {PROJECT_HEALTHS.map((h) => (
+                <HealthPill
+                  key={h}
+                  health={h}
+                  active={project.health === h}
+                  onClick={() => handlers.patch(project.id, { health: h })}
+                />
+              ))}
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <span className={labelCls}>Prioridad</span>
+            <div className="flex flex-wrap gap-1">
+              {PROJECT_PRIORITIES.map((p) => (
+                <PriorityPill
+                  key={p}
+                  priority={p}
+                  active={project.priority === p}
+                  onClick={() => handlers.patch(project.id, { priority: p })}
+                />
+              ))}
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -238,16 +260,18 @@ export function ProjectModal({
   );
 }
 
-function HealthPill({
-  health,
+/** Botón "chip" de una sola opción, coloreado, con marca de seleccionado. */
+function Pill({
+  color,
+  label,
   active,
   onClick,
 }: {
-  health: ProjectHealth;
+  color: string;
+  label: string;
   active: boolean;
   onClick: () => void;
 }) {
-  const color = HEALTH_COLOR[health];
   return (
     <button
       type="button"
@@ -260,8 +284,39 @@ function HealthPill({
       }}
     >
       <span className="h-1.5 w-1.5 rounded-full" style={{ background: color }} />
-      {HEALTH_LABEL[health]}
+      {label}
     </button>
+  );
+}
+
+function HealthPill({
+  health,
+  active,
+  onClick,
+}: {
+  health: ProjectHealth;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return <Pill color={HEALTH_COLOR[health]} label={HEALTH_LABEL[health]} active={active} onClick={onClick} />;
+}
+
+function PriorityPill({
+  priority,
+  active,
+  onClick,
+}: {
+  priority: ProjectPriority;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <Pill
+      color={PRIORITY_COLOR[priority]}
+      label={PRIORITY_LABEL[priority]}
+      active={active}
+      onClick={onClick}
+    />
   );
 }
 

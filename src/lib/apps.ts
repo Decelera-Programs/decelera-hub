@@ -44,6 +44,12 @@ export type HubApp = {
   /** true si la tarjeta se puede mostrar embebida en el panel del workspace (iframe). */
   embeddable: boolean;
   position: number;
+  /**
+   * true si la tarjeta tiene una lista de acceso en `hub.member_apps` (visible solo para esos
+   * miembros + admins). El filtrado real ocurre en el servidor (`getCards`); este flag es solo
+   * para pintar el candado en el árbol/editor.
+   */
+  restricted: boolean;
 };
 
 export const STATUS_LABEL: Record<AppStatus, string> = {

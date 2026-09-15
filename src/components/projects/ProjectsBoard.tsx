@@ -36,6 +36,7 @@ function blankProject(id: string, columnId: string | null, position: number): Pr
     columnId,
     position,
     health: "on_track",
+    priority: "medium",
     ownerId: null,
     owner: null,
     team: null,

@@ -125,29 +125,48 @@ export const getSubfolders = cache(async (): Promise<Subfolder[]> => {
   }));
 });
 
-export const getCards = cache(async (): Promise<HubApp[]> => {
-  const { data } = await hubDb
-    .from("cards")
-    .select(
-      "id, slug, section_id, subfolder_id, initial, title, description, href, category, status, meta, external, embeddable, position",
-    )
-    .order("position");
-  return ((data ?? []) as CardRow[]).map((c) => ({
-    id: c.id,
-    slug: c.slug,
-    sectionId: c.section_id,
-    subfolderId: c.subfolder_id,
-    initial: c.initial ?? "",
-    title: c.title,
-    description: c.description ?? "",
-    href: c.href,
-    category: c.category,
-    status: c.status,
-    meta: c.meta ?? undefined,
-    external: c.external,
-    embeddable: c.embeddable,
-    position: c.position,
-  }));
+/**
+ * Tarjetas visibles para `viewerId`. Una tarjeta con al menos una fila en `hub.member_apps`
+ * (clave: su `slug`) queda restringida a esos miembros; sin filas, la ve todo el equipo. Los
+ * admins ven todas. El filtrado ocurre aquí (servidor) — una tarjeta sin acceso ni siquiera
+ * llega al cliente.
+ */
+export const getCards = cache(async (viewerId: string, isAdmin: boolean): Promise<HubApp[]> => {
+  const [{ data }, { data: grantRows }] = await Promise.all([
+    hubDb
+      .from("cards")
+      .select(
+        "id, slug, section_id, subfolder_id, initial, title, description, href, category, status, meta, external, embeddable, position",
+      )
+      .order("position"),
+    hubDb.from("member_apps").select("member_id, app_slug"),
+  ]);
+
+  const grants = (grantRows ?? []) as { member_id: string; app_slug: string }[];
+  const restrictedSlugs = new Set(grants.map((g) => g.app_slug));
+  const allowedForViewer = new Set(
+    grants.filter((g) => g.member_id === viewerId).map((g) => g.app_slug),
+  );
+
+  return ((data ?? []) as CardRow[])
+    .filter((c) => isAdmin || !restrictedSlugs.has(c.slug) || allowedForViewer.has(c.slug))
+    .map((c) => ({
+      id: c.id,
+      slug: c.slug,
+      sectionId: c.section_id,
+      subfolderId: c.subfolder_id,
+      initial: c.initial ?? "",
+      title: c.title,
+      description: c.description ?? "",
+      href: c.href,
+      category: c.category,
+      status: c.status,
+      meta: c.meta ?? undefined,
+      external: c.external,
+      embeddable: c.embeddable,
+      position: c.position,
+      restricted: restrictedSlugs.has(c.slug),
+    }));
 });
 
 // --- Espacio personal (carpetas + widgets, por miembro) ---

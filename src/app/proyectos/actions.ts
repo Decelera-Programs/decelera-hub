@@ -3,9 +3,11 @@
 import { requireMember } from "@/lib/hub";
 import {
   PROJECT_HEALTHS,
+  PROJECT_PRIORITIES,
   type ProjectColumn,
   type ProjectDoc,
   type ProjectHealth,
+  type ProjectPriority,
   type ProjectTask,
 } from "@/lib/projects";
 import { TEAMS, type Team } from "@/lib/teams";
@@ -91,6 +93,7 @@ type ProjectPatch = {
   title?: string;
   info?: string;
   health?: ProjectHealth;
+  priority?: ProjectPriority;
   ownerId?: string | null;
   team?: Team | null;
   startDate?: string | null;
@@ -103,6 +106,7 @@ export async function updateProject(id: string, patch: ProjectPatch): Promise<vo
   if (typeof patch.title === "string") clean.title = patch.title.trim().slice(0, 120) || "Sin título";
   if (typeof patch.info === "string") clean.info = patch.info.slice(0, 4000);
   if (patch.health && PROJECT_HEALTHS.includes(patch.health)) clean.health = patch.health;
+  if (patch.priority && PROJECT_PRIORITIES.includes(patch.priority)) clean.priority = patch.priority;
   if ("ownerId" in patch) clean.owner_id = patch.ownerId || null;
   if ("team" in patch) clean.team = patch.team && TEAMS.includes(patch.team) ? patch.team : null;
   if ("startDate" in patch) clean.start_date = patch.startDate || null;

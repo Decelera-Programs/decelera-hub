@@ -19,6 +19,22 @@ export const HEALTH_COLOR: Record<ProjectHealth, string> = {
   done: "var(--text-muted)",
 };
 
+export type ProjectPriority = "high" | "medium" | "low";
+
+export const PROJECT_PRIORITIES: ProjectPriority[] = ["high", "medium", "low"];
+
+export const PRIORITY_LABEL: Record<ProjectPriority, string> = {
+  high: "Alta",
+  medium: "Media",
+  low: "Baja",
+};
+
+export const PRIORITY_COLOR: Record<ProjectPriority, string> = {
+  high: "var(--status-critical)",
+  medium: "var(--status-warning)",
+  low: "var(--text-muted)",
+};
+
 export type ProjectColumn = { id: string; label: string; position: number };
 
 export type ProjectTask = {
@@ -49,6 +65,7 @@ export type Project = {
   columnId: string | null;
   position: number;
   health: ProjectHealth;
+  priority: ProjectPriority;
   ownerId: string | null;
   owner: ProjectOwner | null;
   team: Team | null;

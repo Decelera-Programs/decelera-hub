@@ -247,6 +247,9 @@ function toCard(r: Record<string, unknown>): HubApp {
     external: Boolean(r.external),
     embeddable: Boolean(r.embeddable),
     position: r.position as number,
+    // Las tarjetas recién creadas/editadas no tienen lista de acceso todavía; se gestiona aparte
+    // con setCardAccess. getCards() (lib/hub.ts) sí calcula el valor real al listar.
+    restricted: false,
   };
 }
 
@@ -450,5 +453,41 @@ export async function reorderCards(
         .eq("id", id),
     ),
   );
+  revalidatePath("/");
+}
+
+// --- Acceso restringido a tarjetas (hub.member_apps: member_id, app_slug) ---
+// Una tarjeta sin filas en member_apps la ve todo el equipo; con filas, solo esos
+// miembros (+ admins). El filtrado real vive en getCards() (lib/hub.ts).
+
+export type CardAccessMember = { id: string; fullName: string | null; email: string };
+
+export async function listMembersForAccess(): Promise<CardAccessMember[]> {
+  await requireAdmin();
+  const { data } = await hubDb
+    .from("members")
+    .select("id, full_name, email")
+    .eq("is_active", true)
+    .order("full_name");
+  return ((data ?? []) as { id: string; full_name: string | null; email: string }[]).map((m) => ({
+    id: m.id,
+    fullName: m.full_name,
+    email: m.email,
+  }));
+}
+
+export async function getCardAccess(slug: string): Promise<string[]> {
+  await requireAdmin();
+  const { data } = await hubDb.from("member_apps").select("member_id").eq("app_slug", slug);
+  return ((data ?? []) as { member_id: string }[]).map((r) => r.member_id);
+}
+
+/** Reemplaza la lista de miembros con acceso a `slug`. Vacía = sin restricción (todos la ven). */
+export async function setCardAccess(slug: string, memberIds: string[]): Promise<void> {
+  await requireAdmin();
+  await hubDb.from("member_apps").delete().eq("app_slug", slug);
+  if (memberIds.length > 0) {
+    await hubDb.from("member_apps").insert(memberIds.map((member_id) => ({ member_id, app_slug: slug })));
+  }
   revalidatePath("/");
 }

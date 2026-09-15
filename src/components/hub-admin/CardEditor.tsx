@@ -10,6 +10,7 @@ import {
   type Subfolder,
 } from "@/lib/apps";
 import { createCard, deleteCard, updateCard } from "@/app/actions";
+import { AccessControl } from "./AccessControl";
 import { Overlay, fieldCls, labelCls } from "./editorUi";
 
 type Draft = {
@@ -244,6 +245,8 @@ export function CardEditor({
           </span>
         </label>
       </div>
+
+      {card && <AccessControl card={card} />}
 
       <div className="mt-1 flex items-center justify-between">
         {card ? (

@@ -521,6 +521,11 @@ function LeafRow({
         >
           {opensInPane ? "⧉" : "↗"}
         </span>
+        {card.restricted && (
+          <span aria-hidden className="shrink-0 text-[10px] text-[var(--text-muted)]" title="Acceso restringido">
+            🔒
+          </span>
+        )}
       </span>
 
       <span className="relative flex shrink-0 items-center gap-1">

@@ -6,6 +6,7 @@ import type {
   ProjectDoc,
   ProjectHealth,
   ProjectOwner,
+  ProjectPriority,
   ProjectTask,
 } from "@/lib/projects";
 import type { Team } from "@/lib/teams";
@@ -22,6 +23,7 @@ type ProjectRow = {
   column_id: string | null;
   position: number;
   health: ProjectHealth;
+  priority: ProjectPriority;
   owner_id: string | null;
   team: Team | null;
   start_date: string | null;
@@ -54,7 +56,7 @@ export const getProjects = cache(async (): Promise<Project[]> => {
   const { data } = await hubDb
     .from("projects")
     .select(
-      `id, title, info, column_id, position, health, owner_id, team, start_date, end_date,
+      `id, title, info, column_id, position, health, priority, owner_id, team, start_date, end_date,
        owner:members!projects_owner_id_fkey(id, full_name, email, avatar_url),
        project_tasks(id, label, done, position),
        project_docs(id, label, url, position)`,
@@ -68,6 +70,7 @@ export const getProjects = cache(async (): Promise<Project[]> => {
     columnId: p.column_id,
     position: p.position,
     health: p.health,
+    priority: p.priority,
     ownerId: p.owner_id,
     owner: toOwner(p.owner),
     team: p.team,

@@ -2,7 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element */
 import type { Project } from "@/lib/projects";
-import { HEALTH_COLOR, HEALTH_LABEL, taskProgress } from "@/lib/projects";
+import { HEALTH_COLOR, HEALTH_LABEL, PRIORITY_COLOR, PRIORITY_LABEL, taskProgress } from "@/lib/projects";
 import { TEAM_ACCENT, TEAM_LABEL } from "@/lib/teams";
 
 const DAY_MS = 86_400_000;
@@ -66,6 +66,8 @@ export function ProjectCard({
       />
 
       <div className="flex items-start gap-2">
+        {/* Solo se marca la prioridad alta: es la única que pide atención inmediata. */}
+        {project.priority === "high" && <PriorityFlag />}
         <span
           aria-hidden
           className="mt-1 h-2 w-2 shrink-0 rounded-full"
@@ -132,6 +134,20 @@ export function ProjectCard({
         )}
       </div>
     </button>
+  );
+}
+
+/** Marca de prioridad alta (única que se señala; media/baja no añaden ruido visual). */
+function PriorityFlag() {
+  return (
+    <span
+      aria-hidden
+      title={`Prioridad ${PRIORITY_LABEL.high.toLowerCase()}`}
+      className="mt-0.5 shrink-0 text-[10px] leading-none"
+      style={{ color: PRIORITY_COLOR.high }}
+    >
+      ▲
+    </span>
   );
 }
 
