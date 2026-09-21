@@ -42,6 +42,8 @@ export type ProjectTask = {
   label: string;
   done: boolean;
   position: number;
+  ownerId: string | null;
+  owner: ProjectOwner | null;
 };
 
 export type ProjectDoc = {

@@ -40,6 +40,7 @@ export type ModalHandlers = {
   addTask: (projectId: string, label: string) => void;
   toggleTask: (projectId: string, taskId: string, done: boolean) => void;
   updateTask: (projectId: string, taskId: string, label: string) => void;
+  setTaskOwner: (projectId: string, taskId: string, ownerId: string | null) => void;
   deleteTask: (projectId: string, taskId: string) => void;
   addDoc: (projectId: string, label: string, url: string) => void;
   deleteDoc: (projectId: string, docId: string) => void;
@@ -225,7 +226,9 @@ export function ProjectModal({
             />
           )}
           {tab === "docs" && <DocsTab project={project} handlers={handlers} />}
-          {tab === "checklist" && <ChecklistTab project={project} handlers={handlers} />}
+          {tab === "checklist" && (
+            <ChecklistTab project={project} members={members} handlers={handlers} />
+          )}
         </div>
 
         <div className="flex items-center justify-between border-t border-[var(--border)] p-3">
@@ -387,7 +390,15 @@ function DocsTab({ project, handlers }: { project: Project; handlers: ModalHandl
   );
 }
 
-function ChecklistTab({ project, handlers }: { project: Project; handlers: ModalHandlers }) {
+function ChecklistTab({
+  project,
+  members,
+  handlers,
+}: {
+  project: Project;
+  members: ProjectOwner[];
+  handlers: ModalHandlers;
+}) {
   const [text, setText] = useState("");
 
   function add() {
@@ -423,6 +434,19 @@ function ChecklistTab({ project, handlers }: { project: Project; handlers: Modal
               t.done ? "text-[var(--text-muted)] line-through" : "text-[var(--text-primary)]"
             }`}
           />
+          <select
+            value={t.ownerId ?? ""}
+            onChange={(e) => handlers.setTaskOwner(project.id, t.id, e.target.value || null)}
+            title="Encargado del punto"
+            className="shrink-0 rounded-md border border-[var(--border)] bg-[var(--surface-1)] px-1 py-0.5 text-[11px] text-[var(--text-secondary)] outline-none focus:border-[var(--brand-water)]"
+          >
+            <option value="">— Sin encargado —</option>
+            {members.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.name ?? m.email}
+              </option>
+            ))}
+          </select>
           <button
             type="button"
             onClick={() => handlers.deleteTask(project.id, t.id)}

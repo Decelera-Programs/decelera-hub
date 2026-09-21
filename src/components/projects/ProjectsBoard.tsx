@@ -18,6 +18,7 @@ import {
   toggleTask as toggleTaskAction,
   updateProject,
   updateTask as updateTaskAction,
+  updateTaskOwner as updateTaskOwnerAction,
 } from "@/app/proyectos/actions";
 import { GanttView } from "./GanttView";
 import { ProjectCard } from "./ProjectCard";
@@ -222,9 +223,22 @@ export function ProjectsBoard({
 
   const openProject = projects.find((p) => p.id === openId) ?? null;
 
+  const setTasks = useCallback(
+    (pid: string, fn: (t: ProjectTask[]) => ProjectTask[]) =>
+      setProjects((ps) => ps.map((p) => (p.id === pid ? { ...p, tasks: fn(p.tasks) } : p))),
+    [],
+  );
+
+  /** Marca/desmarca una tarea; la usan tanto el modal como el desplegable de la tarjeta. */
+  const toggleProjectTask = useCallback(
+    (pid: string, taskId: string, done: boolean) => {
+      setTasks(pid, (t) => t.map((x) => (x.id === taskId ? { ...x, done } : x)));
+      if (!taskId.startsWith("tmp_")) fire(toggleTaskAction(taskId, done));
+    },
+    [fire, setTasks],
+  );
+
   const modalHandlers: ModalHandlers = useMemo(() => {
-    const setTasks = (pid: string, fn: (t: ProjectTask[]) => ProjectTask[]) =>
-      setProjects((ps) => ps.map((p) => (p.id === pid ? { ...p, tasks: fn(p.tasks) } : p)));
     const setDocs = (pid: string, fn: (d: ProjectDoc[]) => ProjectDoc[]) =>
       setProjects((ps) => ps.map((p) => (p.id === pid ? { ...p, docs: fn(p.docs) } : p)));
 
@@ -241,7 +255,14 @@ export function ProjectsBoard({
         patchProject(pid, local, updateProject(pid, patch));
       },
       addTask: async (pid, label) => {
-        const tmp: ProjectTask = { id: `tmp_${Date.now()}`, label, done: false, position: 1e9 };
+        const tmp: ProjectTask = {
+          id: `tmp_${Date.now()}`,
+          label,
+          done: false,
+          position: 1e9,
+          ownerId: null,
+          owner: null,
+        };
         setTasks(pid, (t) => [...t, tmp]);
         try {
           const real = await addTaskAction(pid, label);
@@ -252,13 +273,15 @@ export function ProjectsBoard({
           router.refresh();
         }
       },
-      toggleTask: (pid, id, done) => {
-        setTasks(pid, (t) => t.map((x) => (x.id === id ? { ...x, done } : x)));
-        if (!id.startsWith("tmp_")) fire(toggleTaskAction(id, done));
-      },
+      toggleTask: toggleProjectTask,
       updateTask: (pid, id, label) => {
         setTasks(pid, (t) => t.map((x) => (x.id === id ? { ...x, label } : x)));
         if (!id.startsWith("tmp_")) fire(updateTaskAction(id, label));
+      },
+      setTaskOwner: (pid, id, ownerId) => {
+        const owner = ownerId ? members.find((m) => m.id === ownerId) ?? null : null;
+        setTasks(pid, (t) => t.map((x) => (x.id === id ? { ...x, ownerId, owner } : x)));
+        if (!id.startsWith("tmp_")) fire(updateTaskOwnerAction(id, ownerId));
       },
       deleteTask: (pid, id) => {
         setTasks(pid, (t) => t.filter((x) => x.id !== id));
@@ -283,7 +306,7 @@ export function ProjectsBoard({
       remove: removeProject,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fire, members, patchProject, router]);
+  }, [fire, members, patchProject, router, setTasks, toggleProjectTask]);
 
   return (
     <>
@@ -347,6 +370,7 @@ export function ProjectsBoard({
             }}
             onCardDragEnd={endDrag}
             onOpen={setOpenId}
+            onToggleTask={toggleProjectTask}
             onAdd={() => addProject(col.id)}
             onRename={(label) => renameCol(col.id, label)}
             onDelete={() => removeColumn(col.id)}
@@ -368,6 +392,7 @@ export function ProjectsBoard({
             }}
             onCardDragEnd={endDrag}
             onOpen={setOpenId}
+            onToggleTask={toggleProjectTask}
           />
         )}
         </div>
@@ -396,6 +421,7 @@ function Column({
   onCardDragStart,
   onCardDragEnd,
   onOpen,
+  onToggleTask,
   onAdd,
   onRename,
   onDelete,
@@ -410,6 +436,7 @@ function Column({
   onCardDragStart: (id: string) => void;
   onCardDragEnd: () => void;
   onOpen: (id: string) => void;
+  onToggleTask: (pid: string, taskId: string, done: boolean) => void;
   onAdd?: () => void;
   onRename?: (label: string) => void;
   onDelete?: () => void;
@@ -523,6 +550,7 @@ function Column({
               project={p}
               dragging={dragId === p.id}
               onOpen={() => onOpen(p.id)}
+              onToggleTask={(taskId, done) => onToggleTask(p.id, taskId, done)}
               onDragStart={(e) => {
                 e.dataTransfer.effectAllowed = "move";
                 onCardDragStart(p.id);
