@@ -70,6 +70,30 @@ export function ProjectsBoard({
   const [dragId, setDragId] = useState<string | null>(null);
   const [dropCol, setDropCol] = useState<string | null>(null);
   const dragRef = useRef<string | null>(null);
+  // Tarjetas con el desplegable de detalles cerrado (todo empieza abierto por defecto).
+  const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
+
+  const toggleCardExpand = useCallback((id: string) => {
+    setCollapsedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  /** Despliega/contrae todas las tarjetas de un grupo a la vez (botón de la columna). */
+  const toggleGroupExpand = useCallback((ids: string[]) => {
+    setCollapsedIds((prev) => {
+      const allCollapsed = ids.length > 0 && ids.every((id) => prev.has(id));
+      const next = new Set(prev);
+      for (const id of ids) {
+        if (allCollapsed) next.delete(id);
+        else next.add(id);
+      }
+      return next;
+    });
+  }, []);
 
   // Vista recordada entre recargas.
   const [viewHydrated, setViewHydrated] = useState(false);
@@ -380,6 +404,9 @@ export function ProjectsBoard({
             onCardDragEnd={endDrag}
             onOpen={setOpenId}
             onToggleTask={toggleProjectTask}
+            collapsedIds={collapsedIds}
+            onToggleCardExpand={toggleCardExpand}
+            onToggleExpandAll={() => toggleGroupExpand((byColumn.get(col.id) ?? []).map((p) => p.id))}
             onAdd={() => addProject(col.id)}
             onRename={(label) => renameCol(col.id, label)}
             onDelete={() => removeColumn(col.id)}
@@ -402,6 +429,9 @@ export function ProjectsBoard({
             onCardDragEnd={endDrag}
             onOpen={setOpenId}
             onToggleTask={toggleProjectTask}
+            collapsedIds={collapsedIds}
+            onToggleCardExpand={toggleCardExpand}
+            onToggleExpandAll={() => toggleGroupExpand(noColumn.map((p) => p.id))}
           />
         )}
         </div>
@@ -431,6 +461,9 @@ function Column({
   onCardDragEnd,
   onOpen,
   onToggleTask,
+  collapsedIds,
+  onToggleCardExpand,
+  onToggleExpandAll,
   onAdd,
   onRename,
   onDelete,
@@ -446,6 +479,9 @@ function Column({
   onCardDragEnd: () => void;
   onOpen: (id: string) => void;
   onToggleTask: (pid: string, taskId: string, done: boolean) => void;
+  collapsedIds: Set<string>;
+  onToggleCardExpand: (id: string) => void;
+  onToggleExpandAll: () => void;
   onAdd?: () => void;
   onRename?: (label: string) => void;
   onDelete?: () => void;
@@ -453,6 +489,7 @@ function Column({
   const [renaming, setRenaming] = useState(false);
   const [menu, setMenu] = useState(false);
   const editable = !!onRename;
+  const allCollapsed = projects.length > 0 && projects.every((p) => collapsedIds.has(p.id));
 
   return (
     <section
@@ -494,6 +531,23 @@ function Column({
         <span className="shrink-0 rounded-full bg-[var(--pill-neutral-bg)] px-1.5 text-[10px] font-bold text-[var(--text-secondary)]">
           {projects.length}
         </span>
+        {projects.length > 0 && (
+          <button
+            type="button"
+            onClick={onToggleExpandAll}
+            title={allCollapsed ? "Desplegar todas las tarjetas" : "Contraer todas las tarjetas"}
+            aria-label={allCollapsed ? "Desplegar todas las tarjetas" : "Contraer todas las tarjetas"}
+            className="grid h-6 w-6 shrink-0 place-items-center rounded text-[var(--text-muted)] hover:bg-[var(--row-hover)] hover:text-[var(--text-primary)]"
+          >
+            <span
+              aria-hidden
+              className="inline-block text-[10px] leading-none transition-transform"
+              style={{ transform: allCollapsed ? undefined : "rotate(90deg)" }}
+            >
+              ▸
+            </span>
+          </button>
+        )}
         {editable && (
           <div className="relative">
             <button
@@ -558,6 +612,8 @@ function Column({
             <ProjectCard
               project={p}
               dragging={dragId === p.id}
+              expanded={!collapsedIds.has(p.id)}
+              onToggleExpand={() => onToggleCardExpand(p.id)}
               onOpen={() => onOpen(p.id)}
               onToggleTask={(taskId, done) => onToggleTask(p.id, taskId, done)}
               onDragStart={(e) => {
