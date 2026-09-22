@@ -38,8 +38,8 @@ export function ProjectCard({
   onDragEnd: () => void;
 }) {
   const ws = useWorkspace();
-  const [expanded, setExpanded] = useState(false);
-  const [docsExpanded, setDocsExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(true);
+  const [docsExpanded, setDocsExpanded] = useState(true);
   const prog = taskProgress(project.tasks);
   const pct = prog ? Math.round((prog.done / prog.total) * 100) : null;
   const teamColor = project.team ? TEAM_ACCENT[project.team] : "var(--text-muted)";
