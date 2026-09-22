@@ -26,6 +26,7 @@ type ProjectRow = {
   id: string;
   title: string;
   info: string;
+  success_criteria: string;
   column_id: string | null;
   position: number;
   health: ProjectHealth;
@@ -64,7 +65,7 @@ export const getProjects = cache(async (): Promise<Project[]> => {
   const { data, error } = await hubDb
     .from("projects")
     .select(
-      `id, title, info, column_id, position, health, priority, owner_id, team, start_date, end_date,
+      `id, title, info, success_criteria, column_id, position, health, priority, owner_id, team, start_date, end_date,
        owner:members!projects_owner_id_fkey(id, full_name, email, avatar_url),
        project_tasks(id, label, done, position, owner_id,
          owner:members!project_tasks_owner_id_fkey(id, full_name, email, avatar_url)),
@@ -81,6 +82,7 @@ export const getProjects = cache(async (): Promise<Project[]> => {
     id: p.id,
     title: p.title,
     info: p.info,
+    successCriteria: p.success_criteria,
     columnId: p.column_id,
     position: p.position,
     health: p.health,

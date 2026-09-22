@@ -23,9 +23,38 @@ const labelCls = "text-[11px] font-semibold uppercase tracking-wide text-[var(--
 
 type Tab = "info" | "docs" | "checklist";
 
+/**
+ * Texto con guardado con debounce (500ms) + flush al desmontar. `projectId` en las
+ * deps porque el modal se remonta entero al cambiar de proyecto (nunca reutiliza
+ * instancia), así que basta con capturar el valor de servidor al montar.
+ */
+function useDebouncedField(projectId: string, serverValue: string, save: (v: string) => void) {
+  const [value, setValue] = useState(serverValue);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const ref = useRef(serverValue);
+
+  useEffect(() => {
+    return () => {
+      if (timer.current) clearTimeout(timer.current);
+      if (ref.current !== serverValue) save(ref.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId]);
+
+  function onChange(v: string) {
+    setValue(v);
+    ref.current = v;
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => save(v), 500);
+  }
+
+  return [value, onChange] as const;
+}
+
 export type ProjectFieldPatch = {
   title?: string;
   info?: string;
+  successCriteria?: string;
   health?: ProjectHealth;
   priority?: ProjectPriority;
   ownerId?: string | null;
@@ -61,10 +90,15 @@ export function ProjectModal({
 }) {
   const [tab, setTab] = useState<Tab>("info");
   const [title, setTitle] = useState(project.title);
-  const [info, setInfo] = useState(project.info);
   const [confirmDel, setConfirmDel] = useState(false);
-  const infoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const infoRef = useRef(project.info);
+  const [info, onInfoChange] = useDebouncedField(project.id, project.info, (v) =>
+    handlers.patch(project.id, { info: v }),
+  );
+  const [successCriteria, onSuccessChange] = useDebouncedField(
+    project.id,
+    project.successCriteria,
+    (v) => handlers.patch(project.id, { successCriteria: v }),
+  );
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -74,22 +108,6 @@ export function ProjectModal({
     return () => document.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  // Flush del debounce de "info" al cerrar.
-  useEffect(() => {
-    const id = project.id;
-    const original = project.info;
-    return () => {
-      if (infoTimer.current) clearTimeout(infoTimer.current);
-      if (infoRef.current !== original) handlers.patch(id, { info: infoRef.current });
-    };
-  }, [project.id, project.info, handlers]);
-
-  function onInfoChange(v: string) {
-    setInfo(v);
-    infoRef.current = v;
-    if (infoTimer.current) clearTimeout(infoTimer.current);
-    infoTimer.current = setTimeout(() => handlers.patch(project.id, { info: v }), 500);
-  }
   function saveTitle() {
     if (title.trim() && title !== project.title) handlers.patch(project.id, { title });
   }
@@ -205,7 +223,7 @@ export function ProjectModal({
               className="relative px-3 py-2.5 text-sm font-semibold transition-colors"
               style={{ color: tab === t ? "var(--text-primary)" : "var(--text-muted)" }}
             >
-              {t === "info" ? "Info" : t === "docs" ? "Documentos" : "Checklist"}
+              {t === "info" ? "Info" : t === "docs" ? "Documentos" : "Roadmap"}
               {tab === t && (
                 <span
                   aria-hidden
@@ -219,12 +237,26 @@ export function ProjectModal({
 
         <div className="min-h-0 flex-1 overflow-y-auto p-4">
           {tab === "info" && (
-            <textarea
-              value={info}
-              onChange={(e) => onInfoChange(e.target.value)}
-              placeholder="Notas, contexto, objetivos…"
-              className="min-h-48 w-full resize-y rounded-lg border border-[var(--border)] bg-[var(--surface-1)] p-2.5 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--brand-water)]"
-            />
+            <div className="flex flex-col gap-4">
+              <label className="flex flex-col gap-1.5">
+                <span className={labelCls}>Descripción general</span>
+                <textarea
+                  value={info}
+                  onChange={(e) => onInfoChange(e.target.value)}
+                  placeholder="Qué es, contexto, por qué está aquí…"
+                  className="min-h-32 w-full resize-y rounded-lg border border-[var(--border)] bg-[var(--surface-1)] p-2.5 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--brand-water)]"
+                />
+              </label>
+              <label className="flex flex-col gap-1.5">
+                <span className={labelCls}>¿Qué significa el éxito?</span>
+                <textarea
+                  value={successCriteria}
+                  onChange={(e) => onSuccessChange(e.target.value)}
+                  placeholder="Cómo sabremos que esto está resuelto…"
+                  className="min-h-32 w-full resize-y rounded-lg border border-[var(--border)] bg-[var(--surface-1)] p-2.5 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--brand-water)]"
+                />
+              </label>
+            </div>
           )}
           {tab === "docs" && <DocsTab project={project} handlers={handlers} />}
           {tab === "checklist" && (

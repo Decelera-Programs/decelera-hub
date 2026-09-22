@@ -92,6 +92,7 @@ export async function createProject(columnId: string | null): Promise<string> {
 type ProjectPatch = {
   title?: string;
   info?: string;
+  successCriteria?: string;
   health?: ProjectHealth;
   priority?: ProjectPriority;
   ownerId?: string | null;
@@ -105,6 +106,8 @@ export async function updateProject(id: string, patch: ProjectPatch): Promise<vo
   const clean: Record<string, unknown> = {};
   if (typeof patch.title === "string") clean.title = patch.title.trim().slice(0, 120) || "Sin título";
   if (typeof patch.info === "string") clean.info = patch.info.slice(0, 4000);
+  if (typeof patch.successCriteria === "string")
+    clean.success_criteria = patch.successCriteria.slice(0, 4000);
   if (patch.health && PROJECT_HEALTHS.includes(patch.health)) clean.health = patch.health;
   if (patch.priority && PROJECT_PRIORITIES.includes(patch.priority)) clean.priority = patch.priority;
   if ("ownerId" in patch) clean.owner_id = patch.ownerId || null;

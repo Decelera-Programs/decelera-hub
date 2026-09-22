@@ -64,6 +64,7 @@ export type Project = {
   id: string;
   title: string;
   info: string;
+  successCriteria: string;
   columnId: string | null;
   position: number;
   health: ProjectHealth;

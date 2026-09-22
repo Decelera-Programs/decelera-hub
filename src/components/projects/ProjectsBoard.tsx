@@ -35,6 +35,7 @@ function blankProject(id: string, columnId: string | null, position: number): Pr
     id,
     title: "Nuevo proyecto",
     info: "",
+    successCriteria: "",
     columnId,
     position,
     health: "on_track",
