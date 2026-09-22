@@ -15,6 +15,7 @@ import {
   deleteTask as deleteTaskAction,
   moveProjects,
   renameColumn,
+  reorderTasks as reorderTasksAction,
   toggleTask as toggleTaskAction,
   updateProject,
   updateTask as updateTaskAction,
@@ -282,6 +283,13 @@ export function ProjectsBoard({
         const owner = ownerId ? members.find((m) => m.id === ownerId) ?? null : null;
         setTasks(pid, (t) => t.map((x) => (x.id === id ? { ...x, ownerId, owner } : x)));
         if (!id.startsWith("tmp_")) fire(updateTaskOwnerAction(id, ownerId));
+      },
+      reorderTasks: (pid, ids) => {
+        setTasks(pid, (t) => {
+          const byId = new Map(t.map((x) => [x.id, x]));
+          return ids.map((id, i) => ({ ...byId.get(id)!, position: i }));
+        });
+        fire(reorderTasksAction(pid, ids));
       },
       deleteTask: (pid, id) => {
         setTasks(pid, (t) => t.filter((x) => x.id !== id));

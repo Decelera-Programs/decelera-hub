@@ -42,6 +42,7 @@ export type ModalHandlers = {
   updateTask: (projectId: string, taskId: string, label: string) => void;
   setTaskOwner: (projectId: string, taskId: string, ownerId: string | null) => void;
   deleteTask: (projectId: string, taskId: string) => void;
+  reorderTasks: (projectId: string, taskIds: string[]) => void;
   addDoc: (projectId: string, label: string, url: string) => void;
   deleteDoc: (projectId: string, docId: string) => void;
   remove: (projectId: string) => void;
@@ -400,6 +401,8 @@ function ChecklistTab({
   handlers: ModalHandlers;
 }) {
   const [text, setText] = useState("");
+  const [dragId, setDragId] = useState<string | null>(null);
+  const dragRef = useRef<string | null>(null);
 
   function add() {
     if (!text.trim()) return;
@@ -407,16 +410,69 @@ function ChecklistTab({
     setText("");
   }
 
+  /** Suelta la tarea arrastrada antes de `beforeId` (o al final si es null). */
+  function dropAt(beforeId: string | null) {
+    const id = dragRef.current;
+    dragRef.current = null;
+    setDragId(null);
+    if (!id) return;
+    const ids = project.tasks.map((t) => t.id).filter((x) => x !== id);
+    const at = beforeId ? ids.indexOf(beforeId) : ids.length;
+    ids.splice(at < 0 ? ids.length : at, 0, id);
+    handlers.reorderTasks(project.id, ids);
+  }
+
   return (
-    <div className="flex flex-col gap-1">
+    <div
+      className="flex flex-col gap-1"
+      onDragOver={(e) => {
+        if (dragRef.current) e.preventDefault();
+      }}
+      onDrop={(e) => {
+        if (dragRef.current) {
+          e.preventDefault();
+          dropAt(null);
+        }
+      }}
+    >
       {project.tasks.length === 0 && (
         <p className="text-xs text-[var(--text-muted)]">Sin tareas todavía.</p>
       )}
-      {project.tasks.map((t) => (
+      {project.tasks.map((t, i) => (
         <div
           key={t.id}
+          onDragOver={(e) => {
+            if (dragRef.current && dragRef.current !== t.id) e.preventDefault();
+          }}
+          onDrop={(e) => {
+            if (dragRef.current) {
+              e.preventDefault();
+              e.stopPropagation();
+              const r = e.currentTarget.getBoundingClientRect();
+              const after = e.clientY > r.top + r.height / 2;
+              dropAt(after ? (project.tasks[i + 1]?.id ?? null) : t.id);
+            }
+          }}
           className="group flex items-center gap-2 rounded-lg px-1 py-1 hover:bg-[var(--row-hover)]"
+          style={{ opacity: dragId === t.id ? 0.4 : undefined }}
         >
+          <span
+            draggable
+            onDragStart={(e) => {
+              e.dataTransfer.effectAllowed = "move";
+              dragRef.current = t.id;
+              setDragId(t.id);
+            }}
+            onDragEnd={() => {
+              dragRef.current = null;
+              setDragId(null);
+            }}
+            aria-hidden
+            title="Arrastrar para reordenar"
+            className="shrink-0 cursor-grab select-none text-[var(--text-muted)]"
+          >
+            ⠿
+          </span>
           <input
             type="checkbox"
             checked={t.done}
