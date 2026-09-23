@@ -44,6 +44,7 @@ export type ProjectTask = {
   position: number;
   ownerId: string | null;
   owner: ProjectOwner | null;
+  dueDate: string | null;
 };
 
 export type ProjectDoc = {

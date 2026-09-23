@@ -70,6 +70,7 @@ export type ModalHandlers = {
   toggleTask: (projectId: string, taskId: string, done: boolean) => void;
   updateTask: (projectId: string, taskId: string, label: string) => void;
   setTaskOwner: (projectId: string, taskId: string, ownerId: string | null) => void;
+  setTaskDueDate: (projectId: string, taskId: string, dueDate: string | null) => void;
   deleteTask: (projectId: string, taskId: string) => void;
   reorderTasks: (projectId: string, taskIds: string[]) => void;
   addDoc: (projectId: string, label: string, url: string) => void;
@@ -521,6 +522,13 @@ function ChecklistTab({
             className={`min-w-0 flex-1 bg-transparent text-sm outline-none ${
               t.done ? "text-[var(--text-muted)] line-through" : "text-[var(--text-primary)]"
             }`}
+          />
+          <input
+            type="date"
+            value={t.dueDate ?? ""}
+            onChange={(e) => handlers.setTaskDueDate(project.id, t.id, e.target.value || null)}
+            title="Fecha de vencimiento"
+            className="w-[126px] shrink-0 rounded-md border border-[var(--border)] bg-[var(--surface-1)] px-1 py-0.5 text-[11px] text-[var(--text-secondary)] outline-none focus:border-[var(--brand-water)]"
           />
           <select
             value={t.ownerId ?? ""}

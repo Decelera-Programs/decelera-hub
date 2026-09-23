@@ -21,6 +21,15 @@ function fmtDate(iso: string): string {
   return new Date(`${iso}T00:00:00`).toLocaleDateString("es-ES", { day: "numeric", month: "short" });
 }
 
+/** Rojo si ya venció, ámbar si queda ≤1 día, gris en el resto de casos. */
+function taskDueColor(dueDate: string): string {
+  const left = daysLeft(dueDate);
+  if (left == null) return "var(--text-muted)";
+  if (left < 0) return "var(--status-critical)";
+  if (left <= 1) return "var(--status-warning)";
+  return "var(--text-muted)";
+}
+
 export function ProjectCard({
   project,
   dragging,
@@ -190,6 +199,14 @@ export function ProjectCard({
                     >
                       {t.label}
                     </span>
+                    {t.dueDate && (
+                      <span
+                        className="shrink-0 text-[10px] font-semibold tabular-nums"
+                        style={{ color: t.done ? "var(--text-muted)" : taskDueColor(t.dueDate) }}
+                      >
+                        {fmtDate(t.dueDate)}
+                      </span>
+                    )}
                     {t.owner && <OwnerAvatar owner={t.owner} size={16} />}
                   </label>
                 ))}

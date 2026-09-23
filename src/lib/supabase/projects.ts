@@ -19,6 +19,7 @@ type TaskRow = {
   position: number;
   owner_id: string | null;
   owner: OwnerRow | null;
+  due_date: string | null;
 };
 type DocRow = { id: string; label: string; url: string; position: number };
 type OwnerRow = { id: string; full_name: string | null; email: string; avatar_url: string | null };
@@ -67,7 +68,7 @@ export const getProjects = cache(async (): Promise<Project[]> => {
     .select(
       `id, title, info, success_criteria, column_id, position, health, priority, owner_id, team, start_date, end_date,
        owner:members!projects_owner_id_fkey(id, full_name, email, avatar_url),
-       project_tasks(id, label, done, position, owner_id,
+       project_tasks(id, label, done, position, owner_id, due_date,
          owner:members!project_tasks_owner_id_fkey(id, full_name, email, avatar_url)),
        project_docs(id, label, url, position)`,
     )
@@ -102,6 +103,7 @@ export const getProjects = cache(async (): Promise<Project[]> => {
         position: t.position,
         ownerId: t.owner_id,
         owner: toOwner(t.owner),
+        dueDate: t.due_date,
       })),
     docs: ((p.project_docs ?? []) as DocRow[]).slice().sort(byPos) as ProjectDoc[],
   }));

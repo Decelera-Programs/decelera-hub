@@ -19,6 +19,7 @@ import {
   toggleTask as toggleTaskAction,
   updateProject,
   updateTask as updateTaskAction,
+  updateTaskDueDate as updateTaskDueDateAction,
   updateTaskOwner as updateTaskOwnerAction,
 } from "@/app/proyectos/actions";
 import { GanttView } from "./GanttView";
@@ -288,6 +289,7 @@ export function ProjectsBoard({
           position: 1e9,
           ownerId: null,
           owner: null,
+          dueDate: null,
         };
         setTasks(pid, (t) => [...t, tmp]);
         try {
@@ -308,6 +310,10 @@ export function ProjectsBoard({
         const owner = ownerId ? members.find((m) => m.id === ownerId) ?? null : null;
         setTasks(pid, (t) => t.map((x) => (x.id === id ? { ...x, ownerId, owner } : x)));
         if (!id.startsWith("tmp_")) fire(updateTaskOwnerAction(id, ownerId));
+      },
+      setTaskDueDate: (pid, id, dueDate) => {
+        setTasks(pid, (t) => t.map((x) => (x.id === id ? { ...x, dueDate } : x)));
+        if (!id.startsWith("tmp_")) fire(updateTaskDueDateAction(id, dueDate));
       },
       reorderTasks: (pid, ids) => {
         setTasks(pid, (t) => {

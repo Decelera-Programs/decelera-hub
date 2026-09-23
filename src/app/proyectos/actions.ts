@@ -150,7 +150,7 @@ export async function addTask(projectId: string, label: string): Promise<Project
   const { data, error } = await hubDb
     .from("project_tasks")
     .insert({ project_id: projectId, label: clean, position })
-    .select("id, label, done, position, owner_id")
+    .select("id, label, done, position, owner_id, due_date")
     .single();
   if (error || !data) throw new Error(error?.message ?? "add task failed");
   return {
@@ -160,6 +160,7 @@ export async function addTask(projectId: string, label: string): Promise<Project
     position: data.position,
     ownerId: data.owner_id,
     owner: null,
+    dueDate: data.due_date,
   };
 }
 
@@ -176,6 +177,11 @@ export async function updateTask(id: string, label: string): Promise<void> {
 export async function updateTaskOwner(id: string, ownerId: string | null): Promise<void> {
   await requireMember();
   await hubDb.from("project_tasks").update({ owner_id: ownerId || null }).eq("id", id);
+}
+
+export async function updateTaskDueDate(id: string, dueDate: string | null): Promise<void> {
+  await requireMember();
+  await hubDb.from("project_tasks").update({ due_date: dueDate || null }).eq("id", id);
 }
 
 export async function deleteTask(id: string): Promise<void> {
