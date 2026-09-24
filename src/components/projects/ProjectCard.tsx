@@ -179,7 +179,10 @@ export function ProjectCard({
               {project.tasks
                 .slice()
                 .sort((a, b) => a.position - b.position)
-                .map((t) => (
+                .map((t) => {
+                  const left = t.dueDate ? daysLeft(t.dueDate) : null;
+                  const taskOverdue = !t.done && left != null && left < 0;
+                  return (
                   <label
                     key={t.id}
                     className="flex items-center gap-2 rounded px-1 py-0.5 text-xs hover:bg-[var(--row-hover)]"
@@ -194,8 +197,11 @@ export function ProjectCard({
                       className={`min-w-0 flex-1 truncate ${
                         t.done
                           ? "text-[var(--text-muted)] line-through"
-                          : "text-[var(--text-secondary)]"
+                          : taskOverdue
+                            ? "font-semibold"
+                            : "text-[var(--text-secondary)]"
                       }`}
+                      style={taskOverdue ? { color: "var(--status-critical)" } : undefined}
                     >
                       {t.label}
                     </span>
@@ -209,7 +215,8 @@ export function ProjectCard({
                     )}
                     {t.owner && <OwnerAvatar owner={t.owner} size={16} />}
                   </label>
-                ))}
+                  );
+                })}
             </div>
           )}
 
