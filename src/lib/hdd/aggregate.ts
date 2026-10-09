@@ -2,7 +2,7 @@
 // IMPORTANTE: solo `import type` aquí, para que Node lo ejecute con type-stripping sin bundler.
 import type {
   FounderHdd, HardKpiKey, HddDashboardData, HddEvent, KpiStat, LegalDilemmaId, LegalMazeDilemma, LegalMazeFlags,
-  LegalPattern, LegalPatternLevel, SoftEvaluation, SoftKpiKey, StartupHdd, TeamKpiKey, WellbeingTake,
+  SoftEvaluation, SoftKpiKey, StartupHdd, TeamKpiKey, WellbeingTake,
 } from "./types";
 
 export const SOFT_KEYS: SoftKpiKey[] = [
@@ -113,84 +113,27 @@ export const LEGAL_DILEMMAS: Record<LegalDilemmaId, { title: string; kpiLabel: s
 export const LEGAL_IDS = Object.keys(LEGAL_DILEMMAS) as LegalDilemmaId[];
 
 /**
- * Person.legal_maze. Versión 2 (form actual): { version: 2, answers: { d1: { choice: 0|1|2, votes, open } } }; versión 1:
- * { version: 1, answers: { d1: { votes:[b,b,b], open } } }. Es v2 si version === 2 o si alguna respuesta trae `choice`.
- * En v2 se usa `choice` (fuera de 0 a 2 = null) y los `votes` se IGNORAN (un solo true: no es un patrón). null si no hay respuestas.
+ * Person.legal_maze (form actual): { version: 2, submitted_at, answers: { d1: { choice: 0|1|2, open } } }.
+ * Solo se lee `choice` (fuera de 0 a 2 = null); `votes` se ignora. Sin ninguna elección válida = sin responder (null).
  */
-export function parseLegalMaze(raw: unknown): { version: 1 | 2; dilemmas: LegalMazeDilemma[]; completedAt: string | null } | null {
+export function parseLegalMaze(raw: unknown): { dilemmas: LegalMazeDilemma[]; completedAt: string | null } | null {
   if (!isObj(raw) || !isObj(raw.answers)) return null;
   const answers = raw.answers;
-  const answerOf = (id: LegalDilemmaId) => answers[id.toLowerCase()] ?? answers[id];
-  const version: 1 | 2 = raw.version === 2 || LEGAL_IDS.some((id) => { const a = answerOf(id); return isObj(a) && "choice" in a; }) ? 2 : 1;
   const dilemmas: LegalMazeDilemma[] = [];
   for (const id of LEGAL_IDS) {
-    const a = answerOf(id);
+    const a = answers[id.toLowerCase()] ?? answers[id];
     if (!isObj(a)) continue;
     const open = typeof a.open === "string" && a.open.trim() ? a.open.trim() : null;
-    if (version === 2) {
-      const choice = a.choice === 0 || a.choice === 1 || a.choice === 2 ? a.choice : null;
-      dilemmas.push({ id, ...LEGAL_DILEMMAS[id], answer: open, choice });
-    } else {
-      const votes = Array.isArray(a.votes) && a.votes.length === 3 && a.votes.every((v) => typeof v === "boolean") ? (a.votes as boolean[]) : undefined;
-      dilemmas.push({ id, ...LEGAL_DILEMMAS[id], answer: open, ...(votes ? { votes } : {}) });
-    }
+    const choice = a.choice === 0 || a.choice === 1 || a.choice === 2 ? a.choice : null;
+    dilemmas.push({ id, ...LEGAL_DILEMMAS[id], answer: open, choice });
   }
-  if (!dilemmas.length) return null;
-  return { version, dilemmas, completedAt: typeof raw.submitted_at === "string" ? raw.submitted_at : null };
+  if (!dilemmas.some((d) => d.choice !== null)) return null;
+  return { dilemmas, completedAt: typeof raw.submitted_at === "string" ? raw.submitted_at : null };
 }
 
-const PATTERN_TABLE: Record<string, { level: LegalPatternLevel; reading: string }> = {
-  RRV: { level: "esperado", reading: "Lo esperado. Rechaza la mala fe, rechaza la evasión, acepta la difícil. Criterio limpio, pensamiento convencional." },
-  RRR: { level: "atencion", reading: "Rechaza las tres y va al campo abierto. Puede ser el mejor de la sala o el que no quiere comprometerse con nada: lo distingue únicamente lo que escriba." },
-  RVV: { level: "comun", reading: "El más común y el más útil. Rechaza lo obviamente feo pero acepta la trampa cómoda. Tolera el gris siempre que tenga forma presentable." },
-  RVR: { level: "atencion", reading: "Solo acepta la evasión. Evita el conflicto por sistema, no por cálculo." },
-  VRV: { level: "atencion", reading: "Acepta la peor y la mejor, rechaza la del medio. No es incoherencia: desprecia la tibieza y decide por temperamento, no por principio." },
-  VRR: { level: "senal_fuerte", reading: "Solo la peor. Señal fuerte. Contrastar con el resto de actividades del cohort antes de concluir." },
-  VVV: { level: "atencion", reading: "Verde a todo. O no escuchó, o no quiere quedar fuera de ninguna. Preguntarle directo en Fase 3." },
-  VVR: { level: "raro", reading: "Rechaza justo la correcta. Raro. Vale una pregunta en la Court: casi siempre hay una razón buena detrás." },
-};
-export const LEGAL_LEVEL_LABEL: Record<LegalPatternLevel, string> = {
-  esperado: "Esperado", comun: "Común", atencion: "Atención", senal_fuerte: "Señal fuerte", raro: "Raro",
-};
-
-/** Clave del patrón ("RRV") a partir de los 3 votos en orden; null si no son 3 booleanos. */
-export function legalPatternKey(votes: readonly boolean[] | undefined): string | null {
-  if (!votes || votes.length !== 3 || !votes.every((v) => typeof v === "boolean")) return null;
-  return votes.map((v) => (v ? "V" : "R")).join("");
-}
-
-/**
- * Clasifica el patrón de un dilema. SIN nota numérica: solo lectura y nivel de señal.
- * Regla del doc: rojo triple sin nada escrito en el campo abierto es indecisión (no cuenta como "rechaza las cuatro").
- */
-export function classifyLegalPattern(votes: readonly boolean[] | undefined, open?: string | null): LegalPattern | null {
-  const key = legalPatternKey(votes);
-  if (!key) return null;
-  const p = PATTERN_TABLE[key];
-  const undecided = key === "RRR" && !(typeof open === "string" && open.trim());
-  return {
-    key, level: p.level, levelLabel: LEGAL_LEVEL_LABEL[p.level], undecided,
-    reading: undecided ? "Rechaza las tres y no escribe nada: cuenta como indecisión, no como una cuarta opción." : p.reading,
-  };
-}
-
-/** Flags de lectura del Legal Maze de un founder (reglas "Qué pesa al final del día" del doc). */
+/** Bandera del Legal Maze: elegir A en el Dilema 1 (la opción 1 que, según el doc, pesa más que cualquier otra casilla). */
 export function legalMazeFlags(dilemmas: readonly LegalMazeDilemma[]): LegalMazeFlags {
-  const undecided: LegalDilemmaId[] = [];
-  const toReview: LegalDilemmaId[] = [];
-  for (const d of dilemmas) {
-    const p = classifyLegalPattern(d.votes, d.answer);
-    if (!p) continue;
-    if (p.undecided) undecided.push(d.id);
-    if (p.level === "senal_fuerte" || p.key === "VVV" || p.key === "VVR") toReview.push(d.id);
-  }
-  const d1 = dilemmas.find((d) => d.id === "D1");
-  const solidConventional = LEGAL_IDS.every((id) => {
-    const d = dilemmas.find((x) => x.id === id);
-    return !!d && legalPatternKey(d.votes) === "RRV" && !d.answer;
-  });
-  // d1GreenOption1 solo con votos libres (v1); d1ChoseA solo con elección única (v2). Un dilema v2 no tiene `votes`.
-  return { d1GreenOption1: d1?.votes?.[0] === true, d1ChoseA: d1?.choice === 0, undecided, solidConventional, toReview };
+  return { d1ChoseA: dilemmas.find((d) => d.id === "D1")?.choice === 0 };
 }
 
 // ---------- OLBI / BRS ----------

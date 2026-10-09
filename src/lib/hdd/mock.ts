@@ -63,52 +63,41 @@ const wellbeing = (date: string, [exh, dis, res]: Take) => ({
   brs: res !== null ? answers(BRS_Q, BRS5, res) : {},
 });
 
-// ---- Legal Maze: patrones de votos por founder (V = true, R = false) ----
-const V = (s: string) => [...s].map((c) => c === "V");
+// ---- Legal Maze (form actual): una elección por dilema (0 = A, 1 = B, 2 = C) ----
 const OPEN_TXT = "Lo hablaría con mi socio antes de decidir nada.";
-type Maze = [string, string][]; // por dilema D1..D5: [patrón, texto abierto]
-const maze = (m: Maze) => ({
-  version: 1, submitted_at: "2026-10-06T15:00:00Z",
-  answers: Object.fromEntries(m.map(([p, open], i) => [`d${i + 1}`, { votes: V(p), open }])),
-});
-// Versión 2 (form actual): una elección por dilema (0 = A, 1 = B, 2 = C); votes solo es true en la elegida.
-type Choices = [0 | 1 | 2, string][];
-const mazeV2 = (m: Choices) => ({
+type Choices = [0 | 1 | 2, string][]; // por dilema D1..D5: [elección, texto abierto]
+const maze = (m: Choices) => ({
   version: 2, submitted_at: "2026-10-06T15:00:00Z",
   answers: Object.fromEntries(m.map(([choice, open], i) => [`d${i + 1}`, { choice, votes: [0, 1, 2].map((o) => o === choice), open }])),
 });
-const MAZES_V2: Record<string, Choices> = {
-  v2c: [[2, ""], [2, OPEN_TXT], [1, ""], [2, ""], [2, ""]],
-  v2a: [[0, "Lo formalizaría primero."], [1, ""], [2, ""], [0, ""], [1, ""]],
+const MAZES: Record<string, Choices> = {
+  c: [[2, ""], [2, OPEN_TXT], [1, ""], [2, ""], [2, ""]],
+  a: [[0, "Lo formalizaría primero."], [1, ""], [2, ""], [0, ""], [1, ""]],
+  b: [[1, ""], [2, ""], [1, ""], [1, ""], [0, OPEN_TXT]],
 };
-const MAZES: Record<string, Maze> = {
-  solido: [["RRV", ""], ["RRV", ""], ["RRV", ""], ["RRV", ""], ["RRV", ""]],
-  comun: [["RRV", OPEN_TXT], ["RVV", ""], ["RVV", ""], ["RRV", ""], ["RVV", ""]],
-  d1verde: [["VRR", ""], ["RVV", ""], ["RRV", ""], ["RVR", ""], ["RRV", ""]],
-  indeciso: [["RRR", ""], ["RRR", OPEN_TXT], ["RRV", ""], ["VRV", ""], ["RRR", ""]],
-  raro: [["RRV", ""], ["VVR", "Tenía otra salida en mente."], ["VVV", ""], ["RVV", ""], ["RRV", ""]],
-};
+// Dato antiguo (votos sin choice): cuenta como sin responder.
+const LEGACY = { version: 1, submitted_at: "2026-10-06T15:00:00Z", answers: { d1: { votes: [false, false, true], open: "" } } };
 
 // [nombre, nivel soft (null = sin datos), maze, olbi/brs pre, olbi/brs post, eventos evaluados]
-type FounderSpec = [string, number | null, keyof typeof MAZES | keyof typeof MAZES_V2 | null, Take | null, Take | null, HddEvent[]];
+type FounderSpec = [string, number | null, keyof typeof MAZES | "legacy" | null, Take | null, Take | null, HddEvent[]];
 const SPEC: [string, string, string, FounderSpec[]][] = [
   ["s1", "Nubia Health", "HealthTech", [
-    ["Ana Torres", 8, "solido", [1.8, 1.7, 4.4], [1.6, 1.5, 4.6], HDD_EVENTS],
-    ["Diego Ramos", 6.5, "comun", [2.9, 2.6, 3.3], [2.4, 2.1, 3.8], HDD_EVENTS],
-    ["Lucía Vega", 7.5, "v2c", [2.2, 2.0, 3.9], null, HDD_EVENTS], // solo pre
+    ["Ana Torres", 8, "c", [1.8, 1.7, 4.4], [1.6, 1.5, 4.6], HDD_EVENTS],
+    ["Diego Ramos", 6.5, "b", [2.9, 2.6, 3.3], [2.4, 2.1, 3.8], HDD_EVENTS],
+    ["Lucía Vega", 7.5, "c", [2.2, 2.0, 3.9], null, HDD_EVENTS], // solo pre
   ]],
   ["s2", "AgroSense", "AgriTech", [
-    ["Mateo Cruz", 5.5, "d1verde", [3.2, 3.1, 2.4], [3.0, 3.3, 2.6], ["Workstations", "Cooking Contest"]],
-    ["Sofía Ibarra", 7, "v2a", [2.0, 1.9, 4.1], [2.1, 2.2, 3.7], ["Workstations"]],
+    ["Mateo Cruz", 5.5, "a", [3.2, 3.1, 2.4], [3.0, 3.3, 2.6], ["Workstations", "Cooking Contest"]],
+    ["Sofía Ibarra", 7, "a", [2.0, 1.9, 4.1], [2.1, 2.2, 3.7], ["Workstations"]],
   ]],
   ["s3", "PagaYa", "FinTech", [
-    ["Javier Soto", 4.5, "indeciso", [3.5, 3.0, 2.2], [2.8, 2.5, 3.1], ["Cooking Contest"]],
+    ["Javier Soto", 4.5, "b", [3.5, 3.0, 2.2], [2.8, 2.5, 3.1], ["Cooking Contest"]],
     ["Valeria Núñez", null, null, null, null, []], // sin ningún dato
-    ["Iván Prieto", 6, "raro", null, [2.5, 2.4, 3.5], ["Workstations"]], // solo post
+    ["Iván Prieto", 6, "legacy", null, [2.5, 2.4, 3.5], ["Workstations"]], // solo post
   ]],
   ["s4", "Logística Verde", "Logistics", [
-    ["Camila Ortiz", 7, "v2c", [2.4, 2.8, 3.6], [2.0, 2.2, 4.2], HDD_EVENTS],
-    ["Rodrigo Paz", 5, "solido", [2.6, 3.4, 3.0], [2.7, null, 3.2], ["Workstations", "Decelera Games"]], // post incompleto: sin Disengagement
+    ["Camila Ortiz", 7, "c", [2.4, 2.8, 3.6], [2.0, 2.2, 4.2], HDD_EVENTS],
+    ["Rodrigo Paz", 5, null, [2.6, 3.4, 3.0], [2.7, null, 3.2], ["Workstations", "Decelera Games"]], // post incompleto: sin Disengagement
   ]],
 ];
 
@@ -125,7 +114,7 @@ export function mockHddDashboardData(): HddDashboardData {
       const fid = `${sid}-f${i + 1}`;
       founders.push({
         id: fid, full_name: name, photo_url: null, startup_id: sid,
-        legal_maze: mz ? (mz in MAZES_V2 ? mazeV2(MAZES_V2[mz]) : maze(MAZES[mz])) : null,
+        legal_maze: mz === "legacy" ? LEGACY : mz ? maze(MAZES[mz]) : null,
         olbi_brs: pre ? wellbeing("2026-09-28T10:00:00Z", pre) : null,
         olbi_brs_post: post ? wellbeing("2026-10-08T10:00:00Z", post) : null,
       });

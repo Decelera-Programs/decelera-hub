@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { LEGAL_MAZE_CONTENT } from "./legalMazeContent.ts";
 import {
   LEGAL_DILEMMAS, aggregateSoft, aggregateTeam, aggregateHard, parseLegalMaze, parseWellbeingTake, buildHddDashboard, NO_STARTUP_ID,
-  classifyLegalPattern, legalMazeFlags, legalPatternKey, brsBand, scatterTake, buildScatterPoints, scatterSeries, scatterQuadrant,
+  legalMazeFlags, brsBand, scatterTake, buildScatterPoints, scatterSeries, scatterQuadrant,
   OLBI_ITEMS, BRS_ITEMS,
 } from "./aggregate.ts";
 
@@ -30,60 +30,37 @@ test("aggregateHard: renombra claves y promedia submissions", () => {
   assert.deepEqual(m.get("p1"), { niche_experience: 7, tech_experience: 6, go_to_market_experience: 5 });
 });
 
-test("parseLegalMaze: forma real, KPI por dilema (D3 = Confianza) y vacío", () => {
-  assert.equal(parseLegalMaze(null), null);
-  assert.equal(parseLegalMaze({}), null);
-  const r = parseLegalMaze({ version: 1, submitted_at: "x", answers: { d1: { votes: [true, false, true], open: " hola " }, d3: { votes: [false, false, true], open: "" }, d4: { votes: [false, false], open: "" } } });
-  assert.equal(r.dilemmas.length, 3);
-  assert.deepEqual(r.dilemmas[0], { id: "D1", title: "Socios", kpiLabel: "Integridad", answer: "hola", votes: [true, false, true] });
-  assert.equal(r.dilemmas[1].kpiLabel, "Confianza");
-  assert.equal(r.dilemmas[1].answer, null);
-  assert.equal(r.dilemmas[2].votes, undefined); // votos incompletos: no se inventan
-  const kpis = parseLegalMaze({ answers: Object.fromEntries(["d1", "d2", "d3", "d4", "d5"].map((d) => [d, { votes: [false, false, true], open: "" }])) }).dilemmas.map((d) => d.kpiLabel);
-  assert.deepEqual(kpis, ["Integridad", "Ambición", "Confianza", "Pensamiento no convencional", "Integridad"]);
-});
-
-const v2 = (choices, opens = []) => ({
+const lm = (choices, opens = []) => ({
   version: 2, submitted_at: "2026-10-06T15:00:00Z",
   answers: Object.fromEntries(choices.map((c, i) => [`d${i + 1}`, { choice: c, votes: [0, 1, 2].map((o) => o === c), open: opens[i] ?? "" }])),
 });
 
-test("parseLegalMaze v2: usa choice, no deriva votos ni patrones", () => {
-  const r = parseLegalMaze(v2([0, 2, 1, 2, 2], ["", "texto"]));
-  assert.equal(r.version, 2);
+test("parseLegalMaze: lee choice, KPI por dilema (D3 = Confianza) y texto abierto", () => {
+  assert.equal(parseLegalMaze(null), null);
+  assert.equal(parseLegalMaze({}), null);
+  const r = parseLegalMaze(lm([0, 2, 1, 2, 2], [" hola ", "", "", "", ""]));
   assert.deepEqual(r.dilemmas.map((d) => d.choice), [0, 2, 1, 2, 2]);
-  assert.ok(r.dilemmas.every((d) => d.votes === undefined));
-  // elegir la opción C (votes = [false,false,true], que como patrón sería "RRV" = lo esperado) NO produce patrón
-  assert.ok(r.dilemmas.every((d) => classifyLegalPattern(d.votes, d.answer) === null));
-  assert.equal(r.dilemmas[1].answer, "texto");
-  const f = legalMazeFlags(r.dilemmas);
-  assert.deepEqual(f, { d1GreenOption1: false, d1ChoseA: true, undecided: [], solidConventional: false, toReview: [] });
-  assert.equal(legalMazeFlags(parseLegalMaze(v2([2, 2, 2, 2, 2])).dilemmas).d1ChoseA, false);
-  assert.equal(legalMazeFlags(parseLegalMaze(v2([2, 2, 2, 2, 2])).dilemmas).solidConventional, false);
+  assert.deepEqual(r.dilemmas[0], { id: "D1", title: "Socios", kpiLabel: "Integridad", answer: "hola", choice: 0 });
+  assert.equal(r.dilemmas[1].answer, null);
+  assert.equal(r.completedAt, "2026-10-06T15:00:00Z");
+  assert.deepEqual(r.dilemmas.map((d) => d.kpiLabel), ["Integridad", "Ambición", "Confianza", "Pensamiento no convencional", "Integridad"]);
+  assert.ok(r.dilemmas.every((d) => !("votes" in d)), "votes se ignora");
 });
 
-test("parseLegalMaze: detecta v2 por version o por choice; choice fuera de rango se ignora", () => {
-  const bad = parseLegalMaze({ version: 2, answers: { d1: { choice: 3, votes: [false, false, true], open: "x" }, d2: { choice: -1 }, d3: { choice: "1" }, d4: { choice: 1.5 }, d5: { choice: null } } });
-  assert.equal(bad.version, 2);
-  assert.ok(bad.dilemmas.every((d) => d.choice === null && d.votes === undefined));
+test("parseLegalMaze: choice fuera de rango o de otro tipo se ignora; sin choice válido = sin responder", () => {
+  const bad = parseLegalMaze({ version: 2, answers: { d1: { choice: 3, open: "x" }, d2: { choice: -1 }, d3: { choice: "1" }, d4: { choice: 1.5 }, d5: { choice: 1 } } });
+  assert.deepEqual(bad.dilemmas.map((d) => d.choice), [null, null, null, null, 1]);
   assert.equal(bad.dilemmas[0].answer, "x");
-  assert.equal(legalMazeFlags(bad.dilemmas).d1ChoseA, false);
-  // sin version pero con choice: v2
-  assert.equal(parseLegalMaze({ answers: { d1: { choice: 1, open: "" } } }).version, 2);
+  assert.equal(parseLegalMaze({ version: 2, answers: { d1: { choice: 7 }, d2: { choice: null } } }), null);
+  // dato antiguo (solo votos, sin choice): sin responder
+  assert.equal(parseLegalMaze({ version: 1, answers: { d1: { votes: [false, false, true], open: "" } } }), null);
+  assert.equal(parseLegalMaze({ answers: { d1: { votes: [true, false, false], open: "x" } } }), null);
 });
 
-test("parseLegalMaze: v1 (con o sin version) conserva los votos y los patrones; mezcla v1/v2 por founder", () => {
-  const v1 = { version: 1, answers: { d1: { votes: [false, false, true], open: "" } } };
-  const noVersion = { answers: { d1: { votes: [true, false, false], open: "" } } };
-  const a = parseLegalMaze(v1), b = parseLegalMaze(noVersion), c = parseLegalMaze(v2([1, 1, 1, 1, 1]));
-  assert.equal(a.version, 1);
-  assert.equal(b.version, 1);
-  assert.equal(a.dilemmas[0].choice, undefined);
-  assert.equal(classifyLegalPattern(a.dilemmas[0].votes, "").key, "RRV");
-  assert.equal(legalMazeFlags(b.dilemmas).d1GreenOption1, true);
-  assert.equal(legalMazeFlags(b.dilemmas).d1ChoseA, false);
-  assert.equal(c.version, 2);
-  assert.equal(c.dilemmas[0].votes, undefined);
+test("legalMazeFlags: solo D1 = A", () => {
+  assert.deepEqual(legalMazeFlags(parseLegalMaze(lm([0, 2, 2, 2, 2])).dilemmas), { d1ChoseA: true });
+  assert.deepEqual(legalMazeFlags(parseLegalMaze(lm([1, 0, 0, 0, 0])).dilemmas), { d1ChoseA: false });
+  assert.deepEqual(legalMazeFlags(parseLegalMaze(lm([2, 2, 2, 2, 2])).dilemmas), { d1ChoseA: false });
 });
 
 test("legalMazeContent: 5 dilemas x 3 opciones A/B/C coherentes con los KPIs y con el form", () => {
@@ -95,41 +72,6 @@ test("legalMazeContent: 5 dilemas x 3 opciones A/B/C coherentes con los KPIs y c
   }
   assert.equal(LEGAL_MAZE_CONTENT[2].kpiLabel, "Confianza");
   assert.ok(LEGAL_MAZE_CONTENT[0].options[0].text.startsWith("Formalizas el acuerdo ahora")); // choice 0 = A = opción 1
-});
-
-test("classifyLegalPattern: los 8 patrones del doc, en orden", () => {
-  const V = (s) => [...s].map((c) => c === "V");
-  const expected = { RRV: "esperado", RRR: "atencion", RVV: "comun", RVR: "atencion", VRV: "atencion", VRR: "senal_fuerte", VVV: "atencion", VVR: "raro" };
-  for (const [k, level] of Object.entries(expected)) {
-    const p = classifyLegalPattern(V(k), "texto");
-    assert.equal(p.key, k);
-    assert.equal(p.level, level, k);
-    assert.ok(p.reading.length > 10 && !p.reading.includes("undefined"));
-    assert.equal(p.undecided, false);
-  }
-  assert.notEqual(legalPatternKey([true, false, false]), legalPatternKey([false, false, true])); // el orden importa
-  assert.equal(classifyLegalPattern([true, false], "x"), null);
-  assert.equal(classifyLegalPattern(undefined), null);
-});
-
-test("classifyLegalPattern: rojo triple sin texto es indecisión; con texto no", () => {
-  assert.equal(classifyLegalPattern([false, false, false], null).undecided, true);
-  assert.equal(classifyLegalPattern([false, false, false], "   ").undecided, true);
-  assert.equal(classifyLegalPattern([false, false, false], "Haría otra cosa").undecided, false);
-  assert.equal(classifyLegalPattern([false, false, true], null).undecided, false);
-});
-
-test("legalMazeFlags: D1 verde a opción 1, indecisión, sólido y convencional, a revisar", () => {
-  const d = (id, p, answer = null) => ({ id, title: "", kpiLabel: "", answer, votes: [...p].map((c) => c === "V") });
-  const solid = ["D1", "D2", "D3", "D4", "D5"].map((id) => d(id, "RRV"));
-  assert.deepEqual(legalMazeFlags(solid), { d1GreenOption1: false, d1ChoseA: false, undecided: [], solidConventional: true, toReview: [] });
-  assert.equal(legalMazeFlags([{ ...solid[0], answer: "x" }, ...solid.slice(1)]).solidConventional, false); // un campo abierto escrito lo rompe
-  assert.equal(legalMazeFlags(solid.slice(0, 4)).solidConventional, false); // faltan dilemas
-  const f = legalMazeFlags([d("D1", "VRR"), d("D2", "RRR"), d("D3", "RRR", "otra"), d("D4", "VVV"), d("D5", "VVR")]);
-  assert.equal(f.d1GreenOption1, true);
-  assert.deepEqual(f.undecided, ["D2"]);
-  assert.deepEqual(f.toReview, ["D1", "D4", "D5"]);
-  assert.equal(legalMazeFlags([d("D1", "RVV")]).d1GreenOption1, false);
 });
 
 test("parseWellbeingTake: OLBI 1-4 con inversos (5-x) y BRS 1-5 con inversos (6-x)", () => {

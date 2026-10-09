@@ -26,15 +26,12 @@ export interface SoftEvaluation {
 export interface KpiStat { avg: number; n: number; byEvent: Partial<Record<HddEvent, { avg: number; n: number }>> }
 
 /**
- * Legal Maze (Person.legal_maze). Dos versiones del formulario:
- * - version 1: answers:{ d1..d5:{ votes:[b,b,b], open } }. El founder vota cada opción Verde (true = "yo lo haría") o
- *   Roja (false). Lo que importa es el PATRÓN de los 3 votos en orden (ver classifyLegalPattern).
- * - version 2: answers:{ d1..d5:{ choice:0|1|2, votes:[...], open } }. El founder ELIGE una opción (A, B o C = 0, 1, 2).
- *   `votes` solo es true en la elegida, por compatibilidad: NO son votos libres y de ellos NUNCA se deriva un patrón.
- *   Los patrones del doc (RRV...) solo valen para la versión 1.
- * Fuente: doc "26MEX Legal maze v3 DEF" y form legal-maze-forms.
- * NO hay puntuación numérica.
- * Las lecturas Positivo/Negativo de cada opción son explicación del facilitador, no puntuación, y no se guardan.
+ * Legal Maze (Person.legal_maze = { version:2, submitted_at, answers:{ d1..d5:{ choice:0|1|2, votes, open } } }).
+ * Fuente: doc "26MEX Legal maze v3 DEF" y form legal-maze-forms (versión actual). Cada dilema es ELEGIR una opción
+ * (A, B o C = choice 0, 1, 2) más un campo abierto opcional. Solo se lee `choice`; `votes` (true solo en la elegida,
+ * por compatibilidad) se ignora. Datos sin `choice` válido cuentan como "sin responder".
+ * NO hay puntuación numérica: las lecturas Positivo/Negativo de cada opción (legalMazeContent.ts) son explicación
+ * del facilitador, no puntuación.
  * `kpiLabel` es libre a propósito: D3 mide "Confianza", que NO es una de las 9 soft skills (SoftKpiKey).
  */
 export type LegalDilemmaId = "D1" | "D2" | "D3" | "D4" | "D5";
@@ -47,36 +44,13 @@ export interface LegalMazeDilemma {
   kpiLabel: string;
   /** Texto libre del campo abierto (null si vacío). */
   answer: string | null;
-  /** Solo versión 1: [opción1, opción2, opción3]; true = Verde, false = Rojo. Ausente en versión 2. */
-  votes?: boolean[];
-  /** Solo versión 2: opción elegida (0 = A, 1 = B, 2 = C); null si no hay elección válida. Ausente en versión 1. */
-  choice?: 0 | 1 | 2 | null;
-}
-
-export type LegalPatternLevel = "esperado" | "comun" | "atencion" | "senal_fuerte" | "raro";
-
-export interface LegalPattern {
-  /** Los 3 votos en orden: "RRV", "VRR"... */
-  key: string;
-  level: LegalPatternLevel;
-  levelLabel: string;
-  /** Lectura del doc en español. */
-  reading: string;
-  /** Rojo triple sin nada escrito: cuenta como indecisión, no como "rechaza las cuatro". */
-  undecided: boolean;
+  /** Opción elegida (0 = A, 1 = B, 2 = C); null si no hay elección válida. */
+  choice: 0 | 1 | 2 | null;
 }
 
 export interface LegalMazeFlags {
-  /** Versión 1: verde a la opción 1 del Dilema 1: pesa más que cualquier otra casilla de la hoja (doc). */
-  d1GreenOption1: boolean;
-  /** Versión 2: eligió la opción A del Dilema 1 (la opción 1 del doc, la que "pesa más que cualquier otra casilla"). */
+  /** Eligió la opción A del Dilema 1. El doc dice que la opción 1 del D1 "pesa más que cualquier otra casilla de la hoja". */
   d1ChoseA: boolean;
-  /** Dilemas con rojo triple y campo abierto vacío (indecisión). */
-  undecided: LegalDilemmaId[];
-  /** Los 5 dilemas en R R V y ninguno con campo abierto: sólido y convencional (señal media para tesis de riesgo). */
-  solidConventional: boolean;
-  /** Dilemas con patrón VRR (señal fuerte), VVV o VVR para revisar en Fase 3 / Court. */
-  toReview: LegalDilemmaId[];
 }
 
 /**
@@ -101,7 +75,7 @@ export interface FounderHdd {
   soft: Partial<Record<SoftKpiKey, KpiStat>>;
   evaluations: SoftEvaluation[];
   hard: Partial<Record<HardKpiKey, number>>; // de OneOnOneAudioSubmission.hard_skills (por EM, media si varios)
-  legalMaze: { version: 1 | 2; dilemmas: LegalMazeDilemma[]; completedAt: string | null } | null;
+  legalMaze: { dilemmas: LegalMazeDilemma[]; completedAt: string | null } | null;
   wellbeing: { pre: WellbeingTake | null; post: WellbeingTake | null };
 }
 
