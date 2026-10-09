@@ -1,5 +1,6 @@
 import { classifyLegalPattern, legalMazeFlags } from "@/lib/hdd/aggregate";
-import type { FounderHdd, LegalPatternLevel } from "@/lib/hdd/types";
+import { LEGAL_MAZE_CONTENT } from "@/lib/hdd/legalMazeContent";
+import type { FounderHdd, LegalMazeDilemma, LegalPatternLevel } from "@/lib/hdd/types";
 import { Empty } from "./Empty";
 
 // Colores por nivel de señal (tokens de estado/serie del hub). El nivel SIEMPRE lleva su texto: no depende del color.
@@ -38,9 +39,77 @@ function Vote({ option, green }: { option: number; green: boolean }) {
   );
 }
 
+const LETTERS = ["A", "B", "C"] as const;
+
+/** Versión 2: una opción elegida por dilema (A, B o C). Sin patrones: la lectura es la del doc para la opción elegida. */
+function LegalMazeChoices({ dilemmas }: { dilemmas: LegalMazeDilemma[] }) {
+  const flags = legalMazeFlags(dilemmas);
+  const byId = new Map(dilemmas.map((d) => [d.id, d]));
+  const row = LEGAL_MAZE_CONTENT.map((c) => {
+    const ch = byId.get(c.id)?.choice;
+    return typeof ch === "number" ? LETTERS[ch] : "—";
+  });
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-1.5">
+        <p className="text-xs text-[var(--text-muted)]">Elecciones D1 a D5</p>
+        <p className="text-base font-semibold tracking-wide text-[var(--text-primary)]" aria-label={`Elecciones de D1 a D5: ${row.join(", ")}`}>
+          {row.join(" · ")}
+        </p>
+        <div className="flex flex-wrap gap-1.5" aria-label="Resumen de banderas del Legal Maze">
+          {flags.d1ChoseA ? (
+            <Pill color="var(--status-critical)">
+              Eligió A en el Dilema 1: según el doc, es la casilla que más pesa de toda la hoja (exige haber decidido perjudicar a alguien que confía)
+            </Pill>
+          ) : (
+            <span className="text-xs text-[var(--text-muted)]">Sin banderas</span>
+          )}
+        </div>
+      </div>
+      <ul className="flex flex-col divide-y divide-[var(--border)] text-sm">
+        {LEGAL_MAZE_CONTENT.map((c) => {
+          const d = byId.get(c.id);
+          const opt = typeof d?.choice === "number" ? c.options[d.choice] : null;
+          return (
+            <li key={c.id} className="flex flex-col gap-1.5 py-2.5">
+              <span className="font-medium text-[var(--text-primary)]">
+                {c.id} · {c.theme}
+                <span className="ml-1.5 font-normal text-[var(--text-muted)]">KPI {c.kpiLabel}</span>
+              </span>
+              {!d ? (
+                <p className="text-xs italic text-[var(--text-muted)]">Sin respuesta</p>
+              ) : !opt ? (
+                <p className="text-xs italic text-[var(--text-muted)]">Sin opción elegida</p>
+              ) : (
+                <>
+                  <p className="flex items-start gap-2 text-[var(--text-primary)]">
+                    <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-[var(--series-1)] text-xs font-semibold">{opt.letter}</span>
+                    <span>
+                      <span className="sr-only">Opción elegida {opt.letter}: </span>
+                      {opt.text}
+                    </span>
+                  </p>
+                  <p className="text-xs leading-relaxed text-[var(--text-secondary)]"><span className="font-semibold text-[var(--text-primary)]">Positivo (doc):</span> {opt.positive}</p>
+                  <p className="text-xs leading-relaxed text-[var(--text-secondary)]"><span className="font-semibold text-[var(--text-primary)]">Negativo (doc):</span> {opt.negative}</p>
+                </>
+              )}
+              {d && (
+                <p className={d.answer ? "text-xs text-[var(--text-primary)]" : "text-xs italic text-[var(--text-muted)]"}>
+                  {d.answer ? <>Campo abierto: {d.answer}</> : "Campo abierto vacío"}
+                </p>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
 export function LegalMaze({ founder }: { founder: FounderHdd }) {
   const lm = founder.legalMaze;
   if (!lm || !lm.dilemmas.length) return <Empty>Legal Maze sin completar</Empty>;
+  if (lm.version === 2) return <LegalMazeChoices dilemmas={lm.dilemmas} />;
   const flags = legalMazeFlags(lm.dilemmas);
   const hasFlags = flags.d1GreenOption1 || flags.undecided.length > 0 || flags.solidConventional || flags.toReview.length > 0;
   return (

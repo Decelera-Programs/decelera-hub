@@ -112,19 +112,31 @@ export const LEGAL_DILEMMAS: Record<LegalDilemmaId, { title: string; kpiLabel: s
 };
 export const LEGAL_IDS = Object.keys(LEGAL_DILEMMAS) as LegalDilemmaId[];
 
-/** Person.legal_maze = { version, submitted_at, answers: { d1: { votes:[b,b,b], open } ... } }. null si no hay respuestas. */
-export function parseLegalMaze(raw: unknown): { dilemmas: LegalMazeDilemma[]; completedAt: string | null } | null {
+/**
+ * Person.legal_maze. Versión 2 (form actual): { version: 2, answers: { d1: { choice: 0|1|2, votes, open } } }; versión 1:
+ * { version: 1, answers: { d1: { votes:[b,b,b], open } } }. Es v2 si version === 2 o si alguna respuesta trae `choice`.
+ * En v2 se usa `choice` (fuera de 0 a 2 = null) y los `votes` se IGNORAN (un solo true: no es un patrón). null si no hay respuestas.
+ */
+export function parseLegalMaze(raw: unknown): { version: 1 | 2; dilemmas: LegalMazeDilemma[]; completedAt: string | null } | null {
   if (!isObj(raw) || !isObj(raw.answers)) return null;
+  const answers = raw.answers;
+  const answerOf = (id: LegalDilemmaId) => answers[id.toLowerCase()] ?? answers[id];
+  const version: 1 | 2 = raw.version === 2 || LEGAL_IDS.some((id) => { const a = answerOf(id); return isObj(a) && "choice" in a; }) ? 2 : 1;
   const dilemmas: LegalMazeDilemma[] = [];
   for (const id of LEGAL_IDS) {
-    const a = raw.answers[id.toLowerCase()] ?? raw.answers[id];
+    const a = answerOf(id);
     if (!isObj(a)) continue;
-    const votes = Array.isArray(a.votes) && a.votes.length === 3 && a.votes.every((v) => typeof v === "boolean") ? (a.votes as boolean[]) : undefined;
     const open = typeof a.open === "string" && a.open.trim() ? a.open.trim() : null;
-    dilemmas.push({ id, ...LEGAL_DILEMMAS[id], answer: open, ...(votes ? { votes } : {}) });
+    if (version === 2) {
+      const choice = a.choice === 0 || a.choice === 1 || a.choice === 2 ? a.choice : null;
+      dilemmas.push({ id, ...LEGAL_DILEMMAS[id], answer: open, choice });
+    } else {
+      const votes = Array.isArray(a.votes) && a.votes.length === 3 && a.votes.every((v) => typeof v === "boolean") ? (a.votes as boolean[]) : undefined;
+      dilemmas.push({ id, ...LEGAL_DILEMMAS[id], answer: open, ...(votes ? { votes } : {}) });
+    }
   }
   if (!dilemmas.length) return null;
-  return { dilemmas, completedAt: typeof raw.submitted_at === "string" ? raw.submitted_at : null };
+  return { version, dilemmas, completedAt: typeof raw.submitted_at === "string" ? raw.submitted_at : null };
 }
 
 const PATTERN_TABLE: Record<string, { level: LegalPatternLevel; reading: string }> = {
@@ -177,7 +189,8 @@ export function legalMazeFlags(dilemmas: readonly LegalMazeDilemma[]): LegalMaze
     const d = dilemmas.find((x) => x.id === id);
     return !!d && legalPatternKey(d.votes) === "RRV" && !d.answer;
   });
-  return { d1GreenOption1: d1?.votes?.[0] === true, undecided, solidConventional, toReview };
+  // d1GreenOption1 solo con votos libres (v1); d1ChoseA solo con elección única (v2). Un dilema v2 no tiene `votes`.
+  return { d1GreenOption1: d1?.votes?.[0] === true, d1ChoseA: d1?.choice === 0, undecided, solidConventional, toReview };
 }
 
 // ---------- OLBI / BRS ----------

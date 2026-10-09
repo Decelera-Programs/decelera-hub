@@ -26,10 +26,14 @@ export interface SoftEvaluation {
 export interface KpiStat { avg: number; n: number; byEvent: Partial<Record<HddEvent, { avg: number; n: number }>> }
 
 /**
- * Legal Maze (Person.legal_maze = { version:1, submitted_at, answers:{ d1..d5:{ votes:[b,b,b], open } } }).
- * Fuente: doc "26MEX Legal maze v3 DEF" y form legal-maze-forms. Cada dilema tiene 3 opciones y el founder
- * vota cada una Verde (true = "yo lo haría") o Roja (false); `open` es su campo abierto (opcional).
- * NO hay puntuación numérica: lo que importa es el PATRÓN de los 3 votos en orden (ver classifyLegalPattern).
+ * Legal Maze (Person.legal_maze). Dos versiones del formulario:
+ * - version 1: answers:{ d1..d5:{ votes:[b,b,b], open } }. El founder vota cada opción Verde (true = "yo lo haría") o
+ *   Roja (false). Lo que importa es el PATRÓN de los 3 votos en orden (ver classifyLegalPattern).
+ * - version 2: answers:{ d1..d5:{ choice:0|1|2, votes:[...], open } }. El founder ELIGE una opción (A, B o C = 0, 1, 2).
+ *   `votes` solo es true en la elegida, por compatibilidad: NO son votos libres y de ellos NUNCA se deriva un patrón.
+ *   Los patrones del doc (RRV...) solo valen para la versión 1.
+ * Fuente: doc "26MEX Legal maze v3 DEF" y form legal-maze-forms.
+ * NO hay puntuación numérica.
  * Las lecturas Positivo/Negativo de cada opción son explicación del facilitador, no puntuación, y no se guardan.
  * `kpiLabel` es libre a propósito: D3 mide "Confianza", que NO es una de las 9 soft skills (SoftKpiKey).
  */
@@ -43,8 +47,10 @@ export interface LegalMazeDilemma {
   kpiLabel: string;
   /** Texto libre del campo abierto (null si vacío). */
   answer: string | null;
-  /** [opción1, opción2, opción3]; true = Verde, false = Rojo. */
+  /** Solo versión 1: [opción1, opción2, opción3]; true = Verde, false = Rojo. Ausente en versión 2. */
   votes?: boolean[];
+  /** Solo versión 2: opción elegida (0 = A, 1 = B, 2 = C); null si no hay elección válida. Ausente en versión 1. */
+  choice?: 0 | 1 | 2 | null;
 }
 
 export type LegalPatternLevel = "esperado" | "comun" | "atencion" | "senal_fuerte" | "raro";
@@ -61,8 +67,10 @@ export interface LegalPattern {
 }
 
 export interface LegalMazeFlags {
-  /** Verde a la opción 1 del Dilema 1: pesa más que cualquier otra casilla de la hoja. */
+  /** Versión 1: verde a la opción 1 del Dilema 1: pesa más que cualquier otra casilla de la hoja (doc). */
   d1GreenOption1: boolean;
+  /** Versión 2: eligió la opción A del Dilema 1 (la opción 1 del doc, la que "pesa más que cualquier otra casilla"). */
+  d1ChoseA: boolean;
   /** Dilemas con rojo triple y campo abierto vacío (indecisión). */
   undecided: LegalDilemmaId[];
   /** Los 5 dilemas en R R V y ninguno con campo abierto: sólido y convencional (señal media para tesis de riesgo). */
@@ -93,7 +101,7 @@ export interface FounderHdd {
   soft: Partial<Record<SoftKpiKey, KpiStat>>;
   evaluations: SoftEvaluation[];
   hard: Partial<Record<HardKpiKey, number>>; // de OneOnOneAudioSubmission.hard_skills (por EM, media si varios)
-  legalMaze: { dilemmas: LegalMazeDilemma[]; completedAt: string | null } | null;
+  legalMaze: { version: 1 | 2; dilemmas: LegalMazeDilemma[]; completedAt: string | null } | null;
   wellbeing: { pre: WellbeingTake | null; post: WellbeingTake | null };
 }
 
