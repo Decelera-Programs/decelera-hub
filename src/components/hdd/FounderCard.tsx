@@ -5,22 +5,9 @@ import { useState, type ReactNode } from "react";
 import { PolarAngleAxis, PolarGrid, PolarRadiusAxis, Radar, RadarChart, ResponsiveContainer, Tooltip } from "recharts";
 import type { FounderHdd, WellbeingTake } from "@/lib/hdd/types";
 import { Empty } from "./Empty";
-import { LegalMaze } from "./LegalMaze";
 import {
   EVENTS, EVENT_SHORT, fmt, HARD_KEYS, HARD_LABEL, initials, SOFT_KEYS, SOFT_LABEL, SOFT_SHORT,
 } from "./labels";
-
-function Section({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
-  return (
-    <section className="flex flex-col gap-2">
-      <div className="flex items-baseline justify-between gap-2">
-        <h4 className="text-sm font-semibold text-[var(--text-primary)]">{title}</h4>
-        {hint && <span className="text-xs text-[var(--text-muted)]">{hint}</span>}
-      </div>
-      {children}
-    </section>
-  );
-}
 
 function Avatar({ founder }: { founder: FounderHdd }) {
   const [broken, setBroken] = useState(false);
@@ -54,7 +41,7 @@ function Bar({ value, color, label }: { value: number | undefined | null; color:
   );
 }
 
-function SoftSkills({ founder }: { founder: FounderHdd }) {
+export function SoftSkills({ founder }: { founder: FounderHdd }) {
   const [mode, setMode] = useState<"radar" | "bars">("radar");
   const hasAny = SOFT_KEYS.some((k) => (founder.soft[k]?.n ?? 0) > 0);
   const totalEvals = founder.evaluations.length;
@@ -152,7 +139,7 @@ function SoftSkills({ founder }: { founder: FounderHdd }) {
   );
 }
 
-function HardSkills({ founder }: { founder: FounderHdd }) {
+export function HardSkills({ founder }: { founder: FounderHdd }) {
   if (!HARD_KEYS.some((k) => typeof founder.hard[k] === "number")) return <Empty>Sin valoraciones de hard skills aún</Empty>;
   return (
     <ul className="flex flex-col gap-2">
@@ -186,7 +173,7 @@ function Delta({ pre, post, lowerIsBetter }: { pre: number | null; post: number 
   );
 }
 
-function Wellbeing({ founder }: { founder: FounderHdd }) {
+export function Wellbeing({ founder }: { founder: FounderHdd }) {
   const { pre, post } = founder.wellbeing;
   if (!pre && !post) return <Empty>Sin respuestas de bienestar aún</Empty>;
   const rows: { key: keyof Omit<WellbeingTake, "completedAt">; label: string; lowerIsBetter: boolean; note: string }[] = [
@@ -223,21 +210,18 @@ function Wellbeing({ founder }: { founder: FounderHdd }) {
   );
 }
 
-export function FounderCard({ founder }: { founder: FounderHdd }) {
-  const n = founder.evaluations.length;
+/** Tarjeta de un founder dentro de una sección: foto y nombre, y el contenido de esa sección. */
+export function FounderPanel({ founder, hint, children }: { founder: FounderHdd; hint?: string; children: ReactNode }) {
   return (
-    <article className="card flex flex-col gap-5 p-6 shadow-sm" aria-label={`Founder ${founder.fullName}`}>
+    <article className="card flex flex-col gap-4 p-6 shadow-sm" aria-label={`Founder ${founder.fullName}`}>
       <header className="flex items-center gap-3">
         <Avatar founder={founder} />
         <div>
           <h3 className="text-base font-semibold text-[var(--text-primary)]">{founder.fullName}</h3>
-          <p className="text-xs text-[var(--text-muted)]">{n} {n === 1 ? "evaluación" : "evaluaciones"}</p>
+          {hint && <p className="text-xs text-[var(--text-muted)]">{hint}</p>}
         </div>
       </header>
-      <Section title="Soft skills" hint="9 individuales"><SoftSkills founder={founder} /></Section>
-      <Section title="Hard skills" hint="según el EM"><HardSkills founder={founder} /></Section>
-      <Section title="Legal Maze" hint="5 dilemas"><LegalMaze founder={founder} /></Section>
-      <Section title="Bienestar" hint="pre vs post programa"><Wellbeing founder={founder} /></Section>
+      {children}
     </article>
   );
 }
