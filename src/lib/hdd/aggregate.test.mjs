@@ -57,6 +57,13 @@ test("parseLegalMaze: choice fuera de rango o de otro tipo se ignora; sin choice
   assert.equal(parseLegalMaze({ answers: { d1: { votes: [true, false, false], open: "x" } } }), null);
 });
 
+test("parseLegalMaze: formato en curso { progress } se lee sin completedAt", () => {
+  const r = parseLegalMaze({ progress: { d1: 0, d2: 2, d3: 1, d4: 2 } });
+  assert.deepEqual(r.dilemmas.map((d) => [d.id, d.choice]), [["D1", 0], ["D2", 2], ["D3", 1], ["D4", 2]]);
+  assert.equal(r.completedAt, null);
+  assert.equal(parseLegalMaze({ progress: {} }), null);
+});
+
 test("legalMazeFlags: solo D1 = A", () => {
   assert.deepEqual(legalMazeFlags(parseLegalMaze(lm([0, 2, 2, 2, 2])).dilemmas), { d1ChoseA: true });
   assert.deepEqual(legalMazeFlags(parseLegalMaze(lm([1, 0, 0, 0, 0])).dilemmas), { d1ChoseA: false });

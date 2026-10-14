@@ -114,19 +114,30 @@ export const LEGAL_IDS = Object.keys(LEGAL_DILEMMAS) as LegalDilemmaId[];
 
 /**
  * Person.legal_maze (form actual): { version: 2, submitted_at, answers: { d1: { choice: 0|1|2, open } } }.
+ * Mientras el founder no envía, el form guarda { progress: { d1: 0|1|2, ... } } (completedAt = null).
  * Solo se lee `choice` (fuera de 0 a 2 = null); `votes` se ignora. Sin ninguna elección válida = sin responder (null).
  */
 export function parseLegalMaze(raw: unknown): { dilemmas: LegalMazeDilemma[]; completedAt: string | null } | null {
-  if (!isObj(raw) || !isObj(raw.answers)) return null;
-  const answers = raw.answers;
+  if (!isObj(raw)) return null;
+  const isChoice = (c: unknown): c is 0 | 1 | 2 => c === 0 || c === 1 || c === 2;
   const dilemmas: LegalMazeDilemma[] = [];
-  for (const id of LEGAL_IDS) {
-    const a = answers[id.toLowerCase()] ?? answers[id];
-    if (!isObj(a)) continue;
-    const open = typeof a.open === "string" && a.open.trim() ? a.open.trim() : null;
-    const choice = a.choice === 0 || a.choice === 1 || a.choice === 2 ? a.choice : null;
-    dilemmas.push({ id, ...LEGAL_DILEMMAS[id], answer: open, choice });
-  }
+  if (isObj(raw.answers)) {
+    const answers = raw.answers;
+    for (const id of LEGAL_IDS) {
+      const a = answers[id.toLowerCase()] ?? answers[id];
+      if (!isObj(a)) continue;
+      const open = typeof a.open === "string" && a.open.trim() ? a.open.trim() : null;
+      dilemmas.push({ id, ...LEGAL_DILEMMAS[id], answer: open, choice: isChoice(a.choice) ? a.choice : null });
+    }
+  } else if (isObj(raw.progress)) {
+    // En curso (aún sin enviar): { progress: { d1: 0|1|2, ... } }, sin campo abierto ni submitted_at.
+    const progress = raw.progress;
+    for (const id of LEGAL_IDS) {
+      const c = progress[id.toLowerCase()] ?? progress[id];
+      if (c === undefined) continue;
+      dilemmas.push({ id, ...LEGAL_DILEMMAS[id], answer: null, choice: isChoice(c) ? c : null });
+    }
+  } else return null;
   if (!dilemmas.some((d) => d.choice !== null)) return null;
   return { dilemmas, completedAt: typeof raw.submitted_at === "string" ? raw.submitted_at : null };
 }
