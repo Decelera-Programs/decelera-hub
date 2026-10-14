@@ -236,20 +236,6 @@ function SoftSkills({ founder }: { founder: MenorcaFounder }) {
   );
 }
 
-function HardSkills({ founder }: { founder: MenorcaFounder }) {
-  if (!founder.niche) return <Empty>Sin valoración de hard skills aún</Empty>;
-  return (
-    <div className="flex flex-col gap-1">
-      <div className="flex justify-between text-sm">
-        <span className="text-[var(--text-primary)]">Niche</span>
-        <span className="font-semibold text-[var(--text-primary)]">{fmt(founder.niche.avg, 2)}<span className="ml-1 text-xs font-normal text-[var(--text-muted)]">n={founder.niche.n}</span></span>
-      </div>
-      <Bar value={founder.niche.avg} color="var(--series-2)" label="Niche" />
-      <p className="text-xs text-[var(--text-muted)]">Experiencia en el nicho · {ScaleNote()}. Tech y Go to Market no se evaluaron en Menorca 2026.</p>
-    </div>
-  );
-}
-
 function TeamCard({ startup }: { startup: MenorcaStartup }) {
   const rows = TEAM_KEYS.filter((k) => startup.team[k]);
   const { pre, post } = startup.wellbeing;
@@ -383,21 +369,17 @@ export function MenorcaDashboard({ data }: { data: MenorcaDashboardData }) {
         <ByFounder startups={scope} hint={evals} render={(f) => <SoftSkills founder={f} />} />
       </Block>
 
-      <Block n={2} title="Hard skills" hint="Experiencia en el nicho de cada founder, según la ficha HDD.">
-        <ByFounder startups={scope} render={(f) => <HardSkills founder={f} />} />
-      </Block>
-
-      <Block n={3} title="Equipo" hint="Por startup: KPIs de equipo, media del Legal Maze y media de bienestar de sus founders.">
+      <Block n={2} title="Equipo" hint="Por startup: KPIs de equipo, media del Legal Maze y media de bienestar de sus founders.">
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           {scope.map((s) => <TeamCard key={s.startupId} startup={s} />)}
         </div>
       </Block>
 
-      <Block n={4} title="Legal Maze" hint="Elección en cada pregunta y métricas que calcula el form, por founder.">
+      <Block n={3} title="Legal Maze" hint="Elección en cada pregunta y métricas que calcula el form, por founder.">
         <ByFounder startups={scope} render={(f) => <LegalMaze founder={f} />} />
       </Block>
 
-      <Block n={5} title="Bienestar: OLBI y BRS" hint="Exhaustion y Disengagement from Work (OLBI) y Resilience (BRS), antes y después del programa.">
+      <Block n={4} title="Bienestar: OLBI y BRS" hint="Exhaustion y Disengagement from Work (OLBI) y Resilience (BRS), antes y después del programa.">
         <WellbeingScatter startups={hddStartups} selectedId={current ? current.startupId : null} />
         <ByFounder startups={scope} render={(f) => <Wellbeing founder={asFounderHdd(f)} />} />
       </Block>
