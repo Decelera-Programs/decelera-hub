@@ -369,19 +369,19 @@ export function MenorcaDashboard({ data }: { data: MenorcaDashboardData }) {
         <ByFounder startups={scope} hint={evals} render={(f) => <SoftSkills founder={f} />} />
       </Block>
 
-      <Block n={2} title="Equipo" hint="Por startup: KPIs de equipo, media del Legal Maze y media de bienestar de sus founders.">
+      <Block n={2} title="Bienestar: OLBI y BRS" hint="Exhaustion y Disengagement from Work (OLBI) y Resilience (BRS), antes y después del programa.">
+        <WellbeingScatter startups={hddStartups} selectedId={current ? current.startupId : null} />
+        <ByFounder startups={scope} render={(f) => <Wellbeing founder={asFounderHdd(f)} />} />
+      </Block>
+
+      <Block n={3} title="Equipo" hint="Por startup: KPIs de equipo, media del Legal Maze y media de bienestar de sus founders.">
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           {scope.map((s) => <TeamCard key={s.startupId} startup={s} />)}
         </div>
       </Block>
 
-      <Block n={3} title="Legal Maze" hint="Elección en cada pregunta y métricas que calcula el form, por founder.">
+      <Block n={4} title="Legal Maze" hint="Elección en cada pregunta y métricas que calcula el form, por founder.">
         <ByFounder startups={scope} render={(f) => <LegalMaze founder={f} />} />
-      </Block>
-
-      <Block n={4} title="Bienestar: OLBI y BRS" hint="Exhaustion y Disengagement from Work (OLBI) y Resilience (BRS), antes y después del programa.">
-        <WellbeingScatter startups={hddStartups} selectedId={current ? current.startupId : null} />
-        <ByFounder startups={scope} render={(f) => <Wellbeing founder={asFounderHdd(f)} />} />
       </Block>
     </div>
   );
