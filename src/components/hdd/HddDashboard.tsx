@@ -112,8 +112,10 @@ export function HddDashboard({ data }: { data: HddDashboardData }) {
       </Block>
 
       <Block n={2} title="KPIs de equipo" hint="Trust & Conflict Resolution, roles, personalidades y visión: valoración del equipo en su conjunto.">
+        {/* Un founder solo en su compañía no forma equipo: no se muestran sus KPIs de equipo. */}
+        {scope.every((s) => s.founders.length < 2) && <Empty>Las startups con un solo founder no tienen KPIs de equipo</Empty>}
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          {scope.map((s) => (
+          {scope.filter((s) => s.founders.length >= 2).map((s) => (
             <div key={s.startupId} className="flex flex-col gap-2">
               {scope.length > 1 && <h3 className="text-sm font-semibold text-[var(--text-secondary)]">{s.name}</h3>}
               <TeamKpis startup={s} />

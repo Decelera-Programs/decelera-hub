@@ -11,7 +11,7 @@ import { WellbeingScatter } from "@/components/hdd/WellbeingScatter";
 import type { FounderHdd, StartupHdd, WellbeingTake } from "@/lib/hdd/types";
 import { SOFT_KEYS, TEAM_KEYS } from "@/lib/hdd-menorca/aggregate";
 import {
-  MENORCA_SCALE_MAX, type MenorcaChallenge, type MenorcaDashboardData, type MenorcaFounder, type MenorcaSoftKey,
+  MENORCA_SCALE_MAX, type MenorcaDashboardData, type MenorcaFounder, type MenorcaSoftKey,
   type MenorcaSource, type MenorcaStartup, type MenorcaStat, type MenorcaTeamKey,
 } from "@/lib/hdd-menorca/types";
 
@@ -107,14 +107,12 @@ function Coverage({ startups }: { startups: MenorcaStartup[] }) {
   const lm = sum((s) => s.coverage.withLegalMaze);
   const pre = sum((s) => s.coverage.withWellbeingPre);
   const post = sum((s) => s.coverage.withWellbeingPost);
-  const ch = sum((s) => s.coverage.withChallenge);
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
       <StatTile label="Founders con soft skills" value={`${soft} / ${total}`} caption="Con al menos una evaluación" accent="var(--series-1)" />
       <StatTile label="Legal Maze" value={pct(lm, total)} caption={`${lm} de ${total} founders`} accent="var(--series-2)" />
       <StatTile label="OLBI / BRS pre" value={pct(pre, total)} caption={`${pre} de ${total} founders`} accent="var(--series-3)" />
       <StatTile label="OLBI / BRS post" value={pct(post, total)} caption={`${post} de ${total} founders`} accent="var(--status-warning)" />
-      <StatTile label="Retos" value={pct(ch, total)} caption={`${ch} de ${total} founders`} accent="var(--series-1)" />
     </div>
   );
 }
@@ -346,60 +344,6 @@ function LegalMaze({ founder }: { founder: MenorcaFounder }) {
   );
 }
 
-const ratingTone = (r: number) => (r >= 4 ? "var(--status-critical)" : r === 3 ? "var(--status-warning)" : "var(--column-band)");
-
-function Challenges({ startup }: { startup: MenorcaStartup }) {
-  const challenges = startup.founders.map((f) => f.challenge).filter((c): c is MenorcaChallenge => !!c);
-  if (challenges.length === 0) return <Empty>Sin retos enviados</Empty>;
-  // Un ítem puede venir de varios founders de la misma startup: se muestra el máximo y cuántos lo puntúan.
-  const bySection = new Map<string, Map<string, number[]>>();
-  for (const c of challenges) for (const it of c.items) {
-    const sec = bySection.get(it.section) ?? new Map<string, number[]>();
-    sec.set(it.item, [...(sec.get(it.item) ?? []), it.rating]);
-    bySection.set(it.section, sec);
-  }
-  return (
-    <ChartCard title={startup.name} subtitle="Dolor declarado por área (0 = no aplica, 1 = no es prioridad, 2 = manejable, 3 = dolor activo, 4 = crítico)">
-      <div className="flex flex-col gap-5">
-        {[...bySection].map(([section, items]) => (
-          <div key={section} className="flex flex-col gap-1.5">
-            <p className="text-xs font-semibold text-[var(--text-secondary)]">{section}</p>
-            <ul className="flex flex-col gap-1">
-              {[...items].sort((a, b) => Math.max(...b[1]) - Math.max(...a[1])).map(([item, ratings]) => {
-                const max = Math.max(...ratings);
-                return (
-                  <li key={item} className="flex items-center justify-between gap-3 text-sm">
-                    <span className="text-[var(--text-primary)]">{item}</span>
-                    <span className="flex items-center gap-2">
-                      {ratings.length > 1 && <span className="text-xs text-[var(--text-muted)]">{ratings.join(" / ")}</span>}
-                      <span className="inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold" style={{ background: `color-mix(in srgb, ${ratingTone(max)} 25%, transparent)`, color: "var(--text-primary)" }}>{max}</span>
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        ))}
-        {challenges.map((c) => (
-          <div key={c.founderName} className="flex flex-col gap-1.5 rounded-xl border border-[var(--border)] p-4 text-sm">
-            <p className="font-semibold text-[var(--text-primary)]">{c.founderName}{c.name ? `: ${c.name}` : ""}</p>
-            {c.decision && <p className="text-[var(--text-secondary)]"><span className="font-medium text-[var(--text-primary)]">Decisión: </span>{c.decision}</p>}
-            {c.hypothesis && <p className="text-[var(--text-secondary)]"><span className="font-medium text-[var(--text-primary)]">Hipótesis: </span>{c.hypothesis}</p>}
-            {c.helpNeeded && <p className="text-[var(--text-secondary)]"><span className="font-medium text-[var(--text-primary)]">Ayuda que busca: </span>{c.helpNeeded}</p>}
-            {c.expertiseWanted && <p className="text-[var(--text-secondary)]"><span className="font-medium text-[var(--text-primary)]">Expertise deseada: </span>{c.expertiseWanted}</p>}
-            {c.clarifications.length > 0 && (
-              <details className="text-[var(--text-secondary)]">
-                <summary className="cursor-pointer text-xs font-medium text-[var(--text-muted)]">Aclaraciones por área ({c.clarifications.length})</summary>
-                <ul className="mt-1 flex flex-col gap-1">{c.clarifications.map((x) => <li key={x.section}><span className="font-medium text-[var(--text-primary)]">{x.section}: </span>{x.text}</li>)}</ul>
-              </details>
-            )}
-          </div>
-        ))}
-      </div>
-    </ChartCard>
-  );
-}
-
 export function MenorcaDashboard({ data }: { data: MenorcaDashboardData }) {
   const [selected, setSelected] = useState<string>(ALL);
   const startups = useMemo(() => [...data.startups].sort((a, b) => a.name.localeCompare(b.name, "es")), [data.startups]);
@@ -456,12 +400,6 @@ export function MenorcaDashboard({ data }: { data: MenorcaDashboardData }) {
       <Block n={5} title="Bienestar: OLBI y BRS" hint="Exhaustion y Disengagement from Work (OLBI) y Resilience (BRS), antes y después del programa.">
         <WellbeingScatter startups={hddStartups} selectedId={current ? current.startupId : null} />
         <ByFounder startups={scope} render={(f) => <Wellbeing founder={asFounderHdd(f)} />} />
-      </Block>
-
-      <Block n={6} title="Retos" hint="Retos que declaran los founders de cada startup: dolor por área y deep dive.">
-        <div className="flex flex-col gap-4">
-          {scope.map((s) => <Challenges key={s.startupId} startup={s} />)}
-        </div>
       </Block>
     </div>
   );
