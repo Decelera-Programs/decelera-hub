@@ -12,17 +12,18 @@ import { WellbeingScatter } from "./WellbeingScatter";
 
 const ALL = "all";
 
-function Block({ n, title, hint, children }: { n: number; title: string; hint: string; children: ReactNode }) {
+function Block({ n, title, hint, children, defaultOpen = false }: { n: number; title: string; hint: string; children: ReactNode; defaultOpen?: boolean }) {
   return (
-    <section aria-labelledby={`hdd-s${n}`} className="flex flex-col gap-4">
-      <div className="flex flex-col gap-0.5 border-b border-[var(--border)] pb-2">
-        <h2 id={`hdd-s${n}`} className="text-lg font-semibold text-[var(--text-primary)]">
-          <span className="mr-2 text-[var(--text-muted)]">{n}</span>{title}
+    <details open={defaultOpen} className="group flex flex-col gap-4 [&[open]>summary]:mb-4">
+      <summary className="flex cursor-pointer list-none flex-col gap-0.5 border-b border-[var(--border)] pb-2 [&::-webkit-details-marker]:hidden">
+        <h2 className="flex items-center gap-2 text-lg font-semibold text-[var(--text-primary)]">
+          <span aria-hidden className="text-xs text-[var(--text-muted)] transition-transform group-open:rotate-90">▶</span>
+          <span className="text-[var(--text-muted)]">{n}</span>{title}
         </h2>
-        <p className="text-sm text-[var(--text-secondary)]">{hint}</p>
-      </div>
-      {children}
-    </section>
+        <p className="pl-6 text-sm text-[var(--text-secondary)]">{hint}</p>
+      </summary>
+      <div className="flex flex-col gap-4">{children}</div>
+    </details>
   );
 }
 
@@ -107,7 +108,7 @@ export function HddDashboard({ data }: { data: HddDashboardData }) {
 
       <Coverage startups={scope} />
 
-      <Block n={1} title="Hard skills" hint="Niche, Tech y Go to Market de cada founder, según el Inside Team (escala 1 a 10).">
+      <Block n={1} defaultOpen title="Hard skills" hint="Niche, Tech y Go to Market de cada founder, según el Inside Team (escala 1 a 10).">
         <ByFounder startups={scope} render={(f) => <HardSkills founder={f} />} />
       </Block>
 

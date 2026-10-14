@@ -50,17 +50,18 @@ const asStartupHdd = (s: MenorcaStartup): StartupHdd => ({
   coverage: { founders: s.coverage.founders, withSoft: s.coverage.withSoft, withLegalMaze: s.coverage.withLegalMaze, withWellbeingPre: s.coverage.withWellbeingPre, withWellbeingPost: s.coverage.withWellbeingPost },
 });
 
-function Block({ n, title, hint, children }: { n: number; title: string; hint: string; children: ReactNode }) {
+function Block({ n, title, hint, children, defaultOpen = false }: { n: number; title: string; hint: string; children: ReactNode; defaultOpen?: boolean }) {
   return (
-    <section aria-labelledby={`hddm-s${n}`} className="flex flex-col gap-4">
-      <div className="flex flex-col gap-0.5 border-b border-[var(--border)] pb-2">
-        <h2 id={`hddm-s${n}`} className="text-lg font-semibold text-[var(--text-primary)]">
-          <span className="mr-2 text-[var(--text-muted)]">{n}</span>{title}
+    <details open={defaultOpen} className="group flex flex-col gap-4 [&[open]>summary]:mb-4">
+      <summary className="flex cursor-pointer list-none flex-col gap-0.5 border-b border-[var(--border)] pb-2 [&::-webkit-details-marker]:hidden">
+        <h2 className="flex items-center gap-2 text-lg font-semibold text-[var(--text-primary)]">
+          <span aria-hidden className="text-xs text-[var(--text-muted)] transition-transform group-open:rotate-90">▶</span>
+          <span className="text-[var(--text-muted)]">{n}</span>{title}
         </h2>
-        <p className="text-sm text-[var(--text-secondary)]">{hint}</p>
-      </div>
-      {children}
-    </section>
+        <p className="pl-6 text-sm text-[var(--text-secondary)]">{hint}</p>
+      </summary>
+      <div className="flex flex-col gap-4">{children}</div>
+    </details>
   );
 }
 
@@ -364,7 +365,7 @@ export function MenorcaDashboard({ data }: { data: MenorcaDashboardData }) {
 
       <Coverage startups={scope} />
 
-      <Block n={1} title="Soft skills" hint="Soft skills individuales de cada founder: Paellas Contest, Decelera Games y ficha HDD. Cada evaluador cuenta una vez.">
+      <Block n={1} defaultOpen title="Soft skills" hint="Soft skills individuales de cada founder: Paellas Contest, Decelera Games y ficha HDD. Cada evaluador cuenta una vez.">
         {!current && <SoftComparison startups={startups} onSelect={setSelected} />}
         <ByFounder startups={scope} hint={evals} render={(f) => <SoftSkills founder={f} />} />
       </Block>
