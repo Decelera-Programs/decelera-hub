@@ -1,7 +1,7 @@
 // Comentarios de los Experience Makers sobre cada equipo (México 2026), solo los más relevantes y resumidos en una idea.
 // Fuente: notas "<Startup> - Human - founders" del vault Mexico 2026 (evento 1 a 1 con Experience Makers), que a su vez salen de
 // OneOnOneAudioSubmission (transcripts y notas escritas). Curados a mano y traducidos/condensados; NO son citas literales.
-// Solo EMs: se dejan fuera las observaciones de miembros del equipo Decelera (Raquel Polgrabia, Diego Navarro, Marcos Martín).
+// Solo EMs, salvo la excepción pedida de Diego Navarro (equipo Decelera) sobre Fonder; se dejan fuera Raquel Polgrabia y Marcos Martín.
 // Se omite lo que su autora pidió descartar (Martha Salinas sobre José María Arellano, CoverCap).
 // La clave es el nombre exacto de la startup (Startup.name). Humano Lab no tiene comentarios.
 
@@ -22,6 +22,7 @@ export const EM_COMMENTS: Record<string, EmComment[]> = {
     pos("Martha Salinas", "Gran equipo, buena dinámica y misión sólida."),
     pos("Martin Davalos", "Muy complementarios, con energía e ideas muy claras sobre un problema fundamental."),
     pos("Eyal Shats", "El equipo es un claro punto fuerte: experiencia previa en una startup de alto crecimiento y mucha química."),
+    neg("Eyal Shats", "Puede estar subestimando el capital y la complejidad logística necesarios para escalar."),
   ],
   CoverCap: [
     pos("Beth Susanne", "Tienen las skills adecuadas y están muy motivados."),
@@ -34,6 +35,9 @@ export const EM_COMMENTS: Record<string, EmComment[]> = {
     pos("Martha Salinas", "Llegó muy preparado, curioso y con ganas de escuchar.", "Lucas V."),
     pos("Lucas Mailland", "Emprendedor con potencial enorme: receptivo, inteligente y muy esforzado.", "Lucas V."),
     pos("Lucas Mailland", "Está dispuesto a dejarlo todo y mudarse para crecer: muy valorable.", "Lucas V."),
+    neg("Martha Salinas", "Debe definir mejor su ICP: quizá empresas más pequeñas y una vertical concreta.", "Lucas V."),
+    neg("Martin Davalos", "Salir de Argentina es un reto: cada país exige integraciones bancarias y cumplimiento propios, con riesgo de un negocio demasiado complejo."),
+    neg("Diego Navarro", "No ve un diferencial claro frente a otras herramientas ni una estrategia de go to market convincente; Lucas es bueno, pero no excepcional.", "Lucas V."),
   ],
   Galo: [
     pos("Martha Salinas", "Gran dinámica de equipo y muy buenas preguntas."),
