@@ -27,35 +27,41 @@ function Label({ children }: { children: ReactNode }) {
   return <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">{children}</p>;
 }
 
-/** Legal Maze compacto: una viñeta por dilema con la opción elegida y su lectura muy breve. */
+/** Legal Maze bajo las hard skills: por dilema, qué mide, la opción elegida, su lectura breve y el campo abierto si lo hay. */
 function LegalCompact({ founder }: { founder: FounderHdd }) {
   const lm = founder.legalMaze;
   if (!lm || !lm.dilemmas.length) return <p className="text-xs italic text-[var(--text-muted)]">Sin completar</p>;
   const byId = new Map(lm.dilemmas.map((d) => [d.id, d]));
   const flag = legalMazeFlags(lm.dilemmas).d1ChoseA;
   return (
-    <ul className="flex flex-col gap-1.5 text-[11px] leading-snug">
+    <ul className="flex flex-col divide-y divide-[var(--border)] text-[11px] leading-snug">
       {LEGAL_MAZE_CONTENT.map((c) => {
         const d = byId.get(c.id);
         const opt = typeof d?.choice === "number" ? c.options[d.choice] : null;
         const alert = c.id === "D1" && flag;
         return (
-          <li key={c.id} className="flex items-start gap-2" title={`${c.id} · ${c.theme} · mide ${c.kpiLabel}`}>
+          <li key={c.id} className="flex items-start gap-2 py-1.5 first:pt-0 last:pb-0">
             <span
-              className="mt-px inline-flex h-4 min-w-[1.75rem] shrink-0 items-center justify-center rounded-full border px-1 text-[10px] font-semibold text-[var(--text-primary)]"
+              className="mt-px inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[10px] font-semibold text-[var(--text-primary)]"
               style={{ borderColor: alert ? "var(--status-critical)" : "var(--series-1)", background: alert ? "color-mix(in srgb, var(--status-critical) 12%, transparent)" : undefined }}
             >
-              {c.id}{opt ? ` ${opt.letter}` : ""}
+              {opt ? opt.letter : "—"}
             </span>
-            {opt ? (
-              <span className="text-[var(--text-secondary)]">
-                <b className="font-medium text-[var(--text-primary)]">{c.theme}:</b> {opt.gist}
-                {alert && <b className="text-[var(--status-critical)]"> Señal a revisar (pesa más según el doc).</b>}
-                {d?.answer && <span className="mt-0.5 line-clamp-2 block italic text-[var(--text-muted)]" title={d.answer}>“{d.answer}”</span>}
+            <div className="flex min-w-0 flex-col gap-0.5">
+              <span className="font-semibold text-[var(--text-primary)]">
+                {c.id} · {c.theme}<span className="ml-1.5 font-normal text-[var(--text-muted)]">mide {c.kpiLabel}</span>
               </span>
-            ) : (
-              <span className="italic text-[var(--text-muted)]">{c.theme}: {d ? "sin opción elegida" : "sin respuesta"}</span>
-            )}
+              {opt ? (
+                <>
+                  <span className="text-[var(--text-primary)]">{opt.short}</span>
+                  <span className="text-[var(--text-secondary)]">{opt.gist}</span>
+                  {alert && <b className="text-[var(--status-critical)]">Señal a revisar: la casilla que más pesa según el doc.</b>}
+                </>
+              ) : (
+                <span className="italic text-[var(--text-muted)]">{d ? "Sin opción elegida" : "Sin respuesta"}</span>
+              )}
+              {d?.answer && <span className="line-clamp-2 italic text-[var(--text-muted)]" title={d.answer}>“{d.answer}”</span>}
+            </div>
           </li>
         );
       })}
@@ -149,37 +155,14 @@ function SoftRadar({ founder, peer }: { founder: FounderHdd; peer: Peer | null }
         </ResponsiveContainer>
       </div>
       <RadarLegend peer={peer} />
-      <table className="mt-1 w-full text-[11px]">
-        <thead>
-          <tr className="text-right text-[var(--text-muted)]">
-            <th scope="col" className="py-0.5 text-left font-medium">Por dinámica</th>
-            {EVENTS.map((e) => <th key={e} scope="col" className="py-0.5 font-medium">{EVENT_SHORT[e]}</th>)}
-            <th scope="col" className="py-0.5 font-medium">Media</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-[var(--border)]">
-          {SOFT_KEYS.map((k) => {
-            const sk = founder.soft[k];
-            const vals = EVENTS.map((e) => sk?.byEvent[e]?.avg);
-            const seen = vals.filter((v): v is number => v != null);
-            const d = seen.length >= 2 ? seen[seen.length - 1] - seen[0] : null;
-            return (
-              <tr key={k} className="text-right tabular-nums">
-                <th scope="row" className="py-0.5 text-left font-normal text-[var(--text-secondary)]">{SOFT_SHORT[k]}</th>
-                {vals.map((v, i) => <td key={EVENTS[i]} className="py-0.5 text-[var(--text-secondary)]">{v != null ? fmt(v) : "—"}</td>)}
-                <td className="py-0.5 font-semibold text-[var(--text-primary)]">
-                  {sk?.n ? fmt(sk.avg) : "—"}
-                  {d != null && Math.abs(d) >= 0.05 && (
-                    <span className="ml-1" style={{ color: d > 0 ? "var(--status-good)" : "var(--status-critical)" }} title={`Variación ${d > 0 ? "+" : "−"}${fmt(Math.abs(d))} entre la primera y la última dinámica`}>
-                      {d > 0 ? "▲" : "▼"}
-                    </span>
-                  )}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+      <ul className="grid grid-cols-3 gap-x-3 gap-y-0.5 text-[11px]">
+        {data.map((d) => (
+          <li key={d.skill} className="flex justify-between gap-1 text-[var(--text-secondary)]">
+            <span className="truncate">{d.skill}</span>
+            <span className="font-semibold tabular-nums text-[var(--text-primary)]">{d.n ? fmt(d.value) : "—"}</span>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
@@ -225,12 +208,12 @@ function FounderRow({ founder, allFounders }: { founder: FounderHdd; allFounders
       <ProfileBand founder={founder} peer={peer} />
 
       <div className="grid grid-cols-1 gap-x-8 gap-y-4 md:grid-cols-12">
-        <section className="md:col-span-5" aria-label="Soft skills">
+        <section className="md:col-span-4" aria-label="Soft skills">
           <Label>Soft skills · 1-10</Label>
           {hasSoft ? <SoftRadar founder={founder} peer={peer} /> : <p className="text-xs italic text-[var(--text-muted)]">Sin evaluaciones aún</p>}
         </section>
 
-        <div className="flex flex-col gap-4 md:col-span-3">
+        <div className="flex flex-col gap-4 md:col-span-5">
           <section aria-label="Hard skills">
             <Label>Hard skills · 1-10</Label>
             {HARD_KEYS.some((k) => typeof founder.hard[k] === "number") ? (
@@ -241,15 +224,15 @@ function FounderRow({ founder, allFounders }: { founder: FounderHdd; allFounders
               <p className="text-xs italic text-[var(--text-muted)]">Sin valoraciones</p>
             )}
           </section>
-          <section aria-label="Bienestar">
-            <Label>Bienestar · pre → post</Label>
-            <WellbeingCompact founder={founder} />
+          <section aria-label="Legal Maze" className="rounded-lg border border-[var(--border)] p-3">
+            <Label>Legal Maze · respuesta y lectura</Label>
+            <LegalCompact founder={founder} />
           </section>
         </div>
 
-        <section className="md:col-span-4" aria-label="Legal Maze">
-          <Label>Legal Maze · respuesta y lectura</Label>
-          <LegalCompact founder={founder} />
+        <section className="md:col-span-3" aria-label="Bienestar">
+          <Label>Bienestar · pre → post</Label>
+          <WellbeingCompact founder={founder} />
         </section>
       </div>
     </article>
