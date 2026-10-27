@@ -1,62 +1,13 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element */
-import { useState, type ReactNode } from "react";
-import type { FounderHdd, HddDashboardData, StartupHdd } from "@/lib/hdd/types";
-import { Empty } from "./Empty";
-import { FounderPanel, HardSkills, SoftSkills, Wellbeing } from "./FounderCard";
-import { LegalMaze } from "./LegalMaze";
+import { useState } from "react";
+import type { HddDashboardData } from "@/lib/hdd/types";
 import { Comparison, Coverage } from "./Overview";
-import { TeamKpis } from "./TeamKpis";
+import { StartupReport } from "./StartupReport";
 import { WellbeingScatter } from "./WellbeingScatter";
 
 const ALL = "all";
-
-function Block({ n, title, hint, children, defaultOpen = false }: { n: number; title: string; hint: string; children: ReactNode; defaultOpen?: boolean }) {
-  return (
-    <details open={defaultOpen} className="group flex flex-col gap-4 [&[open]>summary]:mb-4">
-      <summary className="flex cursor-pointer list-none flex-col gap-0.5 border-b border-[var(--border)] pb-2 [&::-webkit-details-marker]:hidden">
-        <h2 className="flex items-center gap-2 text-lg font-semibold text-[var(--text-primary)]">
-          <span aria-hidden className="text-xs text-[var(--text-muted)] transition-transform group-open:rotate-90">▶</span>
-          <span className="text-[var(--text-muted)]">{n}</span>{title}
-        </h2>
-        <p className="pl-6 text-sm text-[var(--text-secondary)]">{hint}</p>
-      </summary>
-      <div className="flex flex-col gap-4">{children}</div>
-    </details>
-  );
-}
-
-/** Una tarjeta por founder, agrupadas por startup (con cabecera de startup solo si hay varias en pantalla). */
-function ByFounder({
-  startups, hint, render,
-}: {
-  startups: StartupHdd[];
-  hint?: (f: FounderHdd) => string | undefined;
-  render: (f: FounderHdd) => ReactNode;
-}) {
-  const withFounders = startups.filter((s) => s.founders.length > 0);
-  if (withFounders.length === 0) return <Empty>Sin founders en HDD</Empty>;
-  return (
-    <div className="flex flex-col gap-6">
-      {withFounders.map((s) => (
-        <div key={s.startupId} className="flex flex-col gap-3">
-          {startups.length > 1 && (
-            <h3 className="flex items-center gap-2 text-sm font-semibold text-[var(--text-secondary)]">
-              {s.logoUrl && <img src={s.logoUrl} alt="" className="h-5 w-5 rounded object-contain" />}
-              {s.name}
-            </h3>
-          )}
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            {s.founders.map((f) => (
-              <FounderPanel key={f.personId} founder={f} hint={hint?.(f)}>{render(f)}</FounderPanel>
-            ))}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
 
 export function HddDashboard({ data }: { data: HddDashboardData }) {
   const [selected, setSelected] = useState<string>(ALL);
@@ -64,7 +15,6 @@ export function HddDashboard({ data }: { data: HddDashboardData }) {
   const current = startups.find((s) => s.startupId === selected) ?? null;
   const scope = current ? [current] : startups;
   const updated = new Date(data.generatedAt);
-  const evals = (f: FounderHdd) => `${f.evaluations.length} ${f.evaluations.length === 1 ? "evaluación" : "evaluaciones"}`;
 
   return (
     <div className="flex flex-col gap-8">
@@ -108,36 +58,24 @@ export function HddDashboard({ data }: { data: HddDashboardData }) {
 
       <Coverage startups={scope} />
 
-      <Block n={1} defaultOpen title="Hard skills" hint="Niche, Tech y Go to Market de cada founder, según el Inside Team (escala 1 a 10).">
-        <ByFounder startups={scope} render={(f) => <HardSkills founder={f} />} />
-      </Block>
+      {!current && (
+        <>
+          <Comparison startups={startups} onSelect={setSelected} />
+          <details className="group">
+            <summary className="flex cursor-pointer list-none items-center gap-2 border-b border-[var(--border)] pb-2 text-base font-semibold text-[var(--text-primary)] [&::-webkit-details-marker]:hidden">
+              <span aria-hidden className="text-xs text-[var(--text-muted)] transition-transform group-open:rotate-90">▶</span>
+              Bienestar del grupo: OLBI y BRS
+            </summary>
+            <div className="mt-4"><WellbeingScatter startups={startups} selectedId={null} /></div>
+          </details>
+        </>
+      )}
 
-      <Block n={2} title="KPIs de equipo" hint="Trust & Conflict Resolution, roles, personalidades y visión: valoración del equipo en su conjunto.">
-        {/* Un founder solo en su compañía no forma equipo: no se muestran sus KPIs de equipo. */}
-        {scope.every((s) => s.founders.length < 2) && <Empty>Las startups con un solo founder no tienen KPIs de equipo</Empty>}
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          {scope.filter((s) => s.founders.length >= 2).map((s) => (
-            <div key={s.startupId} className="flex flex-col gap-2">
-              {scope.length > 1 && <h3 className="text-sm font-semibold text-[var(--text-secondary)]">{s.name}</h3>}
-              <TeamKpis startup={s} />
-            </div>
-          ))}
-        </div>
-      </Block>
-
-      <Block n={3} title="Soft skills" hint="Las 9 soft skills individuales de cada founder, en araña (o barras con el desglose por dinámica).">
-        {!current && <Comparison startups={startups} onSelect={setSelected} />}
-        <ByFounder startups={scope} hint={evals} render={(f) => <SoftSkills founder={f} />} />
-      </Block>
-
-      <Block n={4} title="Conclusiones del Legal Maze" hint="Patrón de votos de cada founder en los 5 dilemas, con su lectura y las señales a revisar.">
-        <ByFounder startups={scope} render={(f) => <LegalMaze founder={f} />} />
-      </Block>
-
-      <Block n={5} title="Bienestar: OLBI y BRS" hint="Exhaustion y Disengagement from Work (OLBI) y Resilience (BRS), antes y después del programa.">
-        <WellbeingScatter startups={startups} selectedId={current ? current.startupId : null} />
-        <ByFounder startups={scope} render={(f) => <Wellbeing founder={f} />} />
-      </Block>
+      <div className="flex flex-col gap-6">
+        {scope.map((s) => (
+          <StartupReport key={s.startupId} startup={s} onOpen={current ? undefined : () => setSelected(s.startupId)} />
+        ))}
+      </div>
     </div>
   );
 }
