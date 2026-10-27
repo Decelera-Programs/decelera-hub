@@ -4,33 +4,22 @@
 import { useState, type ReactNode } from "react";
 import { PolarAngleAxis, PolarGrid, PolarRadiusAxis, Radar, RadarChart, ResponsiveContainer, Tooltip } from "recharts";
 import { legalMazeFlags } from "@/lib/hdd/aggregate";
+import { blendLegal, LEGAL_SCORE, legalSoftScores } from "@/lib/hdd/legalScore";
 import { LEGAL_MAZE_CONTENT } from "@/lib/hdd/legalMazeContent";
-import type { FounderHdd, SoftKpiKey, StartupHdd, WellbeingTake } from "@/lib/hdd/types";
+import type { FounderHdd, HardKpiKey, SoftKpiKey, StartupHdd, TeamKpiKey, WellbeingTake } from "@/lib/hdd/types";
 import { RadarLegend, type SoftPeer } from "./FounderCard";
 import { buildProfile } from "./profile";
 import { WellbeingScatter } from "./WellbeingScatter";
 import { EVENTS, EVENT_SHORT, fmt, HARD_KEYS, HARD_LABEL, initials, SOFT_KEYS, SOFT_LABEL, SOFT_SHORT, TEAM_KEYS, TEAM_LABEL } from "./labels";
 
-function MiniBar({ label, value, color, title, stacked = false }: { label: string; value: number | null | undefined; color: string; title?: string; stacked?: boolean }) {
+function MiniBar({ label, value, color, title }: { label: string; value: number | null | undefined; color: string; title?: string }) {
   const has = typeof value === "number" && Number.isFinite(value);
-  const bar = (
-    <div role="img" aria-label={`${label}: ${has ? fmt(value) : "sin datos"}`} className={`h-1.5 min-w-0 flex-1 overflow-hidden rounded-full ${stacked ? "bg-[var(--surface-1)]" : "bg-[var(--column-band)]"}`}>
-      {has && <div className="h-full rounded-full" style={{ width: `${Math.max(0, Math.min(100, (value / 10) * 100))}%`, background: color }} />}
-    </div>
-  );
-  const val = <span className="shrink-0 text-right font-semibold tabular-nums text-[var(--text-primary)]">{has ? fmt(value) : "—"}</span>;
-  if (stacked) {
-    return (
-      <div className="flex flex-col gap-1 text-xs" title={title}>
-        <span className="flex items-baseline justify-between gap-2 text-[var(--text-secondary)]"><span>{label}</span>{val}</span>
-        {bar}
-      </div>
-    );
-  }
   return (
     <div className="flex items-center gap-2 text-xs" title={title}>
       <span className="w-[4.5rem] shrink-0 truncate text-[var(--text-secondary)]">{label}</span>
-      {bar}
+      <div role="img" aria-label={`${label}: ${has ? fmt(value) : "sin datos"}`} className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-[var(--column-band)]">
+        {has && <div className="h-full rounded-full" style={{ width: `${Math.max(0, Math.min(100, (value / 10) * 100))}%`, background: color }} />}
+      </div>
       <span className="w-6 shrink-0 text-right font-semibold tabular-nums text-[var(--text-primary)]">{has ? fmt(value) : "—"}</span>
     </div>
   );
@@ -40,15 +29,21 @@ function Label({ children }: { children: ReactNode }) {
   return <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">{children}</p>;
 }
 
-/** Legal Maze en horizontal: una columna por dilema con qué mide, la opción elegida, su lectura breve y el campo abierto. */
-function LegalCompact({ founder }: { founder: FounderHdd }) {
+const LEGAL_COLS: Record<number, string> = {
+  1: "xl:grid-cols-1", 2: "xl:grid-cols-2", 3: "xl:grid-cols-3", 4: "xl:grid-cols-4", 5: "xl:grid-cols-5",
+};
+
+/** Legal Maze en horizontal: una columna por dilema con qué mide, la opción elegida, su lectura breve y el campo abierto.
+ *  Solo se muestran los dilemas que ha contestado alguien (`visible`). */
+function LegalCompact({ founder, visible }: { founder: FounderHdd; visible: ReadonlySet<string> }) {
   const lm = founder.legalMaze;
   if (!lm || !lm.dilemmas.length) return <p className="text-xs italic text-[var(--text-muted)]">Sin completar</p>;
   const byId = new Map(lm.dilemmas.map((d) => [d.id, d]));
   const flag = legalMazeFlags(lm.dilemmas).d1ChoseA;
+  const shown = LEGAL_MAZE_CONTENT.filter((c) => visible.has(c.id));
   return (
-    <ul className="grid grid-cols-1 gap-2 text-[11px] leading-snug sm:grid-cols-2 xl:grid-cols-5">
-      {LEGAL_MAZE_CONTENT.map((c) => {
+    <ul className={`grid grid-cols-1 gap-2 text-[11px] leading-snug sm:grid-cols-2 ${LEGAL_COLS[shown.length] ?? "xl:grid-cols-5"}`}>
+      {shown.map((c) => {
         const d = byId.get(c.id);
         const opt = typeof d?.choice === "number" ? c.options[d.choice] : null;
         const alert = c.id === "D1" && flag;
@@ -62,7 +57,7 @@ function LegalCompact({ founder }: { founder: FounderHdd }) {
               <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-[var(--series-1)] text-[10px]" style={alert ? { borderColor: "var(--status-critical)" } : undefined}>{opt ? opt.letter : "—"}</span>
               {c.id} · {c.theme}
             </span>
-            <span className="text-[10px] text-[var(--text-muted)]">Mide {c.kpiLabel}</span>
+            <span className="text-[10px] text-[var(--text-muted)]">Mide {c.kpiLabel}{opt && LEGAL_SCORE[c.id] ? ` · ${LEGAL_SCORE[c.id][d!.choice as 0 | 1 | 2]}/10` : ""}</span>
             {opt ? (
               <>
                 <span className="text-[var(--text-primary)]">{opt.short}</span>
@@ -134,47 +129,17 @@ function peerOf(all: FounderHdd[], selfId: string): Peer | null {
   return count ? { avg, count } : null;
 }
 
-/** KPI que mide cada dilema del Legal Maze → soft skill equivalente (Confianza = Self Confidence). */
-const LM_TO_SOFT: Record<string, SoftKpiKey | undefined> = {
-  Integridad: "integrity", "Ambición": "ambition_purpose", Confianza: "self_confidence", "Pensamiento no convencional": "unconventional_thinking",
-};
-
-/** Letras elegidas en los dilemas del Legal Maze que miden esta soft skill. */
-function LegalChips({ founder, skill }: { founder: FounderHdd; skill: SoftKpiKey }) {
-  const lm = founder.legalMaze;
-  if (!lm) return null;
-  const flag = legalMazeFlags(lm.dilemmas).d1ChoseA;
-  const byId = new Map(lm.dilemmas.map((d) => [d.id, d]));
-  return (
-    <>
-      {LEGAL_MAZE_CONTENT.filter((c) => LM_TO_SOFT[c.kpiLabel] === skill).map((c) => {
-        const d = byId.get(c.id);
-        const opt = typeof d?.choice === "number" ? c.options[d.choice] : null;
-        if (!opt) return null;
-        const alert = c.id === "D1" && flag;
-        return (
-          <span
-            key={c.id}
-            title={`Legal Maze ${c.id} · ${c.theme}: ${opt.gist}`}
-            className="rounded border px-1 text-[10px] leading-4 text-[var(--text-primary)]"
-            style={{ borderColor: alert ? "var(--status-critical)" : "var(--series-1)", background: alert ? "color-mix(in srgb, var(--status-critical) 12%, transparent)" : undefined }}
-          >
-            {c.id} {opt.letter}
-          </span>
-        );
-      })}
-    </>
-  );
-}
-
-function SoftRadar({ founder, peer }: { founder: FounderHdd; peer: Peer | null }) {
+/** `founder` trae las soft skills ya mezcladas con el Legal Maze; `raw` es el original, para el desglose del tooltip. */
+function SoftRadar({ founder, raw, peer }: { founder: FounderHdd; raw: FounderHdd; peer: Peer | null }) {
+  const lm = legalSoftScores(raw);
   const data = SOFT_KEYS.map((k) => ({
     skill: SOFT_SHORT[k], full: SOFT_LABEL[k], value: founder.soft[k]?.avg ?? 0, peer: peer?.avg[k] ?? null, n: founder.soft[k]?.n ?? 0,
     byEvent: EVENTS.map((e) => `${EVENT_SHORT[e]} ${founder.soft[k]?.byEvent[e] ? fmt(founder.soft[k]!.byEvent[e]!.avg) : "—"}`).join(" · "),
+    blend: lm[k] != null && raw.soft[k]?.n ? `equipo ${fmt(raw.soft[k]!.avg)} · Legal Maze ${fmt(lm[k])}` : null,
   }));
   return (
     <div className="flex flex-col gap-1">
-      <div className="h-56 w-full" role="img" aria-label={`Radar de soft skills de ${founder.fullName}`}>
+      <div className="h-64 w-full" role="img" aria-label={`Radar de soft skills de ${founder.fullName}`}>
         <ResponsiveContainer width="100%" height="100%">
           <RadarChart data={data} outerRadius="68%">
             <PolarGrid stroke="var(--gridline)" />
@@ -188,6 +153,7 @@ function SoftRadar({ founder, peer }: { founder: FounderHdd; peer: Peer | null }
                   <div className="card px-3 py-2 text-xs shadow-md">
                     <p className="font-medium text-[var(--text-primary)]">{p.full}</p>
                     <p className="text-[var(--text-secondary)]">{p.n ? `${fmt(p.value)} · n=${p.n}` : "Sin evaluaciones"}{p.peer != null && ` · media resto ${fmt(p.peer)}`}</p>
+                    {p.blend && <p className="text-[var(--text-muted)]">{p.blend}</p>}
                     {p.n > 0 && <p className="text-[var(--text-muted)]">{p.byEvent}</p>}
                   </div>
                 );
@@ -199,19 +165,6 @@ function SoftRadar({ founder, peer }: { founder: FounderHdd; peer: Peer | null }
         </ResponsiveContainer>
       </div>
       <RadarLegend peer={peer} />
-      <ul className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-[11px]">
-        {SOFT_KEYS.map((k) => {
-          const sk = founder.soft[k];
-          return (
-            <li key={k} className="flex items-center gap-1.5 text-[var(--text-secondary)]">
-              <span className="truncate">{SOFT_SHORT[k]}</span>
-              <LegalChips founder={founder} skill={k} />
-              <span className="ml-auto font-semibold tabular-nums text-[var(--text-primary)]">{sk?.n ? fmt(sk.avg) : "—"}</span>
-            </li>
-          );
-        })}
-      </ul>
-      <p className="text-[10px] text-[var(--text-muted)]">Las etiquetas D1 A, D2 B… son la opción elegida en el Legal Maze para esa skill (sin puntuación).</p>
     </div>
   );
 }
@@ -233,8 +186,9 @@ function ProfileBand({ founder, peer }: { founder: FounderHdd; peer: Peer | null
   );
 }
 
-function FounderRow({ founder, allFounders }: { founder: FounderHdd; allFounders: FounderHdd[] }) {
+function FounderRow({ founder, allFounders, legalVisible }: { founder: FounderHdd; allFounders: FounderHdd[]; legalVisible: ReadonlySet<string> }) {
   const peer = peerOf(allFounders, founder.personId);
+  const blended = blendLegal(founder);
   const [broken, setBroken] = useState(false);
   const evals = founder.evaluations.length;
   const hasSoft = SOFT_KEYS.some((k) => (founder.soft[k]?.n ?? 0) > 0);
@@ -254,12 +208,12 @@ function FounderRow({ founder, allFounders }: { founder: FounderHdd; allFounders
         </div>
       </header>
 
-      <ProfileBand founder={founder} peer={peer} />
+      <ProfileBand founder={blended} peer={peer} />
 
       <div className="grid grid-cols-1 gap-x-8 gap-y-4 md:grid-cols-12">
         <section className="md:col-span-5" aria-label="Soft skills">
-          <Label>Soft skills · 1-10 · con KPIs del Legal Maze</Label>
-          {hasSoft ? <SoftRadar founder={founder} peer={peer} /> : <p className="text-xs italic text-[var(--text-muted)]">Sin evaluaciones aún</p>}
+          <Label>Soft skills · 1-10</Label>
+          {hasSoft ? <SoftRadar founder={blended} raw={founder} peer={peer} /> : <p className="text-xs italic text-[var(--text-muted)]">Sin evaluaciones aún</p>}
         </section>
 
         <div className="flex flex-col gap-5 md:col-span-7">
@@ -282,33 +236,74 @@ function FounderRow({ founder, allFounders }: { founder: FounderHdd; allFounders
 
       <section aria-label="Legal Maze">
         <Label>Legal Maze · respuesta y lectura</Label>
-        <LegalCompact founder={founder} />
+        <LegalCompact founder={founder} visible={legalVisible} />
       </section>
     </article>
   );
 }
 
-function TeamStrip({ startup }: { startup: StartupHdd }) {
+const TEAM_SHORT: Record<TeamKpiKey, string> = {
+  trust_conflict_resolution: "Trust", clear_operational_roles: "Roles", complementary_personality: "Personality", vision_alignment: "Vision",
+};
+const HARD_SHORT: Record<HardKpiKey, string> = { niche_experience: "Niche", tech_experience: "Tech", go_to_market_experience: "GTM" };
+
+/** Araña del equipo: 4 KPIs de equipo + 3 hard skills (de los founders, se toma el mayor). */
+function TeamRadar({ startup }: { startup: StartupHdd }) {
   if (startup.founders.length < 2) {
     return <p className="text-xs italic text-[var(--text-muted)]">Un solo founder: no hay KPIs de equipo.</p>;
   }
-  const has = TEAM_KEYS.some((k) => (startup.team[k]?.n ?? 0) > 0);
-  if (!has) return <p className="text-xs italic text-[var(--text-muted)]">Sin evaluaciones de equipo aún.</p>;
+  const hardMax = (k: HardKpiKey) => {
+    const v = startup.founders.map((f) => f.hard[k]).filter((x): x is number => typeof x === "number");
+    return v.length ? Math.max(...v) : null;
+  };
+  const data = [
+    ...TEAM_KEYS.map((k) => {
+      const st = startup.team[k];
+      const has = !!st && st.n > 0;
+      return {
+        axis: TEAM_SHORT[k], full: TEAM_LABEL[k], value: has ? st.avg : 0, has,
+        note: has ? `n=${st.n} · ${EVENTS.map((e) => `${EVENT_SHORT[e]} ${st.byEvent[e] ? fmt(st.byEvent[e]!.avg) : "—"}`).join(" · ")}` : "Sin evaluaciones",
+      };
+    }),
+    ...HARD_KEYS.map((k) => {
+      const m = hardMax(k);
+      return { axis: HARD_SHORT[k], full: `${HARD_LABEL[k]} (hard skill)`, value: m ?? 0, has: m != null, note: "El mayor entre los founders" };
+    }),
+  ];
+  if (!data.some((d) => d.has)) return <p className="text-xs italic text-[var(--text-muted)]">Sin evaluaciones de equipo aún.</p>;
   return (
-    <div className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-4">
-      {TEAM_KEYS.map((k) => {
-        const s = startup.team[k];
-        const has = !!s && s.n > 0;
-        const title = has ? `n=${s.n} · ${EVENTS.map((e) => `${EVENT_SHORT[e]} ${s.byEvent[e] ? fmt(s.byEvent[e]!.avg) : "—"}`).join(" · ")}` : "Sin evaluaciones";
-        return <MiniBar key={k} label={TEAM_LABEL[k]} value={has ? s.avg : null} color="var(--series-1)" title={title} stacked />;
-      })}
+    <div className="h-60 w-full" role="img" aria-label="Radar del equipo: KPIs de equipo y hard skills">
+      <ResponsiveContainer width="100%" height="100%">
+        <RadarChart data={data} outerRadius="68%">
+          <PolarGrid stroke="var(--gridline)" />
+          <PolarAngleAxis dataKey="axis" tick={{ fill: "var(--text-secondary)", fontSize: 10 }} />
+          <PolarRadiusAxis angle={90} domain={[0, 10]} tickCount={3} tick={{ fill: "var(--text-muted)", fontSize: 9 }} axisLine={false} />
+          <Tooltip
+            content={({ active, payload }) => {
+              if (!active || !payload?.length) return null;
+              const p = payload[0].payload as (typeof data)[number];
+              return (
+                <div className="card px-3 py-2 text-xs shadow-md">
+                  <p className="font-medium text-[var(--text-primary)]">{p.full}</p>
+                  <p className="text-[var(--text-secondary)]">{p.has ? fmt(p.value) : "—"}</p>
+                  <p className="text-[var(--text-muted)]">{p.note}</p>
+                </div>
+              );
+            }}
+          />
+          <Radar dataKey="value" stroke="var(--series-1)" strokeWidth={2} fill="var(--series-1)" fillOpacity={0.18} />
+        </RadarChart>
+      </ResponsiveContainer>
     </div>
   );
 }
 
 /** Ficha de una startup en formato informe: cabecera, KPIs de equipo y una fila compacta por founder. */
 export function StartupReport({ startup, allStartups, onOpen }: { startup: StartupHdd; allStartups: StartupHdd[]; onOpen?: () => void }) {
-  const allFounders = allStartups.flatMap((x) => x.founders);
+  const allFounders = allStartups.flatMap((x) => x.founders).map(blendLegal);
+  const legalVisible = new Set(
+    LEGAL_MAZE_CONTENT.filter((c) => allFounders.some((f) => typeof f.legalMaze?.dilemmas.find((d) => d.id === c.id)?.choice === "number")).map((c) => c.id),
+  );
   const c = startup.coverage;
   const chips = [
     `Soft ${c.withSoft}/${c.founders}`, `Legal Maze ${c.withLegalMaze}/${c.founders}`,
@@ -333,17 +328,19 @@ export function StartupReport({ startup, allStartups, onOpen }: { startup: Start
         </ul>
       </header>
 
-      <div className="rounded-lg bg-[var(--column-band)] p-4">
-        <Label>Equipo · 1-10</Label>
-        <TeamStrip startup={startup} />
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <div className="rounded-lg bg-[var(--column-band)] p-4">
+          <Label>Equipo · 1-10 · con hard skills (el mayor entre founders)</Label>
+          <TeamRadar startup={startup} />
+        </div>
+        <WellbeingScatter startups={allStartups} selectedId={startup.startupId} compact mini />
       </div>
 
       <div className="flex flex-col divide-y divide-[var(--border)]">
         {startup.founders.length === 0
           ? <p className="text-sm italic text-[var(--text-muted)]">Sin founders en HDD</p>
-          : startup.founders.map((f) => <FounderRow key={f.personId} founder={f} allFounders={allFounders} />)}
+          : startup.founders.map((f) => <FounderRow key={f.personId} founder={f} allFounders={allFounders} legalVisible={legalVisible} />)}
       </div>
-      <WellbeingScatter startups={allStartups} selectedId={startup.startupId} compact />
     </section>
   );
 }

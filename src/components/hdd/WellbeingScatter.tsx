@@ -83,7 +83,7 @@ function ChartTooltip({ active, payload }: { active?: boolean; payload?: { paylo
   );
 }
 
-export function WellbeingScatter({ startups, selectedId, compact = false }: { startups: StartupHdd[]; selectedId: string | null; compact?: boolean }) {
+export function WellbeingScatter({ startups, selectedId, compact = false, mini = false }: { startups: StartupHdd[]; selectedId: string | null; compact?: boolean; mini?: boolean }) {
   // En la ficha de una startup arranca en la toma más completa que tenga (Pre → Post, si no Post, si no Pre).
   const [mode, setMode] = useState<ScatterMode>(() => {
     if (!compact || !selectedId) return "pre";
@@ -110,7 +110,9 @@ export function WellbeingScatter({ startups, selectedId, compact = false }: { st
   return (
     <ChartCard
       title="Resiliencia vs desconexión"
-      subtitle={compact
+      subtitle={mini
+        ? "BRS (más es mejor) vs Disengagement (menos es mejor). Tamaño = Exhaustion."
+        : compact
         ? "BRS (1 a 5, más es mejor) frente a Disengagement (OLBI, 1 a 4, menos es mejor). Tamaño = Exhaustion (OLBI, 1 a 4): más grande, más agotamiento."
         : "Un punto por founder: Resiliencia (BRS, 1 a 5, más es mejor) frente a Disengagement from Work (OLBI, 1 a 4, menos es mejor). El tamaño es Exhaustion (OLBI, 1 a 4): más grande, más agotamiento."}
     >
@@ -139,15 +141,15 @@ export function WellbeingScatter({ startups, selectedId, compact = false }: { st
             <>
               {!selectedHas && <p role="status" className="text-xs text-[var(--text-muted)]">Esta startup no tiene tomas completas en esta vista; se muestra el resto en gris como contexto.</p>}
               <div className="overflow-x-auto">
-                <div className={compact ? "h-[320px] min-w-[420px]" : "h-[440px] min-w-[520px]"} role="img" aria-label="Gráfico de dispersión de resiliencia frente a disengagement por founder; los mismos datos están en la tabla de abajo">
+                <div className={mini ? "h-[260px] min-w-[320px]" : compact ? "h-[320px] min-w-[420px]" : "h-[440px] min-w-[520px]"} role="img" aria-label="Gráfico de dispersión de resiliencia frente a disengagement por founder; los mismos datos están en la tabla de abajo">
                   <ResponsiveContainer width="100%" height="100%">
                     <ScatterChart margin={{ top: 12, right: 16, bottom: 28, left: 8 }}>
                       <CartesianGrid stroke="var(--gridline)" strokeDasharray="3 3" />
                       {/* Cuadrantes: corte BRS 3,0 (baja/normal) y punto medio OLBI 2,5. Eje Y invertido: arriba = menos desconexión. */}
-                      <ReferenceArea x1={BRS_LOW} x2={5} y1={1} y2={OLBI_MID} fill="var(--status-good)" fillOpacity={0.06} stroke="none" label={{ value: QUADRANT_LABEL.resiliente_comprometido, position: "insideTopRight", fill: "var(--text-secondary)", fontSize: 11 }} />
-                      <ReferenceArea x1={1} x2={BRS_LOW} y1={1} y2={OLBI_MID} fill="var(--series-1)" fillOpacity={0.04} stroke="none" label={{ value: QUADRANT_LABEL.poco_resiliente_comprometido, position: "insideTopLeft", fill: "var(--text-secondary)", fontSize: 11 }} />
-                      <ReferenceArea x1={BRS_LOW} x2={5} y1={OLBI_MID} y2={4} fill="var(--status-warning)" fillOpacity={0.06} stroke="none" label={{ value: QUADRANT_LABEL.resiliente_desconectado, position: "insideBottomRight", fill: "var(--text-secondary)", fontSize: 11 }} />
-                      <ReferenceArea x1={1} x2={BRS_LOW} y1={OLBI_MID} y2={4} fill="var(--status-critical)" fillOpacity={0.08} stroke="none" label={{ value: QUADRANT_LABEL.poco_resiliente_desconectado, position: "insideBottomLeft", fill: "var(--text-secondary)", fontSize: 11 }} />
+                      <ReferenceArea x1={BRS_LOW} x2={5} y1={1} y2={OLBI_MID} fill="var(--status-good)" fillOpacity={0.06} stroke="none" label={mini ? undefined : { value: QUADRANT_LABEL.resiliente_comprometido, position: "insideTopRight", fill: "var(--text-secondary)", fontSize: 11 }} />
+                      <ReferenceArea x1={1} x2={BRS_LOW} y1={1} y2={OLBI_MID} fill="var(--series-1)" fillOpacity={0.04} stroke="none" label={mini ? undefined : { value: QUADRANT_LABEL.poco_resiliente_comprometido, position: "insideTopLeft", fill: "var(--text-secondary)", fontSize: 11 }} />
+                      <ReferenceArea x1={BRS_LOW} x2={5} y1={OLBI_MID} y2={4} fill="var(--status-warning)" fillOpacity={0.06} stroke="none" label={mini ? undefined : { value: QUADRANT_LABEL.resiliente_desconectado, position: "insideBottomRight", fill: "var(--text-secondary)", fontSize: 11 }} />
+                      <ReferenceArea x1={1} x2={BRS_LOW} y1={OLBI_MID} y2={4} fill="var(--status-critical)" fillOpacity={0.08} stroke="none" label={mini ? undefined : { value: QUADRANT_LABEL.poco_resiliente_desconectado, position: "insideBottomLeft", fill: "var(--text-secondary)", fontSize: 11 }} />
                       <ReferenceLine x={BRS_LOW} stroke="var(--baseline)" strokeDasharray="4 3" />
                       <ReferenceLine x={BRS_HIGH} stroke="var(--baseline)" strokeDasharray="4 3" />
                       <ReferenceLine y={OLBI_MID} stroke="var(--baseline)" strokeDasharray="4 3" />
