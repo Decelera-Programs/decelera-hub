@@ -11,14 +11,26 @@ import { buildProfile } from "./profile";
 import { WellbeingScatter } from "./WellbeingScatter";
 import { EVENTS, EVENT_SHORT, fmt, HARD_KEYS, HARD_LABEL, initials, SOFT_KEYS, SOFT_LABEL, SOFT_SHORT, TEAM_KEYS, TEAM_LABEL } from "./labels";
 
-function MiniBar({ label, value, color, title }: { label: string; value: number | null | undefined; color: string; title?: string }) {
+function MiniBar({ label, value, color, title, stacked = false }: { label: string; value: number | null | undefined; color: string; title?: string; stacked?: boolean }) {
   const has = typeof value === "number" && Number.isFinite(value);
+  const bar = (
+    <div role="img" aria-label={`${label}: ${has ? fmt(value) : "sin datos"}`} className={`h-1.5 min-w-0 flex-1 overflow-hidden rounded-full ${stacked ? "bg-[var(--surface-1)]" : "bg-[var(--column-band)]"}`}>
+      {has && <div className="h-full rounded-full" style={{ width: `${Math.max(0, Math.min(100, (value / 10) * 100))}%`, background: color }} />}
+    </div>
+  );
+  const val = <span className="shrink-0 text-right font-semibold tabular-nums text-[var(--text-primary)]">{has ? fmt(value) : "—"}</span>;
+  if (stacked) {
+    return (
+      <div className="flex flex-col gap-1 text-xs" title={title}>
+        <span className="flex items-baseline justify-between gap-2 text-[var(--text-secondary)]"><span>{label}</span>{val}</span>
+        {bar}
+      </div>
+    );
+  }
   return (
     <div className="flex items-center gap-2 text-xs" title={title}>
       <span className="w-[4.5rem] shrink-0 truncate text-[var(--text-secondary)]">{label}</span>
-      <div role="img" aria-label={`${label}: ${has ? fmt(value) : "sin datos"}`} className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-[var(--column-band)]">
-        {has && <div className="h-full rounded-full" style={{ width: `${Math.max(0, Math.min(100, (value / 10) * 100))}%`, background: color }} />}
-      </div>
+      {bar}
       <span className="w-6 shrink-0 text-right font-semibold tabular-nums text-[var(--text-primary)]">{has ? fmt(value) : "—"}</span>
     </div>
   );
@@ -86,37 +98,22 @@ const WELLBEING: { key: keyof Omit<WellbeingTake, "completedAt">; label: string;
   { key: "resilience", label: "Resilience", lowerIsBetter: false, hint: "BRS 1-5 · más es mejor" },
 ];
 
-/** Bienestar de la startup en números: una fila por founder, pre → post de cada medida con su cambio. */
-function WellbeingTable({ founders }: { founders: FounderHdd[] }) {
-  if (!founders.some((f) => f.wellbeing.pre || f.wellbeing.post)) return <p className="text-xs italic text-[var(--text-muted)]">Sin respuestas de bienestar aún.</p>;
+function WellbeingCompact({ founder }: { founder: FounderHdd }) {
+  const { pre, post } = founder.wellbeing;
+  if (!pre && !post) return <p className="text-xs italic text-[var(--text-muted)]">Sin respuestas</p>;
   return (
     <table className="w-full text-xs">
-      <thead>
-        <tr className="text-right text-[var(--text-muted)]">
-          <th scope="col" className="py-1 text-left font-medium">Founder</th>
-          {WELLBEING.map((r) => <th key={r.key} scope="col" className="py-1 font-medium" title={r.hint}>{r.label}</th>)}
-        </tr>
-      </thead>
-      <tbody className="divide-y divide-[var(--border)]">
-        {founders.map((f) => {
-          const { pre, post } = f.wellbeing;
-          return (
-            <tr key={f.personId} className="text-right tabular-nums">
-              <th scope="row" className="py-1 text-left font-normal text-[var(--text-primary)]">{f.fullName.split(" ")[0]}</th>
-              {WELLBEING.map((r) => (
-                <td key={r.key} className="py-1" title={r.hint}>
-                  {!pre && !post ? <span className="text-[var(--text-muted)]">—</span> : (
-                    <>
-                      <span className="text-[var(--text-muted)]">{fmt(pre?.[r.key], 2)} →</span>{" "}
-                      <span className="font-semibold text-[var(--text-primary)]">{fmt(post?.[r.key], 2)}</span>{" "}
-                      <Change pre={pre?.[r.key] ?? null} post={post?.[r.key] ?? null} lowerIsBetter={r.lowerIsBetter} />
-                    </>
-                  )}
-                </td>
-              ))}
-            </tr>
-          );
-        })}
+      <thead className="sr-only"><tr><th>Medida</th><th>Pre</th><th>Post</th><th>Cambio</th></tr></thead>
+      <tbody>
+        {WELLBEING.map((r) => (
+          <tr key={r.key} title={r.hint}>
+            <th scope="row" className="py-0.5 pr-2 text-left font-normal text-[var(--text-secondary)]">{r.label}</th>
+            <td className="py-0.5 text-right tabular-nums text-[var(--text-muted)]">{fmt(pre?.[r.key], 2)}</td>
+            <td className="px-1 py-0.5 text-center text-[var(--text-muted)]">→</td>
+            <td className="py-0.5 text-right font-semibold tabular-nums text-[var(--text-primary)]">{fmt(post?.[r.key], 2)}</td>
+            <td className="w-4 py-0.5 text-right"><Change pre={pre?.[r.key] ?? null} post={post?.[r.key] ?? null} lowerIsBetter={r.lowerIsBetter} /></td>
+          </tr>
+        ))}
       </tbody>
     </table>
   );
@@ -260,28 +257,33 @@ function FounderRow({ founder, allFounders }: { founder: FounderHdd; allFounders
       <ProfileBand founder={founder} peer={peer} />
 
       <div className="grid grid-cols-1 gap-x-8 gap-y-4 md:grid-cols-12">
-        <section className="md:col-span-4" aria-label="Soft skills">
+        <section className="md:col-span-5" aria-label="Soft skills">
           <Label>Soft skills · 1-10 · con KPIs del Legal Maze</Label>
           {hasSoft ? <SoftRadar founder={founder} peer={peer} /> : <p className="text-xs italic text-[var(--text-muted)]">Sin evaluaciones aún</p>}
         </section>
 
-        <div className="flex flex-col gap-4 md:col-span-8">
+        <div className="flex flex-col gap-5 md:col-span-7">
           <section aria-label="Hard skills">
             <Label>Hard skills · 1-10</Label>
             {HARD_KEYS.some((k) => typeof founder.hard[k] === "number") ? (
-              <div className="grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-3">
+              <div className="flex flex-col gap-1.5">
                 {HARD_KEYS.map((k) => <MiniBar key={k} label={HARD_LABEL[k]} value={founder.hard[k]} color="var(--series-2)" />)}
               </div>
             ) : (
               <p className="text-xs italic text-[var(--text-muted)]">Sin valoraciones</p>
             )}
           </section>
-          <section aria-label="Legal Maze">
-            <Label>Legal Maze · respuesta y lectura</Label>
-            <LegalCompact founder={founder} />
+          <section aria-label="Bienestar">
+            <Label>Bienestar · pre → post</Label>
+            <WellbeingCompact founder={founder} />
           </section>
         </div>
       </div>
+
+      <section aria-label="Legal Maze">
+        <Label>Legal Maze · respuesta y lectura</Label>
+        <LegalCompact founder={founder} />
+      </section>
     </article>
   );
 }
@@ -293,12 +295,12 @@ function TeamStrip({ startup }: { startup: StartupHdd }) {
   const has = TEAM_KEYS.some((k) => (startup.team[k]?.n ?? 0) > 0);
   if (!has) return <p className="text-xs italic text-[var(--text-muted)]">Sin evaluaciones de equipo aún.</p>;
   return (
-    <div className="grid grid-cols-1 gap-x-8 gap-y-1 sm:grid-cols-2">
+    <div className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-4">
       {TEAM_KEYS.map((k) => {
         const s = startup.team[k];
         const has = !!s && s.n > 0;
         const title = has ? `n=${s.n} · ${EVENTS.map((e) => `${EVENT_SHORT[e]} ${s.byEvent[e] ? fmt(s.byEvent[e]!.avg) : "—"}`).join(" · ")}` : "Sin evaluaciones";
-        return <MiniBar key={k} label={TEAM_LABEL[k]} value={has ? s.avg : null} color="var(--series-1)" title={title} />;
+        return <MiniBar key={k} label={TEAM_LABEL[k]} value={has ? s.avg : null} color="var(--series-1)" title={title} stacked />;
       })}
     </div>
   );
@@ -331,20 +333,9 @@ export function StartupReport({ startup, allStartups, onOpen }: { startup: Start
         </ul>
       </header>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
-        <div className="flex flex-col gap-4 lg:col-span-2">
-          <div className="rounded-lg bg-[var(--column-band)] p-4">
-            <Label>Equipo · 1-10</Label>
-            <TeamStrip startup={startup} />
-          </div>
-          <div>
-            <Label>Bienestar · pre → post</Label>
-            <WellbeingTable founders={startup.founders} />
-          </div>
-        </div>
-        <div className="lg:col-span-3">
-          <WellbeingScatter startups={allStartups} selectedId={startup.startupId} compact />
-        </div>
+      <div className="rounded-lg bg-[var(--column-band)] p-4">
+        <Label>Equipo · 1-10</Label>
+        <TeamStrip startup={startup} />
       </div>
 
       <div className="flex flex-col divide-y divide-[var(--border)]">
@@ -352,6 +343,7 @@ export function StartupReport({ startup, allStartups, onOpen }: { startup: Start
           ? <p className="text-sm italic text-[var(--text-muted)]">Sin founders en HDD</p>
           : startup.founders.map((f) => <FounderRow key={f.personId} founder={f} allFounders={allFounders} />)}
       </div>
+      <WellbeingScatter startups={allStartups} selectedId={startup.startupId} compact />
     </section>
   );
 }
