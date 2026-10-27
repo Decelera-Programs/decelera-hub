@@ -15,12 +15,12 @@ test("puntúa D1-D4 según la opción elegida y se salta D5 y los sin respuesta"
   assert.deepEqual(legalSoftScores(founder({ D1: null })), {});
 });
 
-test("mezcla con la evaluación del equipo solo si la skill tiene evaluación", () => {
+test("mezcla con la evaluación del equipo; sin evaluación vale solo el Legal Maze", () => {
   const f = founder({ D1: 2, D2: 2 }, { integrity: stat(7), leadership: stat(5) });
   const b = blendLegal(f);
   assert.equal(b.soft.integrity.avg, 8.5); // (7 + 10) / 2
   assert.equal(b.soft.integrity.n, 2);
   assert.equal(b.soft.leadership.avg, 5); // no la mide el Legal Maze
-  assert.equal(b.soft.ambition_purpose, undefined); // sin evaluación del equipo: no se inventa
+  assert.deepEqual(b.soft.ambition_purpose, { avg: 9, n: 0, byEvent: {} }); // sin evaluación del equipo: solo la nota del Legal Maze
   assert.equal(f.soft.integrity.avg, 7); // no muta el original
 });

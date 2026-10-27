@@ -29,14 +29,14 @@ export function legalSoftScores(f: FounderHdd): Partial<Record<SoftKpiKey, numbe
 
 /**
  * Copia del founder con cada soft skill que mide el Legal Maze = media de la evaluación del equipo y el Legal Maze.
- * Solo si la skill tiene evaluación del equipo y respuesta puntuada; `n` y `byEvent` no cambian.
+ * Si la skill no tiene evaluación del equipo, vale solo la nota del Legal Maze (con `n: 0`). `n` y `byEvent` no cambian.
  */
 export function blendLegal(f: FounderHdd): FounderHdd {
   const lm = legalSoftScores(f);
   const soft = { ...f.soft };
   for (const [k, score] of Object.entries(lm) as [SoftKpiKey, number][]) {
     const s = f.soft[k];
-    if (s && s.n > 0) soft[k] = { ...s, avg: (s.avg + score) / 2 };
+    soft[k] = s && s.n > 0 ? { ...s, avg: (s.avg + score) / 2 } : { avg: score, n: 0, byEvent: {} };
   }
   return { ...f, soft };
 }

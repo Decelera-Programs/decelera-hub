@@ -16,7 +16,7 @@ const list = (xs: string[]) => (xs.length > 1 ? `${xs.slice(0, -1).join(", ")} y
 export function buildProfile(f: FounderHdd, peer: PeerAvg): ProfileLine[] {
   const out: ProfileLine[] = [];
 
-  const soft = SOFT_KEYS.filter((k) => (f.soft[k]?.n ?? 0) > 0).map((k) => ({ k, v: f.soft[k]!.avg, p: peer?.[k] }));
+  const soft = SOFT_KEYS.filter((k) => f.soft[k] != null).map((k) => ({ k, v: f.soft[k]!.avg, p: peer?.[k] }));
   if (soft.length >= 3) {
     // Con media del resto, se ordena por diferencia (lo que destaca); sin ella, por valor absoluto.
     const score = (x: (typeof soft)[number]) => (x.p != null ? x.v - x.p : x.v);

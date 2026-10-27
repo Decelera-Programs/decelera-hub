@@ -6,7 +6,7 @@ import { PolarAngleAxis, PolarGrid, PolarRadiusAxis, Radar, RadarChart, Responsi
 import { legalMazeFlags } from "@/lib/hdd/aggregate";
 import { blendLegal, LEGAL_SCORE, legalSoftScores, legalTone, type LegalTone } from "@/lib/hdd/legalScore";
 import { LEGAL_MAZE_CONTENT } from "@/lib/hdd/legalMazeContent";
-import type { FounderHdd, HardKpiKey, SoftKpiKey, StartupHdd, WellbeingTake } from "@/lib/hdd/types";
+import type { FounderHdd, SoftKpiKey, StartupHdd, WellbeingTake } from "@/lib/hdd/types";
 import { RadarLegend, type SoftPeer } from "./FounderCard";
 import { buildProfile } from "./profile";
 import { WellbeingScatter } from "./WellbeingScatter";
@@ -129,9 +129,9 @@ function peerOf(all: FounderHdd[], selfId: string): Peer | null {
   const others = all.filter((f) => f.personId !== selfId);
   const avg: Partial<Record<SoftKpiKey, number>> = {};
   let count = 0;
-  for (const f of others) if (SOFT_KEYS.some((k) => (f.soft[k]?.n ?? 0) > 0)) count++;
+  for (const f of others) if (SOFT_KEYS.some((k) => f.soft[k] != null)) count++;
   for (const k of SOFT_KEYS) {
-    const v = others.map((f) => (f.soft[k]?.n ? f.soft[k]!.avg : null)).filter((x): x is number => x != null);
+    const v = others.map((f) => f.soft[k]?.avg ?? null).filter((x): x is number => x != null);
     if (v.length) avg[k] = v.reduce((a, b) => a + b, 0) / v.length;
   }
   return count ? { avg, count } : null;
@@ -251,69 +251,99 @@ function FounderRow({ founder, allFounders, legalVisible }: { founder: FounderHd
   );
 }
 
-/** Etiqueta de eje que parte los nombres largos en varias líneas (cabe "Trust & Conflict Resolution" en la araña de equipo). */
-function WrapTick({ x: rx = 0, y: ry = 0, payload, textAnchor }: { x?: number | string; y?: number | string; payload?: { value: string | number }; textAnchor?: "start" | "middle" | "end" | "inherit" }) {
-  const x = Number(rx), y = Number(ry);
+/** Etiqueta de eje que parte los nombres largos en varias líneas y se recoloca según su posición respecto al centro. */
+function WrapTick({ x: rx = 0, y: ry = 0, cy: rcy = 0, payload, textAnchor }: {
+  x?: number | string; y?: number | string; cy?: number | string; payload?: { value: string | number }; textAnchor?: "start" | "middle" | "end" | "inherit";
+}) {
+  const x = Number(rx), y = Number(ry), cy = Number(rcy);
   const lines: string[] = [];
   for (const w of String(payload?.value ?? "").split(" ")) {
     const last = lines[lines.length - 1];
     if (last !== undefined && last.length + w.length < 14) lines[lines.length - 1] = `${last} ${w}`;
     else lines.push(w);
   }
+  // Arriba: las líneas crecen hacia arriba; a los lados, centradas en vertical; abajo: hacia abajo.
+  const first = y < cy - 8 ? -(lines.length - 1) * 11 : Math.abs(y - cy) <= 8 ? -(lines.length - 1) * 5.5 : 0;
   return (
-    <text x={x} y={y} textAnchor={textAnchor} fill="var(--text-secondary)" fontSize={10}>
+    <text x={x} y={y + first} textAnchor={textAnchor} fill="var(--text-secondary)" fontSize={10}>
       {lines.map((l, i) => <tspan key={i} x={x} dy={i === 0 ? 0 : 11}>{l}</tspan>)}
     </text>
   );
 }
 
-/** Araña del equipo: 4 KPIs de equipo + 3 hard skills (de los founders, se toma el mayor). */
-function TeamRadar({ startup }: { startup: StartupHdd }) {
+/** KPIs de equipo y hard skills (el mayor entre los founders) de una startup. null = sin dato. */
+function teamValues(st: StartupHdd): Record<string, number | null> {
+  const out: Record<string, number | null> = {};
+  for (const k of TEAM_KEYS) out[k] = (st.team[k]?.n ?? 0) > 0 ? st.team[k]!.avg : null;
+  for (const k of HARD_KEYS) {
+    const v = st.founders.map((f) => f.hard[k]).filter((x): x is number => typeof x === "number");
+    out[k] = v.length ? Math.max(...v) : null;
+  }
+  return out;
+}
+
+/** Araña del equipo: 4 KPIs de equipo + 3 hard skills (de los founders, se toma el mayor), frente a la media del resto de equipos. */
+function TeamRadar({ startup, allStartups }: { startup: StartupHdd; allStartups: StartupHdd[] }) {
   if (startup.founders.length < 2) {
     return <p className="text-xs italic text-[var(--text-muted)]">Un solo founder: no hay KPIs de equipo.</p>;
   }
-  const hardMax = (k: HardKpiKey) => {
-    const v = startup.founders.map((f) => f.hard[k]).filter((x): x is number => typeof x === "number");
-    return v.length ? Math.max(...v) : null;
+  const mine = teamValues(startup);
+  const others = allStartups.filter((x) => x.startupId !== startup.startupId && x.founders.length >= 2).map(teamValues);
+  const peerOfAxis = (k: string) => {
+    const v = others.map((o) => o[k]).filter((x): x is number => x != null);
+    return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null;
   };
+  const peerTeams = others.filter((o) => Object.values(o).some((x) => x != null)).length;
   const data = [
     ...TEAM_KEYS.map((k) => {
       const st = startup.team[k];
-      const has = !!st && st.n > 0;
+      const has = mine[k] != null;
       return {
-        axis: TEAM_LABEL[k], full: TEAM_LABEL[k], value: has ? st.avg : 0, has,
-        note: has ? `n=${st.n} · ${EVENTS.map((e) => `${EVENT_SHORT[e]} ${st.byEvent[e] ? fmt(st.byEvent[e]!.avg) : "—"}`).join(" · ")}` : "Sin evaluaciones",
+        axis: TEAM_LABEL[k], full: TEAM_LABEL[k], value: mine[k] ?? 0, has, peer: peerOfAxis(k),
+        note: has && st ? `n=${st.n} · ${EVENTS.map((e) => `${EVENT_SHORT[e]} ${st.byEvent[e] ? fmt(st.byEvent[e]!.avg) : "—"}`).join(" · ")}` : "Sin evaluaciones",
       };
     }),
-    ...HARD_KEYS.map((k) => {
-      const m = hardMax(k);
-      return { axis: HARD_LABEL[k], full: `${HARD_LABEL[k]} (hard skill)`, value: m ?? 0, has: m != null, note: "El mayor entre los founders" };
-    }),
+    ...HARD_KEYS.map((k) => ({
+      axis: HARD_LABEL[k], full: `${HARD_LABEL[k]} (hard skill)`, value: mine[k] ?? 0, has: mine[k] != null, peer: peerOfAxis(k), note: "El mayor entre los founders",
+    })),
   ];
   if (!data.some((d) => d.has)) return <p className="text-xs italic text-[var(--text-muted)]">Sin evaluaciones de equipo aún.</p>;
+  const hasPeer = peerTeams > 0;
   return (
-    <div className="h-72 w-full" role="img" aria-label="Radar del equipo: KPIs de equipo y hard skills">
-      <ResponsiveContainer width="100%" height="100%">
-        <RadarChart data={data} outerRadius="58%">
-          <PolarGrid stroke="var(--gridline)" />
-          <PolarAngleAxis dataKey="axis" tick={(props) => <WrapTick {...props} />} />
-          <PolarRadiusAxis angle={90} domain={[0, 10]} tickCount={3} tick={{ fill: "var(--text-muted)", fontSize: 9 }} axisLine={false} />
-          <Tooltip
-            content={({ active, payload }) => {
-              if (!active || !payload?.length) return null;
-              const p = payload[0].payload as (typeof data)[number];
-              return (
-                <div className="card px-3 py-2 text-xs shadow-md">
-                  <p className="font-medium text-[var(--text-primary)]">{p.full}</p>
-                  <p className="text-[var(--text-secondary)]">{p.has ? fmt(p.value) : "—"}</p>
-                  <p className="text-[var(--text-muted)]">{p.note}</p>
-                </div>
-              );
-            }}
-          />
-          <Radar dataKey="value" stroke="var(--series-1)" strokeWidth={2} fill="var(--series-1)" fillOpacity={0.18} />
-        </RadarChart>
-      </ResponsiveContainer>
+    <div className="flex flex-col gap-1">
+      <div className="h-80 w-full" role="img" aria-label="Radar del equipo: KPIs de equipo y hard skills">
+        <ResponsiveContainer width="100%" height="100%">
+          <RadarChart data={data} margin={{ top: 28, right: 84, bottom: 28, left: 84 }} outerRadius="95%">
+            <PolarGrid stroke="var(--gridline)" />
+            <PolarAngleAxis dataKey="axis" tick={(props) => <WrapTick {...props} />} />
+            <PolarRadiusAxis angle={90} domain={[0, 10]} tickCount={3} tick={{ fill: "var(--text-muted)", fontSize: 9 }} axisLine={false} />
+            <Tooltip
+              content={({ active, payload }) => {
+                if (!active || !payload?.length) return null;
+                const p = payload[0].payload as (typeof data)[number];
+                return (
+                  <div className="card px-3 py-2 text-xs shadow-md">
+                    <p className="font-medium text-[var(--text-primary)]">{p.full}</p>
+                    <p className="text-[var(--text-secondary)]">{p.has ? fmt(p.value) : "—"}{p.peer != null && ` · media resto ${fmt(p.peer)}`}</p>
+                    <p className="text-[var(--text-muted)]">{p.note}</p>
+                  </div>
+                );
+              }}
+            />
+            {hasPeer && <Radar dataKey="peer" stroke="var(--series-3)" strokeWidth={1.5} strokeOpacity={0.7} fill="var(--brand-sun)" fillOpacity={0.14} />}
+            <Radar dataKey="value" stroke="var(--series-1)" strokeWidth={2} fill="var(--series-1)" fillOpacity={0.18} />
+          </RadarChart>
+        </ResponsiveContainer>
+      </div>
+      <p className="flex flex-wrap items-center gap-x-3 text-[11px] text-[var(--text-muted)]">
+        <span className="inline-flex items-center gap-1"><span aria-hidden className="h-2 w-2 rounded-sm" style={{ background: "var(--series-1)" }} />Este equipo</span>
+        {hasPeer && (
+          <span className="inline-flex items-center gap-1">
+            <span aria-hidden className="h-2 w-2 rounded-sm" style={{ background: "var(--brand-sun)" }} />
+            Media del resto ({peerTeams} {peerTeams === 1 ? "equipo" : "equipos"} de 2 o más founders)
+          </span>
+        )}
+      </p>
     </div>
   );
 }
@@ -351,7 +381,7 @@ export function StartupReport({ startup, allStartups, onOpen }: { startup: Start
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <div className="rounded-lg bg-[var(--column-band)] p-4">
           <Label>Equipo · 1-10 · con hard skills (el mayor entre founders)</Label>
-          <TeamRadar startup={startup} />
+          <TeamRadar startup={startup} allStartups={allStartups} />
         </div>
         <WellbeingScatter startups={allStartups} selectedId={startup.startupId} compact mini />
       </div>
