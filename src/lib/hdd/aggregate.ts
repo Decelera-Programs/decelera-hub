@@ -284,8 +284,8 @@ export interface ScatterSeriesPoint extends ScatterTake { kind: "pre" | "post" }
 export interface ScatterSeries { point: ScatterPoint; pts: ScatterSeriesPoint[] }
 
 /**
- * Filas a dibujar según el modo: "pre" o "post" = una toma por founder (si la tiene); "delta" = solo founders con
- * las dos tomas (pre y post), para unirlas con una línea. Orden estable: el de entrada.
+ * Filas a dibujar según el modo: "pre" o "post" = una toma por founder (si la tiene); "delta" = las tomas que tenga
+ * cada founder (las dos, unidas con una línea, o solo la que exista). Orden estable: el de entrada.
  */
 export function scatterSeries(points: ScatterPoint[], mode: ScatterMode): ScatterSeries[] {
   const out: ScatterSeries[] = [];
@@ -293,7 +293,7 @@ export function scatterSeries(points: ScatterPoint[], mode: ScatterMode): Scatte
     const { pre, post } = point;
     if (mode === "pre" && pre) out.push({ point, pts: [{ kind: "pre", ...pre }] });
     else if (mode === "post" && post) out.push({ point, pts: [{ kind: "post", ...post }] });
-    else if (mode === "delta" && pre && post) out.push({ point, pts: [{ kind: "pre", ...pre }, { kind: "post", ...post }] });
+    else if (mode === "delta" && (pre || post)) out.push({ point, pts: [...(pre ? [{ kind: "pre" as const, ...pre }] : []), ...(post ? [{ kind: "post" as const, ...post }] : [])] });
   }
   return out;
 }

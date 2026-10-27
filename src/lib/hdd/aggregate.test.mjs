@@ -161,8 +161,10 @@ test("scatter: solo tomas con BRS y Disengagement; modos pre/post/delta; cuadran
   assert.equal(scatterSeries(pts, "pre").length, nPre);
   assert.equal(scatterSeries(pts, "post").length, nPost);
   const delta = scatterSeries(pts, "delta");
-  assert.equal(delta.length, nBoth);
-  assert.ok(delta.every((s) => s.pts.length === 2 && s.pts[0].kind === "pre" && s.pts[1].kind === "post"));
+  assert.equal(delta.length, pts.filter((p) => p.pre || p.post).length);
+  assert.equal(delta.filter((s) => s.pts.length === 2).length, nBoth);
+  assert.ok(delta.every((s) => s.pts.length === 2 ? s.pts[0].kind === "pre" && s.pts[1].kind === "post" : s.pts.length === 1));
+  assert.deepEqual(delta.find((s) => s.point.fullName === "Dani").pts.map((q) => q.kind), ["pre"]); // solo pre: también se ve
   const rod = pts.find((p) => p.fullName === "Rodrigo Paz"); // post sin Disengagement: no hay toma post en el scatter
   assert.ok(rod.pre && rod.post === null);
   for (const s of scatterSeries(pts, "pre")) for (const q of s.pts) {

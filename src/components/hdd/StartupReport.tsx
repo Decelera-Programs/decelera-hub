@@ -55,7 +55,12 @@ function LegalCompact({ founder, visible }: { founder: FounderHdd; visible: Read
         const score = opt && d && typeof d.choice === "number" ? LEGAL_SCORE[c.id]?.[d.choice] : undefined;
         const tone = score != null ? TONE[legalTone(score)] : null;
         return (
-          <li key={c.id} className="flex flex-col gap-1.5 rounded-lg border border-[var(--border)] p-2.5">
+          <li key={c.id} tabIndex={0} className="group relative flex flex-col gap-1.5 rounded-lg border border-[var(--border)] p-2.5 outline-none focus-visible:ring-1 focus-visible:ring-[var(--brand-sun)]">
+            <span role="tooltip" className="pointer-events-none invisible absolute left-0 right-0 top-full z-20 mt-1 rounded-lg border border-[var(--border)] bg-[var(--surface-1)] p-3 text-[11px] normal-case leading-snug text-[var(--text-secondary)] opacity-0 shadow-lg transition-opacity group-hover:visible group-hover:opacity-100 group-focus-visible:visible group-focus-visible:opacity-100">
+              <span className="block text-[10px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">{c.title}</span>
+              <span className="mt-1 block text-[var(--text-primary)]">{c.scenario}</span>
+              {opt && <span className="mt-2 block border-t border-[var(--border)] pt-2"><span className="font-semibold">Eligió {opt.letter}:</span> {opt.text}</span>}
+            </span>
             <span className="flex items-center gap-1.5 text-[11px] font-semibold text-[var(--text-primary)]">
               <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-[var(--border)] text-[10px] text-[var(--text-secondary)]">{opt ? opt.letter : "—"}</span>
               {c.id} · {c.theme}

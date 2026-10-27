@@ -136,7 +136,7 @@ export function WellbeingScatter({ startups, selectedId, compact = false, mini =
           </div>
 
           {series.length === 0 ? (
-            <Empty>{mode === "delta" ? "Ningún founder tiene a la vez toma pre y toma post completas" : `Ningún founder tiene toma ${mode === "pre" ? "pre" : "post"} completa`}</Empty>
+            <Empty>{mode === "delta" ? "Ningún founder tiene toma pre ni post completa" : `Ningún founder tiene toma ${mode === "pre" ? "pre" : "post"} completa`}</Empty>
           ) : (
             <>
               {!selectedHas && <p role="status" className="text-xs text-[var(--text-muted)]">Esta startup no tiene tomas completas en esta vista; se muestra el resto en gris como contexto.</p>}
@@ -226,7 +226,7 @@ export function WellbeingScatter({ startups, selectedId, compact = false, mini =
                 <>
               <p className="text-xs text-[var(--text-muted)]">
                 Líneas de referencia: BRS 3,0 y 4,3 (cortes habituales: &lt; 3,0 baja, 3,0 a 4,3 normal, &gt; 4,3 alta) y Disengagement 2,5 (punto medio de la escala 1 a 4; no hay cortes clínicos estándar en OLBI).
-                {mode === "delta" ? " En Pre → Post solo aparecen founders con las dos tomas completas." : ""}
+                {mode === "delta" ? " En Pre → Post, quien solo tiene una toma aparece con un único punto (hueco = solo pre)." : ""}
               </p>
 
               <details className="text-sm">

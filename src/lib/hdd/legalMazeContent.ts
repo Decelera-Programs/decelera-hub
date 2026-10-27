@@ -23,12 +23,15 @@ export interface LegalDilemmaContent {
   kpiLabel: string;
   /** Subtítulo del doc tras el KPI. */
   hook: string;
+  /** Planteamiento del dilema, literal del formulario (legal-maze-forms/server/dilemmas.js). */
+  scenario: string;
   options: [LegalOptionContent, LegalOptionContent, LegalOptionContent];
 }
 
 export const LEGAL_MAZE_CONTENT: LegalDilemmaContent[] = [
   {
     id: "D1", title: "Dilema 1 — Socios", theme: "Socios", kpiLabel: "Integridad", hook: "El cliff que no existe en papel",
+    scenario: "Tu socio técnico te avisa que se va en tres meses por motivos personales. Acordaron de palabra un vesting de cuatro años con cliff de uno; lleva diez meses. Nunca lo firmaron. Él está convencido de que ya casi cumple el año y de que le toca su parte. Si dejas correr dos meses, se va tranquilo creyendo que cumplió. Si formalizas hoy, no le toca nada y esos puntos se quedan contigo.",
     options: [
       {
         letter: "A", short: "Formaliza ahora, con fechas que lo dejan fuera", gist: "Ordena el cap table, pero usa el papel contra quien confió.",
@@ -52,6 +55,7 @@ export const LEGAL_MAZE_CONTENT: LegalDilemmaContent[] = [
   },
   {
     id: "D2", title: "Dilema 2 — Inversionista", theme: "Inversionista", kpiLabel: "Ambición", hook: "El term sheet único",
+    scenario: "Te quedan dos meses de caja. Un fondo regional ofrece USD 1M condicionado al flip a Delaware, con 2x participating liquidation preference y veto sobre contrataciones arriba de cierto sueldo. Tu abogado dice que es agresivo. El socio del fondo dice, muy tranquilo, que en LATAM es lo estándar. Es la única oferta sobre la mesa.",
     options: [
       {
         letter: "A", short: "Rechaza y deja que la empresa muera", gist: "Protege el control, pero confunde principios con parálisis.",
@@ -75,6 +79,7 @@ export const LEGAL_MAZE_CONTENT: LegalDilemmaContent[] = [
   },
   {
     id: "D3", title: "Dilema 3 — Cliente", theme: "Cliente", kpiLabel: "Confianza", hook: "El cliente que paga tres veces más",
+    scenario: "Descubres que tienes un cliente al que llevas seis meses cobrándole de más: USD 40k acumulados, un precio que es 3x el que pagan los demás clientes por lo mismo. El cliente no lo ha notado y está por renovar contrato el mes que entra. ¿Cómo gestionarías esta situación?",
     options: [
       {
         letter: "A", short: "Ajusta el pricing al resto de clientes", gist: "Lee el dato como prueba de mercado; arriesga clientes bien valorados.",
@@ -98,6 +103,7 @@ export const LEGAL_MAZE_CONTENT: LegalDilemmaContent[] = [
   },
   {
     id: "D4", title: "Dilema 4 — Comprador", theme: "Comprador", kpiLabel: "Pensamiento no convencional", hook: "La oferta que deja a tu socio fuera",
+    scenario: "Un corporativo grande ofrece comprar la empresa por 10x lo que vale hoy, con dos condiciones: earn-out de cuatro años, y tu socio queda fuera del deal. Solo te quieren a ti. Él todavía no sabe nada.",
     options: [
       {
         letter: "A", short: "Una reunión más antes de contarle", gist: "Se informa antes de abrir el tema, pero cada reunión dificulta contarlo.",
@@ -121,6 +127,7 @@ export const LEGAL_MAZE_CONTENT: LegalDilemmaContent[] = [
   },
   {
     id: "D5", title: "Dilema 5 — Socios", theme: "Socios", kpiLabel: "Integridad", hook: "El socio ausente, versión secundario",
+    scenario: "La Serie A cierra en tres semanas. El fondo permite un secundario de USD 800k y ni un peso más: ese es el total para repartir. Tu socio lleva tres meses sin aportar por algo personal serio y real, y no sabes si va a volver. Tú llevas cuatro años cobrando por debajo de mercado y tienes toda tu vida metida aquí. El fondo no ha preguntado por él y nadie ha puesto el tema sobre la mesa.",
     options: [
       {
         letter: "A", short: "Toma los 800k él o ella", gist: "Argumento real sobre la compañía para resolver un problema propio.",
