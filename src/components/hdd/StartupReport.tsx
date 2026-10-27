@@ -2,14 +2,15 @@
 
 /* eslint-disable @next/next/no-img-element */
 import { useState, type ReactNode } from "react";
+import { PolarAngleAxis, PolarGrid, PolarRadiusAxis, Radar, RadarChart, ResponsiveContainer, Tooltip } from "recharts";
 import { legalMazeFlags } from "@/lib/hdd/aggregate";
 import { LEGAL_MAZE_CONTENT } from "@/lib/hdd/legalMazeContent";
-import type { FounderHdd, StartupHdd, WellbeingTake } from "@/lib/hdd/types";
-import { FounderPanel, HardSkills, SoftSkills, Wellbeing } from "./FounderCard";
+import type { FounderHdd, SoftKpiKey, StartupHdd, WellbeingTake } from "@/lib/hdd/types";
+import { FounderPanel, HardSkills, RadarLegend, Wellbeing, type SoftPeer } from "./FounderCard";
 import { LegalMaze } from "./LegalMaze";
-import { EVENTS, EVENT_SHORT, fmt, HARD_KEYS, HARD_LABEL, initials, SOFT_KEYS, SOFT_SHORT, TEAM_KEYS, TEAM_LABEL } from "./labels";
+import { buildProfile } from "./profile";
+import { EVENTS, EVENT_SHORT, fmt, HARD_KEYS, HARD_LABEL, initials, SOFT_KEYS, SOFT_LABEL, SOFT_SHORT, TEAM_KEYS, TEAM_LABEL } from "./labels";
 
-const LETTERS = ["A", "B", "C"] as const;
 
 function MiniBar({ label, value, color, title }: { label: string; value: number | null | undefined; color: string; title?: string }) {
   const has = typeof value === "number" && Number.isFinite(value);
@@ -28,35 +29,54 @@ function Label({ children }: { children: ReactNode }) {
   return <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">{children}</p>;
 }
 
-function LegalChips({ founder }: { founder: FounderHdd }) {
+/** Legal Maze con su lectura: por dilema, la opción elegida, qué mide y cómo la interpreta el doc (Positivo / Negativo). */
+function LegalReading({ founder }: { founder: FounderHdd }) {
   const lm = founder.legalMaze;
-  if (!lm || !lm.dilemmas.length) return <p className="text-xs italic text-[var(--text-muted)]">Sin completar</p>;
+  if (!lm || !lm.dilemmas.length) return <p className="text-xs italic text-[var(--text-muted)]">Legal Maze sin completar</p>;
   const byId = new Map(lm.dilemmas.map((d) => [d.id, d]));
   const flag = legalMazeFlags(lm.dilemmas).d1ChoseA;
   return (
-    <div className="flex flex-col gap-1.5">
-      <div className="flex gap-1">
+    <div className="flex flex-col gap-2">
+      {flag && (
+        <p className="text-xs text-[var(--status-critical)]">
+          Señal a revisar: eligió A en el Dilema 1, la casilla que más pesa de toda la hoja según el doc.
+        </p>
+      )}
+      <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5">
         {LEGAL_MAZE_CONTENT.map((c) => {
-          const ch = byId.get(c.id)?.choice;
-          const letter = typeof ch === "number" ? LETTERS[ch] : "—";
+          const d = byId.get(c.id);
+          const opt = typeof d?.choice === "number" ? c.options[d.choice] : null;
           const alert = c.id === "D1" && flag;
           return (
-            <span
+            <li
               key={c.id}
-              title={`${c.id} · ${c.theme} (${c.kpiLabel})`}
-              className="flex flex-col items-center rounded-md border px-1.5 py-0.5 text-[10px] leading-tight text-[var(--text-muted)]"
+              className="flex flex-col gap-1.5 rounded-lg border p-2.5 text-[11px] leading-snug"
               style={{
                 borderColor: alert ? "var(--status-critical)" : "var(--border)",
-                background: alert ? "color-mix(in srgb, var(--status-critical) 12%, transparent)" : undefined,
+                background: alert ? "color-mix(in srgb, var(--status-critical) 8%, transparent)" : undefined,
               }}
             >
-              {c.id}
-              <span className="text-sm font-semibold text-[var(--text-primary)]">{letter}</span>
-            </span>
+              <span className="font-semibold text-[var(--text-primary)]">
+                {c.id} · {c.theme}
+                <span className="block font-normal text-[var(--text-muted)]">Mide {c.kpiLabel}</span>
+              </span>
+              {!opt ? (
+                <span className="italic text-[var(--text-muted)]">{d ? "Sin opción elegida" : "Sin respuesta"}</span>
+              ) : (
+                <>
+                  <span className="flex items-start gap-1.5 text-[var(--text-primary)]">
+                    <span className="mt-px inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-[var(--series-1)] text-[10px] font-semibold">{opt.letter}</span>
+                    {opt.short}
+                  </span>
+                  <span className="text-[var(--text-secondary)]"><b className="text-[var(--text-primary)]">A favor:</b> {opt.positive}</span>
+                  <span className="text-[var(--text-secondary)]"><b className="text-[var(--text-primary)]">A vigilar:</b> {opt.negative}</span>
+                </>
+              )}
+            </li>
           );
         })}
-      </div>
-      {flag && <p className="text-[11px] text-[var(--status-critical)]">Eligió A en D1 (señal a revisar)</p>}
+      </ul>
+      <p className="text-[10px] text-[var(--text-muted)]">Lectura del facilitador según el doc “26MEX Legal maze v3 DEF”; no es una puntuación.</p>
     </div>
   );
 }
@@ -100,7 +120,143 @@ function WellbeingCompact({ founder }: { founder: FounderHdd }) {
   );
 }
 
-function FounderRow({ founder }: { founder: FounderHdd }) {
+type Peer = SoftPeer;
+
+/** Media de cada soft skill entre el resto de founders (cada founder pesa lo mismo); excluye al propio. */
+function peerOf(all: FounderHdd[], selfId: string): Peer | null {
+  const others = all.filter((f) => f.personId !== selfId);
+  const avg: Partial<Record<SoftKpiKey, number>> = {};
+  let count = 0;
+  for (const f of others) if (SOFT_KEYS.some((k) => (f.soft[k]?.n ?? 0) > 0)) count++;
+  for (const k of SOFT_KEYS) {
+    const v = others.map((f) => (f.soft[k]?.n ? f.soft[k]!.avg : null)).filter((x): x is number => x != null);
+    if (v.length) avg[k] = v.reduce((a, b) => a + b, 0) / v.length;
+  }
+  return count ? { avg, count } : null;
+}
+
+function SoftRadar({ founder, peer }: { founder: FounderHdd; peer: Peer | null }) {
+  const data = SOFT_KEYS.map((k) => ({
+    skill: SOFT_SHORT[k], full: SOFT_LABEL[k], value: founder.soft[k]?.avg ?? 0, peer: peer?.avg[k] ?? null, n: founder.soft[k]?.n ?? 0,
+    byEvent: EVENTS.map((e) => `${EVENT_SHORT[e]} ${founder.soft[k]?.byEvent[e] ? fmt(founder.soft[k]!.byEvent[e]!.avg) : "—"}`).join(" · "),
+  }));
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="h-56 w-full" role="img" aria-label={`Radar de soft skills de ${founder.fullName}`}>
+        <ResponsiveContainer width="100%" height="100%">
+          <RadarChart data={data} outerRadius="68%">
+            <PolarGrid stroke="var(--gridline)" />
+            <PolarAngleAxis dataKey="skill" tick={{ fill: "var(--text-secondary)", fontSize: 10 }} />
+            <PolarRadiusAxis angle={90} domain={[0, 10]} tickCount={3} tick={{ fill: "var(--text-muted)", fontSize: 9 }} axisLine={false} />
+            <Tooltip
+              content={({ active, payload }) => {
+                if (!active || !payload?.length) return null;
+                const p = payload[0].payload as (typeof data)[number];
+                return (
+                  <div className="card px-3 py-2 text-xs shadow-md">
+                    <p className="font-medium text-[var(--text-primary)]">{p.full}</p>
+                    <p className="text-[var(--text-secondary)]">{p.n ? `${fmt(p.value)} · n=${p.n}` : "Sin evaluaciones"}{p.peer != null && ` · media resto ${fmt(p.peer)}`}</p>
+                    {p.n > 0 && <p className="text-[var(--text-muted)]">{p.byEvent}</p>}
+                  </div>
+                );
+              }}
+            />
+            {peer && <Radar dataKey="peer" stroke="var(--series-3)" strokeWidth={1.5} strokeOpacity={0.7} fill="var(--brand-sun)" fillOpacity={0.14} />}
+            <Radar dataKey="value" stroke="var(--series-1)" strokeWidth={2} fill="var(--series-1)" fillOpacity={0.18} />
+          </RadarChart>
+        </ResponsiveContainer>
+      </div>
+      <RadarLegend peer={peer} />
+      <ul className="grid grid-cols-3 gap-x-3 gap-y-0.5 text-[11px]">
+        {data.map((d) => (
+          <li key={d.skill} className="flex justify-between gap-1 text-[var(--text-secondary)]">
+            <span className="truncate">{d.skill}</span>
+            <span className="font-semibold tabular-nums text-[var(--text-primary)]">{d.n ? fmt(d.value) : "—"}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+const TONE_COLOR = { good: "var(--status-good)", watch: "var(--status-critical)", neutral: "var(--text-muted)" } as const;
+
+/** Síntesis por reglas del founder (no es del doc): qué destaca, qué queda por debajo y señales a revisar. */
+function ProfilePanel({ founder, peer }: { founder: FounderHdd; peer: Peer | null }) {
+  const lines = buildProfile(founder, peer?.avg);
+  return (
+    <div className="card flex flex-col gap-3 p-6 shadow-sm lg:col-span-2">
+      <div>
+        <h5 className="text-base font-semibold text-[var(--text-primary)]">Perfil de {founder.fullName.split(" ")[0]}</h5>
+        <p className="text-xs text-[var(--text-muted)]">Síntesis automática por reglas sobre los datos de arriba (soft skills frente a la media del resto, hard skills, Legal Maze y bienestar). No es una lectura del doc ni una puntuación.</p>
+      </div>
+      <ul className="flex flex-col gap-2 text-sm">
+        {lines.map((l) => (
+          <li key={l.label} className="flex items-start gap-2">
+            <span aria-hidden className="mt-1.5 h-2 w-2 shrink-0 rounded-full" style={{ background: TONE_COLOR[l.tone] }} />
+            <span className="text-[var(--text-secondary)]"><b className="text-[var(--text-primary)]">{l.label}:</b> {l.text}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/** Soft skills por dinámica (Workstations, Cooking, Games) y variación entre la primera y la última con datos. */
+function SoftEvolution({ founder }: { founder: FounderHdd }) {
+  const rows = SOFT_KEYS.map((k) => {
+    const s = founder.soft[k];
+    const vals = EVENTS.map((e) => s?.byEvent[e]);
+    const seen = vals.filter((v): v is { avg: number; n: number } => !!v);
+    const delta = seen.length >= 2 ? seen[seen.length - 1].avg - seen[0].avg : null;
+    return { k, vals, delta };
+  });
+  const hasAny = rows.some((r) => r.vals.some(Boolean));
+  return (
+    <div className="card flex flex-col gap-3 p-6 shadow-sm">
+      <div>
+        <h5 className="text-base font-semibold text-[var(--text-primary)]">Soft skills por dinámica</h5>
+        <p className="text-xs text-[var(--text-muted)]">{founder.fullName} · media por dinámica (1 a 10) y variación entre la primera y la última con datos</p>
+      </div>
+      {!hasAny ? (
+        <p className="text-xs italic text-[var(--text-muted)]">Sin evaluaciones aún</p>
+      ) : (
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="text-left text-[var(--text-muted)]">
+              <th scope="col" className="py-1 font-medium">Skill</th>
+              {EVENTS.map((e) => <th key={e} scope="col" className="py-1 text-right font-medium">{EVENT_SHORT[e]}</th>)}
+              <th scope="col" className="py-1 text-right font-medium">Variación</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-[var(--border)]">
+            {rows.map((r) => (
+              <tr key={r.k}>
+                <th scope="row" className="py-1.5 text-left font-normal text-[var(--text-primary)]">{SOFT_LABEL[r.k]}</th>
+                {r.vals.map((v, i) => (
+                  <td key={EVENTS[i]} className="py-1.5 text-right tabular-nums">
+                    {v ? <span className="font-semibold text-[var(--text-primary)]">{fmt(v.avg)}<span className="ml-0.5 font-normal text-[var(--text-muted)]">·{v.n}</span></span> : <span className="text-[var(--text-muted)]">—</span>}
+                  </td>
+                ))}
+                <td className="py-1.5 text-right tabular-nums">
+                  {r.delta == null || Math.abs(r.delta) < 0.05 ? <span className="text-[var(--text-muted)]">{r.delta == null ? "—" : "="}</span> : (
+                    <span className="font-medium" style={{ color: r.delta > 0 ? "var(--status-good)" : "var(--status-critical)" }}>
+                      {r.delta > 0 ? "▲ +" : "▼ −"}{fmt(Math.abs(r.delta))}
+                    </span>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      <p className="text-[10px] text-[var(--text-muted)]">El número pequeño es el nº de evaluaciones de esa dinámica.</p>
+    </div>
+  );
+}
+
+function FounderRow({ founder, allFounders }: { founder: FounderHdd; allFounders: FounderHdd[] }) {
+  const peer = peerOf(allFounders, founder.personId);
   const [broken, setBroken] = useState(false);
   const evals = founder.evaluations.length;
   const hasSoft = SOFT_KEYS.some((k) => (founder.soft[k]?.n ?? 0) > 0);
@@ -123,18 +279,7 @@ function FounderRow({ founder }: { founder: FounderHdd }) {
       <div className="grid grid-cols-1 gap-x-8 gap-y-4 md:grid-cols-12">
         <section className="md:col-span-5" aria-label="Soft skills">
           <Label>Soft skills · 1-10</Label>
-          {hasSoft ? (
-            <div className="flex flex-col gap-1">
-              {SOFT_KEYS.map((k) => {
-                const s = founder.soft[k];
-                const has = !!s && s.n > 0;
-                const title = has ? `n=${s.n} · ${EVENTS.map((e) => `${EVENT_SHORT[e]} ${s.byEvent[e] ? fmt(s.byEvent[e]!.avg) : "—"}`).join(" · ")}` : "Sin evaluaciones";
-                return <MiniBar key={k} label={SOFT_SHORT[k]} value={has ? s.avg : null} color="var(--series-1)" title={title} />;
-              })}
-            </div>
-          ) : (
-            <p className="text-xs italic text-[var(--text-muted)]">Sin evaluaciones aún</p>
-          )}
+          {hasSoft ? <SoftRadar founder={founder} peer={peer} /> : <p className="text-xs italic text-[var(--text-muted)]">Sin evaluaciones aún</p>}
         </section>
 
         <div className="flex flex-col gap-4 md:col-span-3">
@@ -148,15 +293,16 @@ function FounderRow({ founder }: { founder: FounderHdd }) {
               <p className="text-xs italic text-[var(--text-muted)]">Sin valoraciones</p>
             )}
           </section>
-          <section aria-label="Legal Maze">
-            <Label>Legal Maze</Label>
-            <LegalChips founder={founder} />
-          </section>
         </div>
 
         <section className="md:col-span-4" aria-label="Bienestar">
           <Label>Bienestar · pre → post</Label>
           <WellbeingCompact founder={founder} />
+        </section>
+
+        <section className="md:col-span-12" aria-label="Legal Maze">
+          <Label>Legal Maze · opción elegida y lectura</Label>
+          <LegalReading founder={founder} />
         </section>
       </div>
 
@@ -165,7 +311,8 @@ function FounderRow({ founder }: { founder: FounderHdd }) {
           <span aria-hidden className="text-[10px] transition-transform group-open:rotate-90">▶</span> Ver detalle completo
         </summary>
         <div className="mt-3 grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <FounderPanel founder={founder} hint="Soft skills"><SoftSkills founder={founder} /></FounderPanel>
+          <ProfilePanel founder={founder} peer={peer} />
+          <SoftEvolution founder={founder} />
           <FounderPanel founder={founder} hint="Legal Maze"><LegalMaze founder={founder} /></FounderPanel>
           <FounderPanel founder={founder} hint="Hard skills"><HardSkills founder={founder} /></FounderPanel>
           <FounderPanel founder={founder} hint="Bienestar (OLBI y BRS)"><Wellbeing founder={founder} /></FounderPanel>
@@ -194,7 +341,7 @@ function TeamStrip({ startup }: { startup: StartupHdd }) {
 }
 
 /** Ficha de una startup en formato informe: cabecera, KPIs de equipo y una fila compacta por founder. */
-export function StartupReport({ startup, onOpen }: { startup: StartupHdd; onOpen?: () => void }) {
+export function StartupReport({ startup, allFounders, onOpen }: { startup: StartupHdd; allFounders: FounderHdd[]; onOpen?: () => void }) {
   const c = startup.coverage;
   const chips = [
     `Soft ${c.withSoft}/${c.founders}`, `Legal Maze ${c.withLegalMaze}/${c.founders}`,
@@ -227,7 +374,7 @@ export function StartupReport({ startup, onOpen }: { startup: StartupHdd; onOpen
       <div className="flex flex-col divide-y divide-[var(--border)]">
         {startup.founders.length === 0
           ? <p className="text-sm italic text-[var(--text-muted)]">Sin founders en HDD</p>
-          : startup.founders.map((f) => <FounderRow key={f.personId} founder={f} />)}
+          : startup.founders.map((f) => <FounderRow key={f.personId} founder={f} allFounders={allFounders} />)}
       </div>
     </section>
   );

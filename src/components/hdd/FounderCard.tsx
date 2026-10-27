@@ -2,12 +2,25 @@
 
 /* eslint-disable @next/next/no-img-element */
 import { useState, type ReactNode } from "react";
-import { PolarAngleAxis, PolarGrid, PolarRadiusAxis, Radar, RadarChart, ResponsiveContainer, Tooltip } from "recharts";
-import type { FounderHdd, WellbeingTake } from "@/lib/hdd/types";
+import type { FounderHdd, SoftKpiKey, WellbeingTake } from "@/lib/hdd/types";
 import { Empty } from "./Empty";
-import {
-  EVENTS, EVENT_SHORT, fmt, HARD_KEYS, HARD_LABEL, initials, SOFT_KEYS, SOFT_LABEL, SOFT_SHORT,
-} from "./labels";
+import { fmt, HARD_KEYS, HARD_LABEL, initials } from "./labels";
+
+export interface SoftPeer { avg: Partial<Record<SoftKpiKey, number>>; count: number }
+
+export function RadarLegend({ peer }: { peer: SoftPeer | null }) {
+  return (
+    <p className="flex flex-wrap items-center gap-x-3 text-[11px] text-[var(--text-muted)]">
+      <span className="inline-flex items-center gap-1"><span aria-hidden className="h-2 w-2 rounded-sm" style={{ background: "var(--series-1)" }} />Founder</span>
+      {peer && (
+        <span className="inline-flex items-center gap-1">
+          <span aria-hidden className="h-2 w-2 rounded-sm" style={{ background: "var(--brand-sun)" }} />
+          Media del resto ({peer.count} {peer.count === 1 ? "founder" : "founders"})
+        </span>
+      )}
+    </p>
+  );
+}
 
 function Avatar({ founder }: { founder: FounderHdd }) {
   const [broken, setBroken] = useState(false);
@@ -37,104 +50,6 @@ function Bar({ value, color, label }: { value: number | undefined | null; color:
   return (
     <div role="img" aria-label={`${label}: ${has ? fmt(value) : "sin datos"}`} className="h-2 overflow-hidden rounded-full bg-[var(--column-band)]">
       {has && <div className="h-full rounded-full" style={{ width: `${Math.max(0, Math.min(100, (value / 10) * 100))}%`, background: color }} />}
-    </div>
-  );
-}
-
-export function SoftSkills({ founder }: { founder: FounderHdd }) {
-  const [mode, setMode] = useState<"radar" | "bars">("radar");
-  const hasAny = SOFT_KEYS.some((k) => (founder.soft[k]?.n ?? 0) > 0);
-  const totalEvals = founder.evaluations.length;
-  if (!hasAny) return <Empty>Sin evaluaciones aún</Empty>;
-  const data = SOFT_KEYS.map((k) => ({
-    skill: SOFT_SHORT[k],
-    full: SOFT_LABEL[k],
-    value: founder.soft[k]?.avg ?? 0,
-    n: founder.soft[k]?.n ?? 0,
-  }));
-  return (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-xs text-[var(--text-muted)]">
-          {totalEvals} {totalEvals === 1 ? "evaluación" : "evaluaciones"} · escala 1 a 10
-        </span>
-        <div role="group" aria-label="Vista de soft skills" className="flex gap-1 rounded-full border border-[var(--border)] p-0.5">
-          {(["radar", "bars"] as const).map((m) => (
-            <button
-              key={m}
-              type="button"
-              aria-pressed={mode === m}
-              onClick={() => setMode(m)}
-              className="rounded-full px-2.5 py-1 text-xs font-medium"
-              style={mode === m ? { background: "var(--series-1)", color: "#fff" } : { color: "var(--text-secondary)" }}
-            >
-              {m === "radar" ? "Radar" : "Barras"}
-            </button>
-          ))}
-        </div>
-      </div>
-      {mode === "radar" ? (
-        <>
-          <div className="h-72 w-full" role="img" aria-label={`Radar de soft skills de ${founder.fullName}`}>
-            <ResponsiveContainer width="100%" height="100%">
-              <RadarChart data={data} outerRadius="70%">
-                <PolarGrid stroke="var(--gridline)" />
-                <PolarAngleAxis dataKey="skill" tick={{ fill: "var(--text-secondary)", fontSize: 11 }} />
-                <PolarRadiusAxis angle={90} domain={[0, 10]} tickCount={3} tick={{ fill: "var(--text-muted)", fontSize: 10 }} axisLine={false} />
-                <Tooltip
-                  content={({ active, payload }) => {
-                    if (!active || !payload?.length) return null;
-                    const p = payload[0].payload as (typeof data)[number];
-                    return (
-                      <div className="card px-3 py-2 text-sm shadow-md">
-                        <p className="font-medium text-[var(--text-primary)]">{p.full}</p>
-                        <p className="text-[var(--text-secondary)]">{p.n ? `${fmt(p.value)} · n=${p.n}` : "Sin evaluaciones"}</p>
-                      </div>
-                    );
-                  }}
-                />
-                <Radar dataKey="value" stroke="var(--series-1)" strokeWidth={2} fill="var(--series-1)" fillOpacity={0.18} />
-              </RadarChart>
-            </ResponsiveContainer>
-          </div>
-          <ul className="grid grid-cols-1 gap-x-4 gap-y-1 text-xs sm:grid-cols-2">
-            {SOFT_KEYS.map((k) => {
-              const s = founder.soft[k];
-              const has = !!s && s.n > 0;
-              return (
-                <li key={k} className="flex justify-between gap-2 text-[var(--text-secondary)]">
-                  <span>{SOFT_LABEL[k]}</span>
-                  <span className="font-medium text-[var(--text-primary)]">{has ? `${fmt(s.avg)} (n=${s.n})` : "—"}</span>
-                </li>
-              );
-            })}
-          </ul>
-        </>
-      ) : (
-        <ul className="flex flex-col gap-2.5">
-          {SOFT_KEYS.map((k) => {
-            const s = founder.soft[k];
-            const has = !!s && s.n > 0;
-            return (
-              <li key={k} className="flex flex-col gap-1">
-                <div className="flex items-baseline justify-between gap-2 text-sm">
-                  <span className="text-[var(--text-primary)]">{SOFT_LABEL[k]}</span>
-                  <span className="font-semibold text-[var(--text-primary)]">
-                    {has ? fmt(s.avg) : "—"}
-                    {has && <span className="ml-1 text-xs font-normal text-[var(--text-muted)]">n={s.n}</span>}
-                  </span>
-                </div>
-                <Bar value={has ? s.avg : null} color="var(--series-1)" label={SOFT_LABEL[k]} />
-                {has && (
-                  <span className="text-xs text-[var(--text-muted)]">
-                    {EVENTS.map((e) => `${EVENT_SHORT[e]} ${s.byEvent[e] ? fmt(s.byEvent[e].avg) : "—"}`).join(" · ")}
-                  </span>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-      )}
     </div>
   );
 }
