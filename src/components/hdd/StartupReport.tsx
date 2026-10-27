@@ -4,6 +4,7 @@
 import { useState, type ReactNode } from "react";
 import { PolarAngleAxis, PolarGrid, PolarRadiusAxis, Radar, RadarChart, ResponsiveContainer, Tooltip } from "recharts";
 import { legalMazeFlags } from "@/lib/hdd/aggregate";
+import { EM_COMMENTS } from "@/lib/hdd/emComments";
 import { blendLegal, LEGAL_SCORE, legalSoftScores, legalTone, type LegalTone } from "@/lib/hdd/legalScore";
 import { LEGAL_MAZE_CONTENT } from "@/lib/hdd/legalMazeContent";
 import type { FounderHdd, SoftKpiKey, StartupHdd, WellbeingTake } from "@/lib/hdd/types";
@@ -311,9 +312,9 @@ function TeamRadar({ startup, allStartups }: { startup: StartupHdd; allStartups:
   const hasPeer = peerTeams > 0;
   return (
     <div className="flex flex-col gap-1">
-      <div className="h-80 w-full" role="img" aria-label="Radar del equipo: KPIs de equipo y hard skills">
+      <div className="h-64 w-full" role="img" aria-label="Radar del equipo: KPIs de equipo y hard skills">
         <ResponsiveContainer width="100%" height="100%">
-          <RadarChart data={data} margin={{ top: 28, right: 84, bottom: 28, left: 84 }} outerRadius="95%">
+          <RadarChart data={data} margin={{ top: 22, right: 76, bottom: 22, left: 76 }} outerRadius="92%">
             <PolarGrid stroke="var(--gridline)" />
             <PolarAngleAxis dataKey="axis" tick={(props) => <WrapTick {...props} />} />
             <PolarRadiusAxis angle={90} domain={[0, 10]} tickCount={3} tick={{ fill: "var(--text-muted)", fontSize: 9 }} axisLine={false} />
@@ -344,6 +345,40 @@ function TeamRadar({ startup, allStartups }: { startup: StartupHdd; allStartups:
           </span>
         )}
       </p>
+    </div>
+  );
+}
+
+/** Comentarios de los Experience Makers sobre el equipo, curados: lo positivo y lo que vigilar, con quién lo dice. */
+function EmComments({ name }: { name: string }) {
+  const items = EM_COMMENTS[name];
+  if (!items?.length) return null;
+  const groups = [
+    { tone: "pos", label: "Lo positivo", color: "var(--status-good)" },
+    { tone: "neg", label: "A vigilar", color: "var(--status-critical)" },
+  ] as const;
+  return (
+    <div className="mt-3 flex flex-col gap-3 border-t border-[var(--border)] pt-3" aria-label="Comentarios de los Experience Makers">
+      <Label>Lo que dicen los Experience Makers</Label>
+      {groups.map((g) => {
+        const xs = items.filter((i) => i.tone === g.tone);
+        if (!xs.length) return null;
+        return (
+          <div key={g.tone}>
+            <p className="mb-1 text-[11px] font-semibold" style={{ color: g.color }}>{g.label}</p>
+            <ul className="flex flex-col gap-1.5">
+              {xs.map((c, i) => (
+                <li key={i} className="flex items-start gap-2 text-xs leading-snug">
+                  <span aria-hidden className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: g.color }} />
+                  <span className="text-[var(--text-primary)]">
+                    {c.text} <span className="text-[var(--text-muted)]">— {c.who}{c.about ? ` · sobre ${c.about}` : ""}</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -382,6 +417,7 @@ export function StartupReport({ startup, allStartups, onOpen }: { startup: Start
         <div className="rounded-lg bg-[var(--column-band)] p-4">
           <Label>Equipo · 1-10 · con hard skills (el mayor entre founders)</Label>
           <TeamRadar startup={startup} allStartups={allStartups} />
+          <EmComments name={startup.name} />
         </div>
         <WellbeingScatter startups={allStartups} selectedId={startup.startupId} compact mini />
       </div>
