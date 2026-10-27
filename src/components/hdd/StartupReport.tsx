@@ -6,11 +6,9 @@ import { PolarAngleAxis, PolarGrid, PolarRadiusAxis, Radar, RadarChart, Responsi
 import { legalMazeFlags } from "@/lib/hdd/aggregate";
 import { LEGAL_MAZE_CONTENT } from "@/lib/hdd/legalMazeContent";
 import type { FounderHdd, SoftKpiKey, StartupHdd, WellbeingTake } from "@/lib/hdd/types";
-import { FounderPanel, HardSkills, RadarLegend, Wellbeing, type SoftPeer } from "./FounderCard";
-import { LegalMaze } from "./LegalMaze";
+import { RadarLegend, type SoftPeer } from "./FounderCard";
 import { buildProfile } from "./profile";
 import { EVENTS, EVENT_SHORT, fmt, HARD_KEYS, HARD_LABEL, initials, SOFT_KEYS, SOFT_LABEL, SOFT_SHORT, TEAM_KEYS, TEAM_LABEL } from "./labels";
-
 
 function MiniBar({ label, value, color, title }: { label: string; value: number | null | undefined; color: string; title?: string }) {
   const has = typeof value === "number" && Number.isFinite(value);
@@ -29,55 +27,39 @@ function Label({ children }: { children: ReactNode }) {
   return <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">{children}</p>;
 }
 
-/** Legal Maze con su lectura: por dilema, la opción elegida, qué mide y cómo la interpreta el doc (Positivo / Negativo). */
-function LegalReading({ founder }: { founder: FounderHdd }) {
+/** Legal Maze compacto: una viñeta por dilema con la opción elegida y su lectura muy breve. */
+function LegalCompact({ founder }: { founder: FounderHdd }) {
   const lm = founder.legalMaze;
-  if (!lm || !lm.dilemmas.length) return <p className="text-xs italic text-[var(--text-muted)]">Legal Maze sin completar</p>;
+  if (!lm || !lm.dilemmas.length) return <p className="text-xs italic text-[var(--text-muted)]">Sin completar</p>;
   const byId = new Map(lm.dilemmas.map((d) => [d.id, d]));
   const flag = legalMazeFlags(lm.dilemmas).d1ChoseA;
   return (
-    <div className="flex flex-col gap-2">
-      {flag && (
-        <p className="text-xs text-[var(--status-critical)]">
-          Señal a revisar: eligió A en el Dilema 1, la casilla que más pesa de toda la hoja según el doc.
-        </p>
-      )}
-      <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5">
-        {LEGAL_MAZE_CONTENT.map((c) => {
-          const d = byId.get(c.id);
-          const opt = typeof d?.choice === "number" ? c.options[d.choice] : null;
-          const alert = c.id === "D1" && flag;
-          return (
-            <li
-              key={c.id}
-              className="flex flex-col gap-1.5 rounded-lg border p-2.5 text-[11px] leading-snug"
-              style={{
-                borderColor: alert ? "var(--status-critical)" : "var(--border)",
-                background: alert ? "color-mix(in srgb, var(--status-critical) 8%, transparent)" : undefined,
-              }}
+    <ul className="flex flex-col gap-1.5 text-[11px] leading-snug">
+      {LEGAL_MAZE_CONTENT.map((c) => {
+        const d = byId.get(c.id);
+        const opt = typeof d?.choice === "number" ? c.options[d.choice] : null;
+        const alert = c.id === "D1" && flag;
+        return (
+          <li key={c.id} className="flex items-start gap-2" title={`${c.id} · ${c.theme} · mide ${c.kpiLabel}`}>
+            <span
+              className="mt-px inline-flex h-4 min-w-[1.75rem] shrink-0 items-center justify-center rounded-full border px-1 text-[10px] font-semibold text-[var(--text-primary)]"
+              style={{ borderColor: alert ? "var(--status-critical)" : "var(--series-1)", background: alert ? "color-mix(in srgb, var(--status-critical) 12%, transparent)" : undefined }}
             >
-              <span className="font-semibold text-[var(--text-primary)]">
-                {c.id} · {c.theme}
-                <span className="block font-normal text-[var(--text-muted)]">Mide {c.kpiLabel}</span>
+              {c.id}{opt ? ` ${opt.letter}` : ""}
+            </span>
+            {opt ? (
+              <span className="text-[var(--text-secondary)]">
+                <b className="font-medium text-[var(--text-primary)]">{c.theme}:</b> {opt.gist}
+                {alert && <b className="text-[var(--status-critical)]"> Señal a revisar (pesa más según el doc).</b>}
+                {d?.answer && <span className="mt-0.5 line-clamp-2 block italic text-[var(--text-muted)]" title={d.answer}>“{d.answer}”</span>}
               </span>
-              {!opt ? (
-                <span className="italic text-[var(--text-muted)]">{d ? "Sin opción elegida" : "Sin respuesta"}</span>
-              ) : (
-                <>
-                  <span className="flex items-start gap-1.5 text-[var(--text-primary)]">
-                    <span className="mt-px inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-[var(--series-1)] text-[10px] font-semibold">{opt.letter}</span>
-                    {opt.short}
-                  </span>
-                  <span className="text-[var(--text-secondary)]"><b className="text-[var(--text-primary)]">A favor:</b> {opt.positive}</span>
-                  <span className="text-[var(--text-secondary)]"><b className="text-[var(--text-primary)]">A vigilar:</b> {opt.negative}</span>
-                </>
-              )}
-            </li>
-          );
-        })}
-      </ul>
-      <p className="text-[10px] text-[var(--text-muted)]">Lectura del facilitador según el doc “26MEX Legal maze v3 DEF”; no es una puntuación.</p>
-    </div>
+            ) : (
+              <span className="italic text-[var(--text-muted)]">{c.theme}: {d ? "sin opción elegida" : "sin respuesta"}</span>
+            )}
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 
@@ -167,91 +149,55 @@ function SoftRadar({ founder, peer }: { founder: FounderHdd; peer: Peer | null }
         </ResponsiveContainer>
       </div>
       <RadarLegend peer={peer} />
-      <ul className="grid grid-cols-3 gap-x-3 gap-y-0.5 text-[11px]">
-        {data.map((d) => (
-          <li key={d.skill} className="flex justify-between gap-1 text-[var(--text-secondary)]">
-            <span className="truncate">{d.skill}</span>
-            <span className="font-semibold tabular-nums text-[var(--text-primary)]">{d.n ? fmt(d.value) : "—"}</span>
-          </li>
-        ))}
-      </ul>
+      <table className="mt-1 w-full text-[11px]">
+        <thead>
+          <tr className="text-right text-[var(--text-muted)]">
+            <th scope="col" className="py-0.5 text-left font-medium">Por dinámica</th>
+            {EVENTS.map((e) => <th key={e} scope="col" className="py-0.5 font-medium">{EVENT_SHORT[e]}</th>)}
+            <th scope="col" className="py-0.5 font-medium">Media</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-[var(--border)]">
+          {SOFT_KEYS.map((k) => {
+            const sk = founder.soft[k];
+            const vals = EVENTS.map((e) => sk?.byEvent[e]?.avg);
+            const seen = vals.filter((v): v is number => v != null);
+            const d = seen.length >= 2 ? seen[seen.length - 1] - seen[0] : null;
+            return (
+              <tr key={k} className="text-right tabular-nums">
+                <th scope="row" className="py-0.5 text-left font-normal text-[var(--text-secondary)]">{SOFT_SHORT[k]}</th>
+                {vals.map((v, i) => <td key={EVENTS[i]} className="py-0.5 text-[var(--text-secondary)]">{v != null ? fmt(v) : "—"}</td>)}
+                <td className="py-0.5 font-semibold text-[var(--text-primary)]">
+                  {sk?.n ? fmt(sk.avg) : "—"}
+                  {d != null && Math.abs(d) >= 0.05 && (
+                    <span className="ml-1" style={{ color: d > 0 ? "var(--status-good)" : "var(--status-critical)" }} title={`Variación ${d > 0 ? "+" : "−"}${fmt(Math.abs(d))} entre la primera y la última dinámica`}>
+                      {d > 0 ? "▲" : "▼"}
+                    </span>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 }
 
 const TONE_COLOR = { good: "var(--status-good)", watch: "var(--status-critical)", neutral: "var(--text-muted)" } as const;
 
-/** Síntesis por reglas del founder (no es del doc): qué destaca, qué queda por debajo y señales a revisar. */
-function ProfilePanel({ founder, peer }: { founder: FounderHdd; peer: Peer | null }) {
+/** Síntesis por reglas (no es del doc): qué destaca, qué queda por debajo y señales a revisar. */
+function ProfileBand({ founder, peer }: { founder: FounderHdd; peer: Peer | null }) {
   const lines = buildProfile(founder, peer?.avg);
   return (
-    <div className="card flex flex-col gap-3 p-6 shadow-sm lg:col-span-2">
-      <div>
-        <h5 className="text-base font-semibold text-[var(--text-primary)]">Perfil de {founder.fullName.split(" ")[0]}</h5>
-        <p className="text-xs text-[var(--text-muted)]">Síntesis automática por reglas sobre los datos de arriba (soft skills frente a la media del resto, hard skills, Legal Maze y bienestar). No es una lectura del doc ni una puntuación.</p>
-      </div>
-      <ul className="flex flex-col gap-2 text-sm">
-        {lines.map((l) => (
-          <li key={l.label} className="flex items-start gap-2">
-            <span aria-hidden className="mt-1.5 h-2 w-2 shrink-0 rounded-full" style={{ background: TONE_COLOR[l.tone] }} />
-            <span className="text-[var(--text-secondary)]"><b className="text-[var(--text-primary)]">{l.label}:</b> {l.text}</span>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-/** Soft skills por dinámica (Workstations, Cooking, Games) y variación entre la primera y la última con datos. */
-function SoftEvolution({ founder }: { founder: FounderHdd }) {
-  const rows = SOFT_KEYS.map((k) => {
-    const s = founder.soft[k];
-    const vals = EVENTS.map((e) => s?.byEvent[e]);
-    const seen = vals.filter((v): v is { avg: number; n: number } => !!v);
-    const delta = seen.length >= 2 ? seen[seen.length - 1].avg - seen[0].avg : null;
-    return { k, vals, delta };
-  });
-  const hasAny = rows.some((r) => r.vals.some(Boolean));
-  return (
-    <div className="card flex flex-col gap-3 p-6 shadow-sm">
-      <div>
-        <h5 className="text-base font-semibold text-[var(--text-primary)]">Soft skills por dinámica</h5>
-        <p className="text-xs text-[var(--text-muted)]">{founder.fullName} · media por dinámica (1 a 10) y variación entre la primera y la última con datos</p>
-      </div>
-      {!hasAny ? (
-        <p className="text-xs italic text-[var(--text-muted)]">Sin evaluaciones aún</p>
-      ) : (
-        <table className="w-full text-xs">
-          <thead>
-            <tr className="text-left text-[var(--text-muted)]">
-              <th scope="col" className="py-1 font-medium">Skill</th>
-              {EVENTS.map((e) => <th key={e} scope="col" className="py-1 text-right font-medium">{EVENT_SHORT[e]}</th>)}
-              <th scope="col" className="py-1 text-right font-medium">Variación</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-[var(--border)]">
-            {rows.map((r) => (
-              <tr key={r.k}>
-                <th scope="row" className="py-1.5 text-left font-normal text-[var(--text-primary)]">{SOFT_LABEL[r.k]}</th>
-                {r.vals.map((v, i) => (
-                  <td key={EVENTS[i]} className="py-1.5 text-right tabular-nums">
-                    {v ? <span className="font-semibold text-[var(--text-primary)]">{fmt(v.avg)}<span className="ml-0.5 font-normal text-[var(--text-muted)]">·{v.n}</span></span> : <span className="text-[var(--text-muted)]">—</span>}
-                  </td>
-                ))}
-                <td className="py-1.5 text-right tabular-nums">
-                  {r.delta == null || Math.abs(r.delta) < 0.05 ? <span className="text-[var(--text-muted)]">{r.delta == null ? "—" : "="}</span> : (
-                    <span className="font-medium" style={{ color: r.delta > 0 ? "var(--status-good)" : "var(--status-critical)" }}>
-                      {r.delta > 0 ? "▲ +" : "▼ −"}{fmt(Math.abs(r.delta))}
-                    </span>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-      <p className="text-[10px] text-[var(--text-muted)]">El número pequeño es el nº de evaluaciones de esa dinámica.</p>
-    </div>
+    <ul className="grid grid-cols-1 gap-x-6 gap-y-1 rounded-lg bg-[var(--column-band)] px-3 py-2 text-xs md:grid-cols-2" aria-label="Perfil (síntesis automática)" title="Síntesis automática por reglas, no es una lectura del doc ni una puntuación">
+      {lines.map((l) => (
+        <li key={l.label} className="flex items-start gap-2">
+          <span aria-hidden className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: TONE_COLOR[l.tone] }} />
+          <span className="text-[var(--text-secondary)]"><b className="text-[var(--text-primary)]">{l.label}:</b> {l.text}</span>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -276,6 +222,8 @@ function FounderRow({ founder, allFounders }: { founder: FounderHdd; allFounders
         </div>
       </header>
 
+      <ProfileBand founder={founder} peer={peer} />
+
       <div className="grid grid-cols-1 gap-x-8 gap-y-4 md:grid-cols-12">
         <section className="md:col-span-5" aria-label="Soft skills">
           <Label>Soft skills · 1-10</Label>
@@ -293,31 +241,17 @@ function FounderRow({ founder, allFounders }: { founder: FounderHdd; allFounders
               <p className="text-xs italic text-[var(--text-muted)]">Sin valoraciones</p>
             )}
           </section>
+          <section aria-label="Bienestar">
+            <Label>Bienestar · pre → post</Label>
+            <WellbeingCompact founder={founder} />
+          </section>
         </div>
 
-        <section className="md:col-span-4" aria-label="Bienestar">
-          <Label>Bienestar · pre → post</Label>
-          <WellbeingCompact founder={founder} />
-        </section>
-
-        <section className="md:col-span-12" aria-label="Legal Maze">
-          <Label>Legal Maze · opción elegida y lectura</Label>
-          <LegalReading founder={founder} />
+        <section className="md:col-span-4" aria-label="Legal Maze">
+          <Label>Legal Maze · respuesta y lectura</Label>
+          <LegalCompact founder={founder} />
         </section>
       </div>
-
-      <details className="group text-xs">
-        <summary className="inline-flex cursor-pointer list-none items-center gap-1 font-medium text-[var(--text-secondary)] [&::-webkit-details-marker]:hidden">
-          <span aria-hidden className="text-[10px] transition-transform group-open:rotate-90">▶</span> Ver detalle completo
-        </summary>
-        <div className="mt-3 grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <ProfilePanel founder={founder} peer={peer} />
-          <SoftEvolution founder={founder} />
-          <FounderPanel founder={founder} hint="Legal Maze"><LegalMaze founder={founder} /></FounderPanel>
-          <FounderPanel founder={founder} hint="Hard skills"><HardSkills founder={founder} /></FounderPanel>
-          <FounderPanel founder={founder} hint="Bienestar (OLBI y BRS)"><Wellbeing founder={founder} /></FounderPanel>
-        </div>
-      </details>
     </article>
   );
 }
