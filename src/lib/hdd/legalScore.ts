@@ -40,3 +40,10 @@ export function blendLegal(f: FounderHdd): FounderHdd {
   }
   return { ...f, soft };
 }
+
+export type LegalTone = "good" | "mid" | "bad";
+
+/** Semáforo de la conclusión de una opción: 7 o más verde, 4 a 6 amarillo, 3 o menos rojo. */
+export function legalTone(score: number): LegalTone {
+  return score >= 7 ? "good" : score >= 4 ? "mid" : "bad";
+}

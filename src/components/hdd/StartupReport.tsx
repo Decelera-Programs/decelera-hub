@@ -4,9 +4,9 @@
 import { useState, type ReactNode } from "react";
 import { PolarAngleAxis, PolarGrid, PolarRadiusAxis, Radar, RadarChart, ResponsiveContainer, Tooltip } from "recharts";
 import { legalMazeFlags } from "@/lib/hdd/aggregate";
-import { blendLegal, LEGAL_SCORE, legalSoftScores } from "@/lib/hdd/legalScore";
+import { blendLegal, LEGAL_SCORE, legalSoftScores, legalTone, type LegalTone } from "@/lib/hdd/legalScore";
 import { LEGAL_MAZE_CONTENT } from "@/lib/hdd/legalMazeContent";
-import type { FounderHdd, HardKpiKey, SoftKpiKey, StartupHdd, TeamKpiKey, WellbeingTake } from "@/lib/hdd/types";
+import type { FounderHdd, HardKpiKey, SoftKpiKey, StartupHdd, WellbeingTake } from "@/lib/hdd/types";
 import { RadarLegend, type SoftPeer } from "./FounderCard";
 import { buildProfile } from "./profile";
 import { WellbeingScatter } from "./WellbeingScatter";
@@ -32,8 +32,13 @@ function Label({ children }: { children: ReactNode }) {
 const LEGAL_COLS: Record<number, string> = {
   1: "xl:grid-cols-1", 2: "xl:grid-cols-2", 3: "xl:grid-cols-3", 4: "xl:grid-cols-4", 5: "xl:grid-cols-5",
 };
+const TONE: Record<LegalTone, { color: string; label: string }> = {
+  good: { color: "var(--status-good)", label: "Positivo" },
+  mid: { color: "var(--status-warning)", label: "Intermedio" },
+  bad: { color: "var(--status-critical)", label: "A vigilar" },
+};
 
-/** Legal Maze en horizontal: una columna por dilema con qué mide, la opción elegida, su lectura breve y el campo abierto.
+/** Legal Maze en horizontal: por dilema, la respuesta en pequeño y gris y la conclusión en verde, amarillo o rojo según la nota.
  *  Solo se muestran los dilemas que ha contestado alguien (`visible`). */
 function LegalCompact({ founder, visible }: { founder: FounderHdd; visible: ReadonlySet<string> }) {
   const lm = founder.legalMaze;
@@ -42,32 +47,35 @@ function LegalCompact({ founder, visible }: { founder: FounderHdd; visible: Read
   const flag = legalMazeFlags(lm.dilemmas).d1ChoseA;
   const shown = LEGAL_MAZE_CONTENT.filter((c) => visible.has(c.id));
   return (
-    <ul className={`grid grid-cols-1 gap-2 text-[11px] leading-snug sm:grid-cols-2 ${LEGAL_COLS[shown.length] ?? "xl:grid-cols-5"}`}>
+    <ul className={`grid grid-cols-1 gap-2 leading-snug sm:grid-cols-2 ${LEGAL_COLS[shown.length] ?? "xl:grid-cols-5"}`}>
       {shown.map((c) => {
         const d = byId.get(c.id);
         const opt = typeof d?.choice === "number" ? c.options[d.choice] : null;
-        const alert = c.id === "D1" && flag;
+        const score = opt && d && typeof d.choice === "number" ? LEGAL_SCORE[c.id]?.[d.choice] : undefined;
+        const tone = score != null ? TONE[legalTone(score)] : null;
         return (
-          <li
-            key={c.id}
-            className="flex flex-col gap-1 rounded-lg border p-2.5"
-            style={{ borderColor: alert ? "var(--status-critical)" : "var(--border)", background: alert ? "color-mix(in srgb, var(--status-critical) 8%, transparent)" : undefined }}
-          >
-            <span className="flex items-center gap-1.5 font-semibold text-[var(--text-primary)]">
-              <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-[var(--series-1)] text-[10px]" style={alert ? { borderColor: "var(--status-critical)" } : undefined}>{opt ? opt.letter : "—"}</span>
+          <li key={c.id} className="flex flex-col gap-1.5 rounded-lg border border-[var(--border)] p-2.5">
+            <span className="flex items-center gap-1.5 text-[11px] font-semibold text-[var(--text-primary)]">
+              <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-[var(--border)] text-[10px] text-[var(--text-secondary)]">{opt ? opt.letter : "—"}</span>
               {c.id} · {c.theme}
+              <span className="ml-auto text-[10px] font-normal text-[var(--text-muted)]">{c.kpiLabel}</span>
             </span>
-            <span className="text-[10px] text-[var(--text-muted)]">Mide {c.kpiLabel}{opt && LEGAL_SCORE[c.id] ? ` · ${LEGAL_SCORE[c.id][d!.choice as 0 | 1 | 2]}/10` : ""}</span>
             {opt ? (
               <>
-                <span className="text-[var(--text-primary)]">{opt.short}</span>
-                <span className="text-[var(--text-secondary)]">{opt.gist}</span>
-                {alert && <b className="text-[var(--status-critical)]">Señal a revisar: la casilla que más pesa según el doc.</b>}
+                <span className="text-[10px] text-[var(--text-muted)]">{opt.short}</span>
+                <span
+                  className="rounded-md border-l-4 px-2 py-1.5 text-xs font-medium text-[var(--text-primary)]"
+                  style={tone ? { borderColor: tone.color, background: `color-mix(in srgb, ${tone.color} 14%, transparent)` } : { borderColor: "var(--border)" }}
+                >
+                  {tone && <span className="block text-[10px] font-semibold uppercase tracking-wide" style={{ color: tone.color }}>{tone.label} · {score}/10</span>}
+                  {opt.gist}
+                </span>
+                {c.id === "D1" && flag && <span className="text-[10px] text-[var(--status-critical)]">Es la casilla que más pesa según el doc.</span>}
               </>
             ) : (
-              <span className="italic text-[var(--text-muted)]">{d ? "Sin opción elegida" : "Sin respuesta"}</span>
+              <span className="text-[11px] italic text-[var(--text-muted)]">{d ? "Sin opción elegida" : "Sin respuesta"}</span>
             )}
-            {d?.answer && <span className="line-clamp-2 italic text-[var(--text-muted)]" title={d.answer}>“{d.answer}”</span>}
+            {d?.answer && <span className="line-clamp-2 text-[10px] italic text-[var(--text-muted)]" title={d.answer}>“{d.answer}”</span>}
           </li>
         );
       })}
@@ -133,9 +141,9 @@ function peerOf(all: FounderHdd[], selfId: string): Peer | null {
 function SoftRadar({ founder, raw, peer }: { founder: FounderHdd; raw: FounderHdd; peer: Peer | null }) {
   const lm = legalSoftScores(raw);
   const data = SOFT_KEYS.map((k) => ({
-    skill: SOFT_SHORT[k], full: SOFT_LABEL[k], value: founder.soft[k]?.avg ?? 0, peer: peer?.avg[k] ?? null, n: founder.soft[k]?.n ?? 0,
+    skill: `${SOFT_SHORT[k]}${lm[k] != null ? "*" : ""}`, full: SOFT_LABEL[k], value: founder.soft[k]?.n ? founder.soft[k]!.avg : (lm[k] ?? 0), peer: peer?.avg[k] ?? null, n: founder.soft[k]?.n ?? 0,
     byEvent: EVENTS.map((e) => `${EVENT_SHORT[e]} ${founder.soft[k]?.byEvent[e] ? fmt(founder.soft[k]!.byEvent[e]!.avg) : "—"}`).join(" · "),
-    blend: lm[k] != null && raw.soft[k]?.n ? `equipo ${fmt(raw.soft[k]!.avg)} · Legal Maze ${fmt(lm[k])}` : null,
+    blend: lm[k] != null ? (raw.soft[k]?.n ? `equipo ${fmt(raw.soft[k]!.avg)} · Legal Maze ${fmt(lm[k])}` : `solo Legal Maze ${fmt(lm[k])} (sin evaluación del equipo)`) : null,
   }));
   return (
     <div className="flex flex-col gap-1">
@@ -152,7 +160,7 @@ function SoftRadar({ founder, raw, peer }: { founder: FounderHdd; raw: FounderHd
                 return (
                   <div className="card px-3 py-2 text-xs shadow-md">
                     <p className="font-medium text-[var(--text-primary)]">{p.full}</p>
-                    <p className="text-[var(--text-secondary)]">{p.n ? `${fmt(p.value)} · n=${p.n}` : "Sin evaluaciones"}{p.peer != null && ` · media resto ${fmt(p.peer)}`}</p>
+                    <p className="text-[var(--text-secondary)]">{p.n || p.blend ? `${fmt(p.value)}${p.n ? ` · n=${p.n}` : ""}` : "Sin evaluaciones"}{p.peer != null && ` · media resto ${fmt(p.peer)}`}</p>
                     {p.blend && <p className="text-[var(--text-muted)]">{p.blend}</p>}
                     {p.n > 0 && <p className="text-[var(--text-muted)]">{p.byEvent}</p>}
                   </div>
@@ -165,6 +173,7 @@ function SoftRadar({ founder, raw, peer }: { founder: FounderHdd; raw: FounderHd
         </ResponsiveContainer>
       </div>
       <RadarLegend peer={peer} />
+      {SOFT_KEYS.some((k) => lm[k] != null) && <p className="text-[10px] text-[var(--text-muted)]">* Incluye el Legal Maze (media con la evaluación del equipo).</p>}
     </div>
   );
 }
@@ -191,7 +200,7 @@ function FounderRow({ founder, allFounders, legalVisible }: { founder: FounderHd
   const blended = blendLegal(founder);
   const [broken, setBroken] = useState(false);
   const evals = founder.evaluations.length;
-  const hasSoft = SOFT_KEYS.some((k) => (founder.soft[k]?.n ?? 0) > 0);
+  const hasSoft = SOFT_KEYS.some((k) => (founder.soft[k]?.n ?? 0) > 0) || Object.keys(legalSoftScores(founder)).length > 0;
   return (
     <article className="flex flex-col gap-3 py-4 first:pt-0" aria-label={`Founder ${founder.fullName}`}>
       <header className="flex items-center gap-3">
@@ -242,10 +251,21 @@ function FounderRow({ founder, allFounders, legalVisible }: { founder: FounderHd
   );
 }
 
-const TEAM_SHORT: Record<TeamKpiKey, string> = {
-  trust_conflict_resolution: "Trust", clear_operational_roles: "Roles", complementary_personality: "Personality", vision_alignment: "Vision",
-};
-const HARD_SHORT: Record<HardKpiKey, string> = { niche_experience: "Niche", tech_experience: "Tech", go_to_market_experience: "GTM" };
+/** Etiqueta de eje que parte los nombres largos en varias líneas (cabe "Trust & Conflict Resolution" en la araña de equipo). */
+function WrapTick({ x: rx = 0, y: ry = 0, payload, textAnchor }: { x?: number | string; y?: number | string; payload?: { value: string | number }; textAnchor?: "start" | "middle" | "end" | "inherit" }) {
+  const x = Number(rx), y = Number(ry);
+  const lines: string[] = [];
+  for (const w of String(payload?.value ?? "").split(" ")) {
+    const last = lines[lines.length - 1];
+    if (last !== undefined && last.length + w.length < 14) lines[lines.length - 1] = `${last} ${w}`;
+    else lines.push(w);
+  }
+  return (
+    <text x={x} y={y} textAnchor={textAnchor} fill="var(--text-secondary)" fontSize={10}>
+      {lines.map((l, i) => <tspan key={i} x={x} dy={i === 0 ? 0 : 11}>{l}</tspan>)}
+    </text>
+  );
+}
 
 /** Araña del equipo: 4 KPIs de equipo + 3 hard skills (de los founders, se toma el mayor). */
 function TeamRadar({ startup }: { startup: StartupHdd }) {
@@ -261,22 +281,22 @@ function TeamRadar({ startup }: { startup: StartupHdd }) {
       const st = startup.team[k];
       const has = !!st && st.n > 0;
       return {
-        axis: TEAM_SHORT[k], full: TEAM_LABEL[k], value: has ? st.avg : 0, has,
+        axis: TEAM_LABEL[k], full: TEAM_LABEL[k], value: has ? st.avg : 0, has,
         note: has ? `n=${st.n} · ${EVENTS.map((e) => `${EVENT_SHORT[e]} ${st.byEvent[e] ? fmt(st.byEvent[e]!.avg) : "—"}`).join(" · ")}` : "Sin evaluaciones",
       };
     }),
     ...HARD_KEYS.map((k) => {
       const m = hardMax(k);
-      return { axis: HARD_SHORT[k], full: `${HARD_LABEL[k]} (hard skill)`, value: m ?? 0, has: m != null, note: "El mayor entre los founders" };
+      return { axis: HARD_LABEL[k], full: `${HARD_LABEL[k]} (hard skill)`, value: m ?? 0, has: m != null, note: "El mayor entre los founders" };
     }),
   ];
   if (!data.some((d) => d.has)) return <p className="text-xs italic text-[var(--text-muted)]">Sin evaluaciones de equipo aún.</p>;
   return (
-    <div className="h-60 w-full" role="img" aria-label="Radar del equipo: KPIs de equipo y hard skills">
+    <div className="h-72 w-full" role="img" aria-label="Radar del equipo: KPIs de equipo y hard skills">
       <ResponsiveContainer width="100%" height="100%">
-        <RadarChart data={data} outerRadius="68%">
+        <RadarChart data={data} outerRadius="58%">
           <PolarGrid stroke="var(--gridline)" />
-          <PolarAngleAxis dataKey="axis" tick={{ fill: "var(--text-secondary)", fontSize: 10 }} />
+          <PolarAngleAxis dataKey="axis" tick={(props) => <WrapTick {...props} />} />
           <PolarRadiusAxis angle={90} domain={[0, 10]} tickCount={3} tick={{ fill: "var(--text-muted)", fontSize: 9 }} axisLine={false} />
           <Tooltip
             content={({ active, payload }) => {
