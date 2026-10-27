@@ -32,7 +32,7 @@ export interface KpiStat { avg: number; n: number; byEvent: Partial<Record<HddEv
  * por compatibilidad) se ignora. Datos sin `choice` válido cuentan como "sin responder".
  * NO hay puntuación numérica: las lecturas Positivo/Negativo de cada opción (legalMazeContent.ts) son explicación
  * del facilitador, no puntuación.
- * `kpiLabel` es libre a propósito: D3 mide "Confianza", que NO es una de las 9 soft skills (SoftKpiKey).
+ * `kpiLabel` es libre a propósito: D3 mide "Confianza", que se lee como Self Confidence (SoftKpiKey).
  */
 export type LegalDilemmaId = "D1" | "D2" | "D3" | "D4" | "D5";
 

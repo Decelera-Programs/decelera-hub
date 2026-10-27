@@ -83,8 +83,13 @@ function ChartTooltip({ active, payload }: { active?: boolean; payload?: { paylo
   );
 }
 
-export function WellbeingScatter({ startups, selectedId }: { startups: StartupHdd[]; selectedId: string | null }) {
-  const [mode, setMode] = useState<ScatterMode>("pre");
+export function WellbeingScatter({ startups, selectedId, compact = false }: { startups: StartupHdd[]; selectedId: string | null; compact?: boolean }) {
+  // En la ficha de una startup arranca en la toma más completa que tenga (Pre → Post, si no Post, si no Pre).
+  const [mode, setMode] = useState<ScatterMode>(() => {
+    if (!compact || !selectedId) return "pre";
+    const pts = buildScatterPoints(startups);
+    return (["delta", "post", "pre"] as const).find((m) => scatterSeries(pts, m).some((x) => x.point.startupId === selectedId)) ?? "pre";
+  });
 
   // Estilo por startup estable (índice en la lista completa ordenada), no depende del filtro.
   const styles = useMemo(() => {
@@ -105,7 +110,9 @@ export function WellbeingScatter({ startups, selectedId }: { startups: StartupHd
   return (
     <ChartCard
       title="Resiliencia vs desconexión"
-      subtitle="Un punto por founder: Resiliencia (BRS, 1 a 5, más es mejor) frente a Disengagement from Work (OLBI, 1 a 4, menos es mejor). El tamaño es Exhaustion (OLBI, 1 a 4): más grande, más agotamiento."
+      subtitle={compact
+        ? "BRS (1 a 5, más es mejor) frente a Disengagement (OLBI, 1 a 4, menos es mejor). Tamaño = Exhaustion (OLBI, 1 a 4): más grande, más agotamiento."
+        : "Un punto por founder: Resiliencia (BRS, 1 a 5, más es mejor) frente a Disengagement from Work (OLBI, 1 a 4, menos es mejor). El tamaño es Exhaustion (OLBI, 1 a 4): más grande, más agotamiento."}
     >
       {noneAtAll ? (
         <Empty>Aún no hay tomas completas de OLBI y BRS (hacen falta Resiliencia y Disengagement)</Empty>
@@ -132,7 +139,7 @@ export function WellbeingScatter({ startups, selectedId }: { startups: StartupHd
             <>
               {!selectedHas && <p role="status" className="text-xs text-[var(--text-muted)]">Esta startup no tiene tomas completas en esta vista; se muestra el resto en gris como contexto.</p>}
               <div className="overflow-x-auto">
-                <div className="h-[440px] min-w-[520px]" role="img" aria-label="Gráfico de dispersión de resiliencia frente a disengagement por founder; los mismos datos están en la tabla de abajo">
+                <div className={compact ? "h-[320px] min-w-[420px]" : "h-[440px] min-w-[520px]"} role="img" aria-label="Gráfico de dispersión de resiliencia frente a disengagement por founder; los mismos datos están en la tabla de abajo">
                   <ResponsiveContainer width="100%" height="100%">
                     <ScatterChart margin={{ top: 12, right: 16, bottom: 28, left: 8 }}>
                       <CartesianGrid stroke="var(--gridline)" strokeDasharray="3 3" />
@@ -213,6 +220,8 @@ export function WellbeingScatter({ startups, selectedId }: { startups: StartupHd
                   </li>
                 )}
               </ul>
+              {!compact && (
+                <>
               <p className="text-xs text-[var(--text-muted)]">
                 Líneas de referencia: BRS 3,0 y 4,3 (cortes habituales: &lt; 3,0 baja, 3,0 a 4,3 normal, &gt; 4,3 alta) y Disengagement 2,5 (punto medio de la escala 1 a 4; no hay cortes clínicos estándar en OLBI).
                 {mode === "delta" ? " En Pre → Post solo aparecen founders con las dos tomas completas." : ""}
@@ -250,6 +259,8 @@ export function WellbeingScatter({ startups, selectedId }: { startups: StartupHd
                   </table>
                 </div>
               </details>
+                </>
+              )}
             </>
           )}
         </div>

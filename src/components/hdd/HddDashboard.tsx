@@ -13,7 +13,6 @@ export function HddDashboard({ data }: { data: HddDashboardData }) {
   const [selected, setSelected] = useState<string>(ALL);
   const startups = [...data.startups].sort((a, b) => a.name.localeCompare(b.name, "es"));
   const current = startups.find((s) => s.startupId === selected) ?? null;
-  const allFounders = startups.flatMap((s) => s.founders);
   const scope = current ? [current] : startups;
   const updated = new Date(data.generatedAt);
 
@@ -74,7 +73,7 @@ export function HddDashboard({ data }: { data: HddDashboardData }) {
 
       <div className="flex flex-col gap-6">
         {scope.map((s) => (
-          <StartupReport key={s.startupId} startup={s} allFounders={allFounders} onOpen={current ? undefined : () => setSelected(s.startupId)} />
+          <StartupReport key={s.startupId} startup={s} allStartups={startups} onOpen={current ? undefined : () => setSelected(s.startupId)} />
         ))}
       </div>
     </div>
