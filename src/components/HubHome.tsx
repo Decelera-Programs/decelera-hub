@@ -364,7 +364,7 @@ export function HubHome({
   return (
     <WorkspaceProvider value={workspace}>
     <div className="flex h-screen flex-col overflow-hidden bg-[var(--page)]">
-      <header className="relative flex h-14 shrink-0 items-center gap-3 border-b border-[var(--border)] bg-[var(--surface-1)] px-3 sm:px-4">
+      <header className="glass relative z-20 flex h-14 shrink-0 items-center gap-3 border-b border-[var(--border)] px-3 sm:px-4">
         <button
           type="button"
           onClick={toggleNav}
@@ -532,17 +532,43 @@ export function HubHome({
               layout local de "Tu espacio" al abrir/cerrar una pestaña. */}
           <div className="min-h-0 flex-1 overflow-y-auto" hidden={tabs.length > 0}>
             <div className="mx-auto flex w-full max-w-[1180px] flex-col gap-8 px-6 py-10 lg:px-10">
-              <div className="flex flex-col gap-1.5">
-                <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-sea)]">
-                  Espacio de trabajo
-                </span>
-                <h1 className="text-3xl font-semibold tracking-tight text-[var(--text-primary)] sm:text-4xl">
-                  Herramientas del equipo
-                </h1>
-                <p className="max-w-lg text-[15px] text-[var(--text-secondary)]">
-                  Abre cualquier módulo desde el árbol de la izquierda. {totalCount} módulo
-                  {totalCount === 1 ? "" : "s"}, organizados por área.
-                </p>
+              <div className="aurora hub-reveal rounded-[28px] px-7 py-10 sm:px-10 sm:py-14">
+                <span aria-hidden className="aurora-sun" />
+                <span aria-hidden className="dot-grid pointer-events-none absolute inset-0 -z-10" />
+                <div className="flex max-w-2xl flex-col gap-4">
+                  <span className="glass-dark inline-flex w-fit items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-sky)]">
+                    <span aria-hidden className="pulse-dot h-1.5 w-1.5 rounded-full bg-[var(--brand-water)]" />
+                    Espacio de trabajo
+                  </span>
+                  <h1 className="text-4xl font-extralight leading-[1.1] tracking-tight sm:text-6xl" style={{ fontWeight: 200 }}>
+                    Herramientas del <span className="text-gradient">equipo</span>
+                  </h1>
+                  <p className="max-w-lg text-[15px] leading-relaxed text-[var(--brand-cloud)]">
+                    Abre cualquier módulo desde el árbol de la izquierda. {totalCount} módulo
+                    {totalCount === 1 ? "" : "s"}, organizados por área.
+                  </p>
+                </div>
+                {apps.length > 0 && (
+                  <div
+                    className="marquee mt-8 overflow-hidden"
+                    style={{ maskImage: "linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent)" }}
+                    aria-hidden
+                  >
+                    <div className="marquee-track gap-2.5">
+                      {[...apps, ...apps].map((a, i) => (
+                        <span
+                          key={`${a.slug}-${i}`}
+                          className="glass-dark mr-2.5 inline-flex shrink-0 items-center gap-2 rounded-full px-3.5 py-1.5 text-sm text-[var(--brand-sky)]"
+                        >
+                          <span className="grid h-5 w-5 place-items-center rounded-md bg-[var(--brand-water)]/20 text-[11px] font-semibold text-[var(--brand-water)]">
+                            {a.initial}
+                          </span>
+                          {a.title}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <PersonalSpace folders={folders} widgets={widgets} apps={apps} />

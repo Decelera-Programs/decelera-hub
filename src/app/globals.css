@@ -236,6 +236,223 @@ h3 {
   animation: tree-expand 0.18s ease both;
 }
 
+/* --- Efectos "landing": aurora, spotlight que sigue al cursor, cristal, scroll-reveal --- */
+
+/* Hero oscuro (Night) con manchas de color que derivan despacio. */
+.aurora {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background: var(--brand-night);
+  color: var(--brand-sky);
+}
+.aurora::before,
+.aurora::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  border-radius: 9999px;
+  filter: blur(70px);
+  opacity: 0.55;
+  will-change: transform;
+}
+.aurora::before {
+  width: 46%;
+  aspect-ratio: 1;
+  left: -8%;
+  top: -40%;
+  background: radial-gradient(circle, var(--brand-sea), transparent 68%);
+  animation: aurora-a 16s ease-in-out infinite alternate;
+}
+.aurora::after {
+  width: 38%;
+  aspect-ratio: 1;
+  right: -6%;
+  bottom: -50%;
+  background: radial-gradient(circle, var(--brand-water), transparent 68%);
+  opacity: 0.4;
+  animation: aurora-b 20s ease-in-out infinite alternate;
+}
+.aurora-sun {
+  position: absolute;
+  z-index: -1;
+  width: 22%;
+  aspect-ratio: 1;
+  right: 24%;
+  top: -30%;
+  border-radius: 9999px;
+  background: radial-gradient(circle, var(--brand-sun), transparent 70%);
+  filter: blur(60px);
+  opacity: 0.28;
+  animation: aurora-a 24s ease-in-out infinite alternate-reverse;
+}
+@keyframes aurora-a {
+  to { transform: translate3d(18%, 22%, 0) scale(1.15); }
+}
+@keyframes aurora-b {
+  to { transform: translate3d(-22%, -18%, 0) scale(1.2); }
+}
+
+/* Rejilla de puntos muy tenue sobre fondos oscuros. */
+.dot-grid {
+  background-image: radial-gradient(rgba(242, 248, 250, 0.14) 1px, transparent 1px);
+  background-size: 22px 22px;
+  mask-image: radial-gradient(ellipse at 50% 40%, #000 25%, transparent 75%);
+}
+
+/* Texto con degradado de marca. */
+.text-gradient {
+  background: linear-gradient(100deg, var(--brand-water), var(--brand-sea), var(--brand-sun), var(--brand-water));
+  background-size: 200% 200%;
+  animation: gradient-pulse 12s ease infinite;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+@keyframes gradient-pulse {
+  0%, 100% { background-position: 0 50%; }
+  50% { background-position: 100% 50%; }
+}
+@keyframes float-subtle {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+@keyframes shimmer {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(200%); }
+}
+.float-subtle {
+  animation: float-subtle 6s ease-in-out infinite;
+}
+/* Brillo que barre el botón al pasar el cursor. */
+.shimmer {
+  position: relative;
+  overflow: hidden;
+}
+.shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 50%;
+  background: linear-gradient(100deg, transparent, rgba(242, 248, 250, 0.35), transparent);
+  transform: translateX(-100%);
+  pointer-events: none;
+}
+.shimmer:hover::after {
+  animation: shimmer 0.9s ease;
+}
+
+/* Spotlight: <Spotlight/> escribe --mx/--my en la tarjeta bajo el cursor. */
+.spotlight {
+  position: relative;
+}
+.spotlight::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  background: radial-gradient(
+    380px circle at var(--mx, 50%) var(--my, 50%),
+    color-mix(in srgb, var(--brand-water) 16%, transparent),
+    transparent 65%
+  );
+}
+.spotlight:hover::before {
+  opacity: 1;
+}
+/* Borde luminoso que se enciende solo cerca del cursor. */
+.spotlight::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  z-index: 0;
+  border-radius: inherit;
+  padding: 1px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  background: radial-gradient(
+    240px circle at var(--mx, 50%) var(--my, 50%),
+    var(--brand-water),
+    transparent 70%
+  );
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  -webkit-mask-composite: xor;
+}
+.spotlight:hover::after {
+  opacity: 0.9;
+}
+
+/* Cristal esmerilado para cabeceras y menús flotantes. */
+.glass {
+  background: color-mix(in srgb, var(--surface-1) 72%, transparent);
+  backdrop-filter: blur(14px) saturate(1.4);
+  -webkit-backdrop-filter: blur(14px) saturate(1.4);
+}
+.glass-dark {
+  background: rgba(45, 56, 82, 0.55);
+  border: 1px solid rgba(242, 248, 250, 0.14);
+  backdrop-filter: blur(16px) saturate(1.5);
+  -webkit-backdrop-filter: blur(16px) saturate(1.5);
+}
+
+/* Aparición al hacer scroll (animation-timeline donde exista; si no, ya visible). */
+@supports (animation-timeline: view()) {
+  .scroll-reveal {
+    animation: hub-reveal linear both;
+    animation-timeline: view();
+    animation-range: entry 0% entry 45%;
+  }
+}
+
+/* Pastilla con punto que late (estado "en vivo"). */
+@keyframes pulse-ring {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--brand-water) 55%, transparent); }
+  100% { box-shadow: 0 0 0 9px transparent; }
+}
+.pulse-dot {
+  animation: pulse-ring 2s ease-out infinite;
+}
+
+/* Cinta de logos / chips en bucle. */
+@keyframes marquee {
+  to { transform: translateX(-50%); }
+}
+.marquee-track {
+  display: flex;
+  width: max-content;
+  animation: marquee 42s linear infinite;
+}
+.marquee:hover .marquee-track {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aurora::before,
+  .aurora::after,
+  .aurora-sun,
+  .pulse-dot,
+  .float-subtle,
+  .text-gradient,
+  .shimmer:hover::after,
+  .marquee-track,
+  .scroll-reveal {
+    animation: none;
+  }
+  .spotlight::before,
+  .spotlight::after {
+    transition: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .tree-chevron,
   .tree-expand {

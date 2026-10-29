@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Fustat, Taviraj } from "next/font/google";
 import "./globals.css";
+import { Spotlight } from "@/components/Spotlight";
 
 const fustat = Fustat({
   variable: "--font-fustat",
@@ -9,13 +10,13 @@ const fustat = Fustat({
 
 const taviraj = Taviraj({
   variable: "--font-taviraj",
-  weight: ["500", "600"],
+  weight: ["200", "500", "600"],
   subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
-  title: "Decelera Hub",
-  description: "Hub de herramientas internas de Decelera",
+  title: "Decelera Brain",
+  description: "Brain: herramientas internas de Decelera",
 };
 
 export default function RootLayout({
@@ -25,7 +26,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es" className={`${fustat.variable} ${taviraj.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col"><Spotlight />
+        {children}
+      </body>
     </html>
   );
 }

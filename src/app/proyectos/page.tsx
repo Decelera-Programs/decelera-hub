@@ -30,7 +30,7 @@ export default async function ProyectosPage() {
           <img src="/decelera-mark.svg" alt="Decelera" className="h-6 w-6" />
           <div className="hidden items-baseline gap-1.5 lg:flex">
             <span className="text-sm font-bold tracking-tight text-[var(--text-primary)]">Decelera</span>
-            <span className="text-sm font-normal tracking-tight text-[var(--text-muted)]">Hub</span>
+            <span className="text-sm font-normal tracking-tight text-[var(--text-muted)]">Brain</span>
           </div>
         </div>
 

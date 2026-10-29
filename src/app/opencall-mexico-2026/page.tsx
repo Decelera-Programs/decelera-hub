@@ -6,7 +6,7 @@ import { getOpencallDeals } from "@/lib/data";
 import { requireMember } from "@/lib/hub";
 
 export const metadata: Metadata = {
-  title: "Opencall México 2026 | Decelera Hub",
+  title: "Opencall México 2026 | Decelera Brain",
 };
 
 export const dynamic = "force-dynamic";
@@ -21,7 +21,7 @@ export default async function Page() {
         href="/"
         className="inline-flex w-fit items-center gap-1.5 text-sm font-medium text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]"
       >
-        <span aria-hidden>←</span> Decelera Hub
+        <span aria-hidden>←</span> Decelera Brain
       </Link>
       <Header />
       <FunnelDashboard deals={deals} />

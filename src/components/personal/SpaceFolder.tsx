@@ -279,7 +279,7 @@ export function SpaceFolder({
             </button>
           )}
           {items.length === 0 && !adding && (
-            <p className="text-xs text-[var(--text-muted)]">Vacía — mete apps del hub o enlaces.</p>
+            <p className="text-xs text-[var(--text-muted)]">Vacía — mete apps del Brain o enlaces.</p>
           )}
         </div>
       )}
@@ -391,7 +391,7 @@ function AddItemForm({
             color: tab === "app" ? "var(--text-primary)" : "var(--text-muted)",
           }}
         >
-          App del hub
+          App del Brain
         </button>
         <button
           type="button"

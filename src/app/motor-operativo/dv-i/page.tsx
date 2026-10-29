@@ -10,7 +10,7 @@ import { SquadSection } from "@/components/SquadSection";
 import { requireMember } from "@/lib/hub";
 
 export const metadata: Metadata = {
-  title: "Control Panel | Decelera Hub",
+  title: "Control Panel | Decelera Brain",
 };
 
 export const dynamic = "force-dynamic";
@@ -25,7 +25,7 @@ export default async function DvIPage() {
         href="/"
         className="inline-flex w-fit items-center gap-1.5 text-sm font-medium text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]"
       >
-        <span aria-hidden>←</span> Decelera Hub
+        <span aria-hidden>←</span> Decelera Brain
       </Link>
 
       <header className="flex flex-wrap items-start justify-between gap-4">

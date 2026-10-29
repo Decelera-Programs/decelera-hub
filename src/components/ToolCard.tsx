@@ -16,7 +16,7 @@ export function ToolCard({
 
   return (
     <div
-      className={`hub-card hub-reveal card group relative flex min-h-[176px] flex-col gap-4 p-5${
+      className={`hub-card hub-reveal spotlight card group relative flex min-h-[176px] flex-col gap-4 p-5${
         dragging ? " opacity-40" : ""
       }`}
       style={{ animationDelay: `${revealDelay}ms` }}
@@ -106,7 +106,7 @@ export function ComingSoonCard({ revealDelay = 0 }: { revealDelay?: number }) {
         </p>
         <h2 className="text-xl font-semibold leading-tight text-[var(--text-muted)]">Nueva herramienta</h2>
         <p className="text-sm leading-relaxed text-[var(--text-muted)]">
-          El próximo módulo del hub aparecerá aquí.
+          El próximo módulo del Brain aparecerá aquí.
         </p>
       </div>
     </div>

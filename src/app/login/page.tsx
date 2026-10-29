@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { auth, signIn } from "@/auth";
 
-export const metadata: Metadata = { title: "Entrar · Decelera Hub" };
+export const metadata: Metadata = { title: "Entrar · Decelera Brain" };
 
 export default async function LoginPage({
   searchParams,
@@ -13,15 +13,17 @@ export default async function LoginPage({
   const { error } = await searchParams;
 
   return (
-    <main className="grid min-h-screen place-items-center bg-gradient-to-br from-[var(--page)] via-[var(--page)] to-[color-mix(in_srgb,var(--brand-water)_10%,var(--page))] px-6">
-      <div className="card flex w-full max-w-sm flex-col items-center gap-6 p-8 text-center">
+    <main className="aurora grid min-h-screen place-items-center px-6">
+      <span aria-hidden className="aurora-sun" />
+      <span aria-hidden className="dot-grid pointer-events-none absolute inset-0 -z-10" />
+      <div className="glass-dark hub-reveal float-subtle flex w-full max-w-sm flex-col items-center gap-6 rounded-[24px] p-8 text-center shadow-2xl">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/decelera-mark.svg" alt="Decelera" className="h-9 w-9" />
         <div className="flex flex-col gap-1.5">
-          <h1 className="text-2xl font-semibold tracking-tight text-[var(--text-primary)]">
-            Decelera Hub
+          <h1 className="text-4xl tracking-tight text-[var(--brand-sky)]" style={{ fontWeight: 200 }}>
+            Decelera <span className="text-gradient">Brain</span>
           </h1>
-          <p className="text-sm text-[var(--text-secondary)]">
+          <p className="text-sm text-[var(--brand-cloud)]">
             Entra con tu cuenta de Decelera para acceder a tus herramientas.
           </p>
         </div>
@@ -31,7 +33,7 @@ export default async function LoginPage({
             className="w-full rounded-xl px-3 py-2 text-sm"
             style={{ background: "var(--warning-bg)", color: "var(--warning-fg)" }}
           >
-            Esa cuenta no puede acceder al Hub. Usa tu email <strong>@decelera.com</strong>.
+            Esa cuenta no puede acceder al Brain. Usa tu email <strong>@decelera.com</strong>.
           </p>
         )}
 
@@ -44,7 +46,7 @@ export default async function LoginPage({
         >
           <button
             type="submit"
-            className="flex h-11 w-full items-center justify-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface-1)] px-5 text-sm font-semibold text-[var(--text-primary)] shadow-sm transition-all hover:-translate-y-0.5 hover:border-[var(--brand-water)] hover:shadow-md"
+            className="shimmer flex h-11 w-full items-center justify-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface-1)] px-5 text-sm font-semibold text-[var(--text-primary)] shadow-sm transition-all hover:-translate-y-0.5 hover:border-[var(--brand-water)] hover:shadow-md"
           >
             <GoogleGlyph />
             Continuar con Google

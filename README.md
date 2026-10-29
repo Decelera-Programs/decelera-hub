@@ -1,4 +1,4 @@
-# Decelera Hub — Opencall México 2026
+# Decelera Brain — Opencall México 2026
 
 Dashboard de seguimiento de la opencall México 2026, leyendo directamente del
 schema `historico` de Supabase (sincronizado desde Attio).
@@ -32,7 +32,7 @@ y `AUTH_*` (NextAuth). Todas server-only.
 
 ## Login (NextAuth + Google)
 
-El hub exige login con cuenta de Decelera (`@decelera.com` /
+Decelera Brain exige login con cuenta de Decelera (`@decelera.com` /
 `@decelerastartups.com`) vía **NextAuth v5** con Google — independiente de la Auth
 de Supabase. La sesión es un JWT en cookie; no hay tabla de sesiones.
 

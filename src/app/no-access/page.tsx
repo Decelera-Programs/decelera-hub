@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { auth } from "@/auth";
 import { signOutAction } from "@/app/actions";
 
-export const metadata: Metadata = { title: "Sin acceso · Decelera Hub" };
+export const metadata: Metadata = { title: "Sin acceso · Decelera Brain" };
 
 export default async function NoAccessPage() {
   const session = await auth();
@@ -19,11 +19,11 @@ export default async function NoAccessPage() {
           <p className="text-sm text-[var(--text-secondary)]">
             {session?.user?.email ? (
               <>
-                <strong>{session.user.email}</strong> no tiene acceso al Hub todavía. Habla con el
+                <strong>{session.user.email}</strong> no tiene acceso al Brain todavía. Habla con el
                 equipo de Decelera para que te den de alta.
               </>
             ) : (
-              "Tu cuenta no tiene acceso al Hub. Habla con el equipo de Decelera."
+              "Tu cuenta no tiene acceso al Brain. Habla con el equipo de Decelera."
             )}
           </p>
         </div>

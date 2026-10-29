@@ -5,7 +5,7 @@ import { getHddDashboardData } from "@/lib/hdd/data";
 import { requireMember } from "@/lib/hub";
 
 export const metadata: Metadata = {
-  title: "Human Due Diligence México 2026 | Decelera Hub",
+  title: "Human Due Diligence México 2026 | Decelera Brain",
 };
 
 export const dynamic = "force-dynamic";
@@ -20,7 +20,7 @@ export default async function Page() {
         href="/"
         className="inline-flex w-fit items-center gap-1.5 text-sm font-medium text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]"
       >
-        <span aria-hidden>←</span> Decelera Hub
+        <span aria-hidden>←</span> Decelera Brain
       </Link>
       <header className="flex items-start gap-4">
         {/* eslint-disable-next-line @next/next/no-img-element */}
