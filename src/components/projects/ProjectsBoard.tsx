@@ -358,7 +358,8 @@ export function ProjectsBoard({
 
   return (
     <>
-      <div className="flex shrink-0 flex-col gap-2 px-3 pt-3 sm:px-4">
+      <div className="mx-auto flex min-h-0 w-full max-w-[1180px] flex-1 flex-col px-6 py-6 lg:px-10">
+      <div className="flex shrink-0 flex-col gap-3">
       <div className="aurora-light hub-reveal flex flex-wrap items-end justify-between gap-4 rounded-[20px] px-5 py-3 sm:px-6">
         <div>
           <h1 className="page-title text-2xl tracking-tight text-[var(--text-primary)] sm:text-3xl">
@@ -422,11 +423,11 @@ export function ProjectsBoard({
       </div>
 
       {view === "gantt" ? (
-        <div className="card mx-3 mb-3 mt-2 flex min-h-0 flex-1 flex-col overflow-hidden sm:mx-4">
+        <div className="card mt-4 flex min-h-0 flex-1 flex-col overflow-hidden">
           <GanttView projects={visible} columns={columns} onOpen={setOpenId} onReschedule={reschedule} />
         </div>
       ) : (
-        <div className="flex min-h-0 flex-1 gap-3 overflow-x-auto px-3 pb-3 pt-2 sm:px-4">
+        <div className="flex min-h-0 flex-1 gap-4 overflow-x-auto pb-2 pt-4">
         {columns.map((col) => (
           <Column
             key={col.id}
@@ -476,6 +477,7 @@ export function ProjectsBoard({
         )}
         </div>
       )}
+      </div>
 
       {openProject && (
         <ProjectModal
