@@ -349,7 +349,7 @@ export function ProjectsBoard({
 
   return (
     <>
-      <div className="flex flex-wrap items-center gap-2 border-b border-[var(--border)] bg-[var(--surface-1)] px-4 py-2">
+      <div className="flex flex-wrap items-center gap-2 glass border-b border-[var(--border)] px-4 py-2">
         <div className="flex items-center gap-0.5 rounded-full border border-[var(--border)] p-0.5">
           <ViewTab active={view === "kanban"} onClick={() => setView("kanban")}>
             Kanban
@@ -499,7 +499,7 @@ function Column({
 
   return (
     <section
-      className="flex w-[300px] shrink-0 flex-col rounded-2xl border border-[var(--border)] bg-[var(--page)] transition-colors"
+      className="flex w-[300px] shrink-0 flex-col rounded-2xl border border-[var(--border)] bg-[color-mix(in_srgb,var(--surface-1)_45%,transparent)] backdrop-blur-sm transition-colors"
       style={isDropTarget ? { borderColor: "var(--brand-water)" } : undefined}
       onDragOver={(e) => {
         if (dragId) {
@@ -690,6 +690,7 @@ function ViewTab({
       className="rounded-full px-3 py-1 text-xs font-semibold transition-colors"
       style={{
         background: active ? "var(--brand-sea)" : "transparent",
+        boxShadow: active ? "0 4px 12px -4px color-mix(in srgb, var(--brand-sea) 60%, transparent)" : undefined,
         color: active ? "#fff" : "var(--text-muted)",
       }}
     >

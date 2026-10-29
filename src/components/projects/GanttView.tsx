@@ -173,7 +173,7 @@ export function GanttView({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       {/* Leyenda: el relleno de la barra es el equipo, el borde/punto es el seguimiento. */}
-      <div className="flex flex-wrap items-center gap-3 border-b border-[var(--border)] px-4 py-1.5 text-[11px] text-[var(--text-muted)]">
+      <div className="glass flex flex-wrap items-center gap-3 border-b border-[var(--border)] px-4 py-1.5 text-[11px] text-[var(--text-muted)]">
         <span className="font-semibold uppercase tracking-wide">Seguimiento</span>
         {PROJECT_HEALTHS.map((h) => (
           <span key={h} className="flex items-center gap-1">
