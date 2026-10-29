@@ -7,6 +7,7 @@ import type { HubApp, Section, Subfolder } from "@/lib/apps";
 import {
   createSection,
   createSubfolder,
+  moveSubfolderToSection,
   reorderCards,
   reorderSections,
   reorderSubfolders,
@@ -16,6 +17,7 @@ import { useHub } from "@/lib/useHub";
 import { AccountMenu, type AccountUser } from "./AccountMenu";
 import { CardInfoDialog } from "./CardInfoDialog";
 import { DriveView, type DriveHandlers } from "./DriveView";
+import type { DragItem } from "./dnd";
 import { EmbedArea, type EmbedTab, type EmbedTarget } from "./EmbedArea";
 import { CardEditor } from "./hub-admin/CardEditor";
 import { SectionEditor } from "./hub-admin/SectionEditor";
@@ -276,7 +278,70 @@ export function HubHome({
     });
   }
 
+  function dropItem(item: DragItem, target: DragItem) {
+    const sectionOf = (subId: string) => groups.find((g) => g.subfolders.some((s) => s.id === subId));
+    const insertBefore = <T extends { id: string }>(list: T[], moving: T, beforeId: string | null) => {
+      const rest = list.filter((x) => x.id !== moving.id);
+      const at = beforeId ? rest.findIndex((x) => x.id === beforeId) : -1;
+      rest.splice(at < 0 ? rest.length : at, 0, moving);
+      return rest;
+    };
+
+    if (item.kind === "section" && target.kind === "section") {
+      const moving = groups.find((g) => g.id === item.id);
+      if (!moving) return;
+      const ids = insertBefore(groups, moving, target.id).map((g) => g.id);
+      startAdmin(() => void reorderSections(ids));
+      return;
+    }
+
+    if (item.kind === "subfolder") {
+      const dest = target.kind === "section" ? groups.find((g) => g.id === target.id) : sectionOf(target.id);
+      const moving = groups.flatMap((g) => g.subfolders).find((s) => s.id === item.id);
+      if (!dest || !moving) return;
+      const ids = insertBefore(dest.subfolders, moving, target.kind === "subfolder" ? target.id : null).map(
+        (s) => s.id,
+      );
+      startAdmin(() => void moveSubfolderToSection(item.id, dest.id, ids));
+      return;
+    }
+
+    if (item.kind === "card") {
+      const all = groups.flatMap((g) => [...g.apps, ...g.subfolders.flatMap((s) => s.apps)]);
+      const moving = all.find((a) => a.id === item.id);
+      if (!moving) return;
+      let sectionId: string;
+      let subfolderId: string | null;
+      let siblings: HubApp[];
+      let beforeId: string | null = null;
+      if (target.kind === "section") {
+        const g = groups.find((x) => x.id === target.id);
+        if (!g) return;
+        sectionId = g.id;
+        subfolderId = null;
+        siblings = g.apps;
+      } else if (target.kind === "subfolder") {
+        const g = sectionOf(target.id);
+        const sf = g?.subfolders.find((s) => s.id === target.id);
+        if (!g || !sf) return;
+        sectionId = g.id;
+        subfolderId = sf.id;
+        siblings = sf.apps;
+      } else {
+        const tc = all.find((a) => a.id === target.id);
+        if (!tc || !tc.sectionId) return;
+        sectionId = tc.sectionId;
+        subfolderId = tc.subfolderId;
+        siblings = all.filter((a) => a.sectionId === sectionId && a.subfolderId === subfolderId);
+        beforeId = tc.id;
+      }
+      const ids = insertBefore(siblings, moving, beforeId).map((a) => a.id);
+      startAdmin(() => void reorderCards(sectionId, subfolderId, ids));
+    }
+  }
+
   const handlers: DriveHandlers = {
+    onDrop: dropItem,
     onOpen: (card) => openTarget({ kind: "card", card }),
     onInfo: (card) => setCardInfo(card),
     onEditSection: (s) => setSectionEditor(s),

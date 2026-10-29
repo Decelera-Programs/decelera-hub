@@ -3,6 +3,7 @@
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { CATEGORY_TINT, type HubApp, type Section } from "@/lib/apps";
 import type { CategoryFilter, TreeSection, TreeSubfolder } from "@/lib/useHub";
+import { type DragItem, DndProvider, dndClass, useDndItem, useDragging } from "./dnd";
 import { IconTile, SearchField, StatusPill } from "./HubPrimitives";
 
 export type DriveHandlers = {
@@ -14,6 +15,7 @@ export type DriveHandlers = {
   onAddSection: () => void;
   onAddSubfolder: (sectionId: string) => void;
   onAddCard: (sectionId: string, subfolderId: string | null) => void;
+  onDrop: (item: DragItem, target: DragItem) => void;
   onMoveSection: (index: number, dir: -1 | 1) => void;
   onMoveSubfolder: (sectionId: string, subIds: string[], index: number, dir: -1 | 1) => void;
   onMoveCard: (
@@ -112,6 +114,7 @@ export function DriveView({
   const showResults = filtering;
 
   return (
+    <DndProvider enabled={canEdit} onDrop={handlers.onDrop}>
     <div className="mx-auto flex w-full max-w-[1180px] flex-col gap-7 px-6 py-8 lg:px-10">
       {atRoot && !showResults ? (
         <Hero
@@ -209,6 +212,7 @@ export function DriveView({
                     count={g.count}
                     accent={g.accent}
                     canEdit={canEdit}
+                    dnd={{ kind: "section", id: g.id }}
                     onOpen={() => setPath({ sectionId: g.id, subfolderId: null })}
                     onEdit={() => handlers.onEditSection(g)}
                     onMove={(dir) => handlers.onMoveSection(i, dir)}
@@ -223,6 +227,7 @@ export function DriveView({
           ) : (
             section && (
               <Level
+                groups={groups}
                 section={section}
                 subfolder={subfolder}
                 view={view}
@@ -236,12 +241,14 @@ export function DriveView({
         </>
       )}
     </div>
+    </DndProvider>
   );
 }
 
 /* ------------------------------ Nivel de carpeta ------------------------------ */
 
 function Level({
+  groups,
   section,
   subfolder,
   view,
@@ -250,6 +257,7 @@ function Level({
   handlers,
   onGo,
 }: {
+  groups: TreeSection[];
   section: TreeSection;
   subfolder: TreeSubfolder | null;
   view: ViewMode;
@@ -263,6 +271,7 @@ function Level({
 
   return (
     <>
+      <DropStrip groups={groups} />
       {!subfolder && (section.subfolders.length > 0 || canEdit) && (
         <Block title="Carpetas">
           <FolderGrid>
@@ -274,6 +283,7 @@ function Level({
                 count={sf.apps.length}
                 accent={section.accent}
                 canEdit={canEdit}
+                dnd={{ kind: "subfolder", id: sf.id }}
                 onOpen={() => onGo({ sectionId: section.id, subfolderId: sf.id })}
                 onEdit={() => handlers.onEditSubfolder(sf)}
                 onMove={(dir) => handlers.onMoveSubfolder(section.id, subIds, i, dir)}
@@ -309,6 +319,33 @@ function Level({
 }
 
 /* ---------------------------------- Piezas ---------------------------------- */
+
+/** Al arrastrar una tarjeta o subcarpeta aparecen todas las carpetas como destino. */
+function DropStrip({ groups }: { groups: TreeSection[] }) {
+  const dragging = useDragging();
+  if (!dragging || dragging.kind === "section") return null;
+  return (
+    <div className="glass hub-reveal sticky top-2 z-30 flex flex-wrap items-center gap-2 rounded-2xl border border-[var(--border)] px-3 py-2">
+      <span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">Mover a</span>
+      {groups.map((g) => (
+        <DropChip key={g.id} id={g.id} label={g.label} accent={g.accent} />
+      ))}
+    </div>
+  );
+}
+
+function DropChip({ id, label, accent }: { id: string; label: string; accent: string }) {
+  const d = useDndItem({ kind: "section", id }, { draggable: false });
+  return (
+    <span
+      {...d.props}
+      className={`flex items-center gap-1.5 rounded-full border border-dashed border-[var(--border)] px-3 py-1 text-xs font-semibold text-[var(--text-secondary)] transition-colors ${d.over ? "border-solid bg-[color-mix(in_srgb,var(--brand-water)_16%,transparent)] text-[var(--text-primary)]" : ""}`}
+    >
+      <span aria-hidden className="h-2 w-2 rounded-full" style={{ background: accent }} />
+      {label}
+    </span>
+  );
+}
 
 function Hero({
   totalCount,
@@ -433,6 +470,7 @@ function FolderTile({
   count,
   accent,
   canEdit,
+  dnd,
   onOpen,
   onEdit,
   onMove,
@@ -444,14 +482,19 @@ function FolderTile({
   count: number;
   accent: string;
   canEdit: boolean;
+  dnd: DragItem;
   onOpen: () => void;
   onEdit: () => void;
   onMove: (dir: -1 | 1) => void;
   first: boolean;
   last: boolean;
 }) {
+  const d = useDndItem(dnd);
   return (
-    <div className="hub-reveal spotlight card group relative flex items-center gap-3.5 px-4 py-3.5 transition-transform duration-200 hover:-translate-y-0.5">
+    <div
+      {...d.props}
+      className={`hub-reveal spotlight card group relative flex items-center gap-3.5 px-4 py-3.5 transition-transform duration-200 hover:-translate-y-0.5 ${dndClass(d)}`}
+    >
       <button
         type="button"
         onClick={onOpen}
@@ -563,6 +606,7 @@ function Files({
             onOpen={() => handlers.onOpen(a)}
             onInfo={() => handlers.onInfo(a)}
             editBar={edit(a, i)}
+            canEdit={canEdit}
           />
         ))}
         {canEdit && onAdd && (
@@ -592,6 +636,7 @@ function Files({
           onOpen={() => handlers.onOpen(a)}
           onInfo={() => handlers.onInfo(a)}
           editBar={edit(a, i)}
+          canEdit={canEdit}
         />
       ))}
       {canEdit && onAdd && (
@@ -615,19 +660,23 @@ function FileTile({
   onOpen,
   onInfo,
   editBar,
+  canEdit,
 }: {
   app: HubApp;
   where: string;
   open: boolean;
+  canEdit: boolean;
   delay: number;
   onOpen: () => void;
   onInfo: () => void;
   editBar: ReactNode;
 }) {
   const tint = CATEGORY_TINT[app.category];
+  const d = useDndItem({ kind: "card", id: app.id }, { draggable: canEdit });
   return (
     <div
-      className="hub-card hub-reveal spotlight card group relative flex flex-col overflow-hidden"
+      {...d.props}
+      className={`hub-card hub-reveal spotlight card group relative flex flex-col overflow-hidden ${dndClass(d)}`}
       style={{ animationDelay: `${delay}ms` }}
     >
       <button type="button" onClick={onOpen} aria-label={`Abrir ${app.title}`} className="absolute inset-0 z-10 rounded-[20px]" />
@@ -684,16 +733,22 @@ function FileRow({
   onOpen,
   onInfo,
   editBar,
+  canEdit,
 }: {
   app: HubApp;
   where: string;
   open: boolean;
+  canEdit: boolean;
   onOpen: () => void;
   onInfo: () => void;
   editBar: ReactNode;
 }) {
+  const d = useDndItem({ kind: "card", id: app.id }, { draggable: canEdit });
   return (
-    <div className="group relative flex items-center gap-3 border-b border-[var(--border)] px-4 py-2.5 transition-colors last:border-b-0 hover:bg-[var(--row-hover)]">
+    <div
+      {...d.props}
+      className={`group relative flex items-center gap-3 border-b border-[var(--border)] px-4 py-2.5 transition-colors last:border-b-0 hover:bg-[var(--row-hover)] ${dndClass(d)}`}
+    >
       <button type="button" onClick={onOpen} aria-label={`Abrir ${app.title}`} className="absolute inset-0 z-10" />
       <IconTile category={app.category} initial={app.initial} size={30} />
       <span className="relative z-0 flex min-w-0 flex-1 flex-col">
