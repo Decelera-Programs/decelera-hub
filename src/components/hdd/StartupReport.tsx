@@ -400,7 +400,7 @@ export function StartupReport({ startup, allStartups, onOpen }: { startup: Start
     `Bienestar pre ${c.withWellbeingPre}/${c.founders}`, `post ${c.withWellbeingPost}/${c.founders}`,
   ];
   return (
-    <section className="card flex flex-col gap-5 p-6 shadow-sm" aria-label={`Informe de ${startup.name}`}>
+    <section className="card spotlight flex flex-col gap-5 p-6 shadow-sm" aria-label={`Informe de ${startup.name}`}>
       <header className="flex flex-wrap items-center gap-3">
         {startup.logoUrl && <img src={startup.logoUrl} alt="" className="h-10 w-10 rounded-lg object-contain" />}
         <div className="mr-auto">

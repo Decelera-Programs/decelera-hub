@@ -16,7 +16,7 @@ export default async function Page() {
   const deals = await getOpencallDeals();
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-6 py-8">
+    <div className="ambient mx-auto flex w-full max-w-6xl flex-col gap-6 px-6 py-8">
       <Link
         href="/"
         className="inline-flex w-fit items-center gap-1.5 text-sm font-medium text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]"

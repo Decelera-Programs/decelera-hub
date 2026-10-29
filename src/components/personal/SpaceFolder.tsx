@@ -111,7 +111,7 @@ export function SpaceFolder({
 
   return (
     <div
-      className="card relative flex h-full flex-col gap-3 p-4 transition-shadow"
+      className="card spotlight relative flex h-full flex-col gap-3 p-4 transition-shadow"
       style={{
         ...(dropActive
           ? {

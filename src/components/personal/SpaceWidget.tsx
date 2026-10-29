@@ -54,7 +54,7 @@ export function SpaceWidget({ widget, onDeleted }: { widget: Widget; onDeleted: 
   }
 
   return (
-    <div className="card relative flex h-full flex-col gap-3 p-4">
+    <div className="card spotlight relative flex h-full flex-col gap-3 p-4">
       <div
         className="flex cursor-pointer select-none items-center gap-2"
         onClick={() => {

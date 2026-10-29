@@ -28,7 +28,7 @@ export function StatTile({
     tone === "positive" ? "var(--status-good)" : tone === "negative" ? "var(--status-critical)" : "var(--text-primary)";
 
   return (
-    <div className="card flex flex-1 flex-col gap-1.5 px-5 py-4">
+    <div className="card spotlight flex flex-1 flex-col gap-1.5 px-5 py-4">
       <span className="flex items-center gap-1.5 text-sm font-medium text-[var(--text-secondary)]">
         <span aria-hidden className="inline-block h-2 w-2 rounded-full" style={{ background: accent }} />
         {label}

@@ -24,7 +24,7 @@ export default async function ProyectosPage() {
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-[var(--page)]">
-      <header className="relative flex h-14 shrink-0 items-center gap-3 border-b border-[var(--border)] bg-[var(--surface-1)] px-3 sm:px-4">
+      <header className="glass relative z-20 flex h-14 shrink-0 items-center gap-3 border-b border-[var(--border)] px-3 sm:px-4">
         <div className="flex items-center gap-2">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/decelera-mark.svg" alt="Decelera" className="h-6 w-6" />

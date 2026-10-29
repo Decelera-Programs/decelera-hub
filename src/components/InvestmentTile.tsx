@@ -16,7 +16,7 @@ export function InvestmentTile({
   thresholdOk?: boolean;
 }) {
   return (
-    <div className="card flex flex-col gap-3 p-5 shadow-sm">
+    <div className="card spotlight flex flex-col gap-3 p-5 shadow-sm">
       <div>
         <h3 className="text-sm font-semibold text-[var(--text-primary)]">{label}</h3>
         <p className="text-xs text-[var(--text-secondary)]">{description}</p>

@@ -28,7 +28,7 @@ export default async function DvAmPage() {
   const meta = FUND_META["dv-am"];
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 py-8">
+    <div className="ambient mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 py-8">
       <Link
         href="/"
         className="inline-flex w-fit items-center gap-1.5 text-sm font-medium text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]"
@@ -36,11 +36,11 @@ export default async function DvAmPage() {
         <span aria-hidden>←</span> Decelera Brain
       </Link>
 
-      <header className="flex flex-wrap items-start justify-between gap-4">
+      <header className="aurora-light hub-reveal flex flex-wrap items-start justify-between gap-4 rounded-[24px] px-6 py-6 sm:px-8">
         <div className="flex flex-wrap items-start gap-4">
           <img src="/decelera-mark.svg" alt="Decelera" className="mt-1 h-10 w-10 shrink-0" />
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-[var(--text-primary)] sm:text-3xl">
+            <h1 className="page-title text-3xl tracking-tight text-[var(--text-primary)] sm:text-4xl">
               Control Panel
             </h1>
             <p className="max-w-2xl text-sm text-[var(--text-secondary)]">

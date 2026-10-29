@@ -15,18 +15,18 @@ export default async function Page() {
   const data = await getHddDashboardData();
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-6 py-8">
+    <div className="ambient mx-auto flex w-full max-w-6xl flex-col gap-6 px-6 py-8">
       <Link
         href="/"
         className="inline-flex w-fit items-center gap-1.5 text-sm font-medium text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]"
       >
         <span aria-hidden>←</span> Decelera Brain
       </Link>
-      <header className="flex items-start gap-4">
+      <header className="aurora-light hub-reveal flex items-start gap-4 rounded-[24px] px-6 py-6 sm:px-8">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/decelera-mark.svg" alt="Decelera" className="mt-1 h-10 w-10 shrink-0" />
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-[var(--text-primary)] sm:text-3xl">
+          <h1 className="page-title text-3xl tracking-tight text-[var(--text-primary)] sm:text-4xl">
             Human Due Diligence México 2026
           </h1>
           <p className="max-w-2xl text-sm text-[var(--text-secondary)]">

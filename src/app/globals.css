@@ -145,9 +145,10 @@ h3 {
 }
 
 .card {
-  background: var(--surface-1);
+  background: color-mix(in srgb, var(--surface-1) 88%, transparent);
   border: 1px solid var(--border);
   border-radius: 20px;
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--brand-night) 5%, transparent);
 }
 
 /* --- Hub home: entrada escalonada + hover --- */
@@ -293,6 +294,67 @@ h3 {
   to { transform: translate3d(-22%, -18%, 0) scale(1.2); }
 }
 
+/* Versión clara de la aurora: Sky/superficie con manchas suaves de marca. Para cabeceras de página. */
+.aurora-light {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--brand-water) 9%, var(--surface-1)),
+    var(--surface-1) 55%,
+    color-mix(in srgb, var(--brand-sun) 10%, var(--surface-1))
+  );
+}
+.aurora-light::before,
+.aurora-light::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  border-radius: 9999px;
+  filter: blur(60px);
+  will-change: transform;
+}
+.aurora-light::before {
+  width: 40%;
+  aspect-ratio: 1;
+  right: -6%;
+  top: -60%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--brand-sea) 30%, transparent), transparent 68%);
+  animation: aurora-b 22s ease-in-out infinite alternate-reverse;
+}
+.aurora-light::after {
+  width: 30%;
+  aspect-ratio: 1;
+  left: 8%;
+  bottom: -70%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--brand-water) 32%, transparent), transparent 68%);
+  animation: aurora-a 18s ease-in-out infinite alternate;
+}
+
+/* Fondo ambiental de las páginas internas: halos muy suaves sobre Sky. */
+.ambient {
+  position: relative;
+}
+.ambient::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(60% 45% at 100% 0%, color-mix(in srgb, var(--brand-water) 14%, transparent), transparent 70%),
+    radial-gradient(50% 40% at 0% 100%, color-mix(in srgb, var(--brand-sun) 12%, transparent), transparent 70%),
+    radial-gradient(45% 35% at 0% 0%, color-mix(in srgb, var(--brand-sea) 8%, transparent), transparent 70%);
+}
+
+/* Títulos de página: Taviraj ExtraLight. */
+.page-title {
+  font-weight: 200;
+  letter-spacing: -0.01em;
+}
+
 /* Rejilla de puntos muy tenue sobre fondos oscuros. */
 .dot-grid {
   background-image: radial-gradient(rgba(242, 248, 250, 0.14) 1px, transparent 1px);
@@ -361,6 +423,13 @@ h3 {
     color-mix(in srgb, var(--brand-water) 16%, transparent),
     transparent 65%
   );
+}
+.spotlight.card {
+  transition: box-shadow 0.25s ease, border-color 0.25s ease;
+}
+.spotlight.card:hover {
+  border-color: color-mix(in srgb, var(--brand-water) 45%, var(--border));
+  box-shadow: 0 14px 34px -16px color-mix(in srgb, var(--brand-sea) 30%, transparent);
 }
 .spotlight:hover::before {
   opacity: 1;
@@ -438,6 +507,8 @@ h3 {
 @media (prefers-reduced-motion: reduce) {
   .aurora::before,
   .aurora::after,
+  .aurora-light::before,
+  .aurora-light::after,
   .aurora-sun,
   .pulse-dot,
   .float-subtle,

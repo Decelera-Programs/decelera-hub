@@ -128,7 +128,7 @@ export function Wellbeing({ founder }: { founder: FounderHdd }) {
 /** Tarjeta de un founder dentro de una sección: foto y nombre, y el contenido de esa sección. */
 export function FounderPanel({ founder, hint, children }: { founder: FounderHdd; hint?: string; children: ReactNode }) {
   return (
-    <article className="card flex flex-col gap-4 p-6 shadow-sm" aria-label={`Founder ${founder.fullName}`}>
+    <article className="card spotlight flex flex-col gap-4 p-6 shadow-sm" aria-label={`Founder ${founder.fullName}`}>
       <header className="flex items-center gap-3">
         <Avatar founder={founder} />
         <div>
