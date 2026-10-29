@@ -74,7 +74,7 @@ export function ProjectCard({
       }}
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
-      className="card group relative flex w-full flex-col gap-2 overflow-hidden p-3 pl-4 text-left transition-[transform,box-shadow] hover:-translate-y-0.5 hover:shadow-md"
+      className="hub-reveal spotlight card group relative flex w-full flex-col gap-2 overflow-hidden p-3.5 pl-5 text-left transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5"
       style={{
         opacity: dragging ? 0.4 : undefined,
         cursor: "grab",

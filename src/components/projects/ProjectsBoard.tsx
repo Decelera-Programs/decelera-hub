@@ -2,7 +2,16 @@
 
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { Project, ProjectColumn, ProjectDoc, ProjectOwner, ProjectTask } from "@/lib/projects";
+import {
+  HEALTH_COLOR,
+  HEALTH_LABEL,
+  PROJECT_HEALTHS,
+  type Project,
+  type ProjectColumn,
+  type ProjectDoc,
+  type ProjectOwner,
+  type ProjectTask,
+} from "@/lib/projects";
 import { TEAMS, TEAM_LABEL, type Team } from "@/lib/teams";
 import {
   addDoc as addDocAction,
@@ -349,7 +358,29 @@ export function ProjectsBoard({
 
   return (
     <>
-      <div className="flex flex-wrap items-center gap-2 glass border-b border-[var(--border)] px-4 py-2">
+      <div className="flex shrink-0 flex-col gap-3 px-4 pt-4 sm:px-6">
+      <div className="aurora-light hub-reveal flex flex-wrap items-end justify-between gap-4 rounded-[24px] px-6 py-5 sm:px-8">
+        <div>
+          <h1 className="page-title text-3xl tracking-tight text-[var(--text-primary)] sm:text-4xl">
+            Proyectos
+          </h1>
+          <p className="max-w-xl text-sm text-[var(--text-secondary)]">
+            Qué se está haciendo, quién lo lleva y en qué punto está cada cosa.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <HeroStat label="Proyectos" value={visible.length} color="var(--brand-sea)" />
+          {PROJECT_HEALTHS.filter((h) => h !== "done").map((h) => (
+            <HeroStat
+              key={h}
+              label={HEALTH_LABEL[h]}
+              value={visible.filter((p) => p.health === h).length}
+              color={HEALTH_COLOR[h]}
+            />
+          ))}
+        </div>
+      </div>
+      <div className="glass flex flex-wrap items-center gap-2 rounded-2xl border border-[var(--border)] px-3 py-2 shadow-[0_8px_30px_-20px_rgba(45,56,82,0.35)]">
         <div className="flex items-center gap-0.5 rounded-full border border-[var(--border)] p-0.5">
           <ViewTab active={view === "kanban"} onClick={() => setView("kanban")}>
             Kanban
@@ -388,11 +419,14 @@ export function ProjectsBoard({
           </button>
         )}
       </div>
+      </div>
 
       {view === "gantt" ? (
-        <GanttView projects={visible} columns={columns} onOpen={setOpenId} onReschedule={reschedule} />
+        <div className="card mx-4 mb-4 mt-3 flex min-h-0 flex-1 flex-col overflow-hidden sm:mx-6">
+          <GanttView projects={visible} columns={columns} onOpen={setOpenId} onReschedule={reschedule} />
+        </div>
       ) : (
-        <div className="flex min-h-0 flex-1 gap-3 overflow-x-auto p-4">
+        <div className="flex min-h-0 flex-1 gap-4 overflow-x-auto px-4 pb-4 pt-3 sm:px-6">
         {columns.map((col) => (
           <Column
             key={col.id}
@@ -499,7 +533,7 @@ function Column({
 
   return (
     <section
-      className="flex w-[300px] shrink-0 flex-col rounded-2xl border border-[var(--border)] bg-[color-mix(in_srgb,var(--surface-1)_45%,transparent)] backdrop-blur-sm transition-colors"
+      className="flex w-[310px] shrink-0 flex-col rounded-[22px] border border-[var(--border)] bg-[color-mix(in_srgb,var(--surface-1)_55%,transparent)] shadow-[0_10px_34px_-22px_rgba(45,56,82,0.45)] backdrop-blur-md transition-colors"
       style={isDropTarget ? { borderColor: "var(--brand-water)" } : undefined}
       onDragOver={(e) => {
         if (dragId) {
@@ -514,7 +548,12 @@ function Column({
         }
       }}
     >
-      <header className="flex items-center gap-2 px-3 py-2.5">
+      <header className="flex items-center gap-2 px-4 py-3">
+        <span
+          aria-hidden
+          className="h-2 w-2 shrink-0 rounded-full"
+          style={{ background: "linear-gradient(135deg, var(--brand-water), var(--brand-sea))" }}
+        />
         {renaming && editable ? (
           <input
             autoFocus
@@ -530,11 +569,11 @@ function Column({
             className="min-w-0 flex-1 rounded bg-[var(--surface-1)] px-1 text-sm font-semibold text-[var(--text-primary)] outline-none ring-1 ring-[var(--brand-water)]"
           />
         ) : (
-          <span className="min-w-0 flex-1 truncate text-sm font-semibold text-[var(--text-primary)]">
+          <span className="min-w-0 flex-1 truncate text-[13px] font-semibold uppercase tracking-[0.08em] text-[var(--text-primary)]">
             {col.label}
           </span>
         )}
-        <span className="shrink-0 rounded-full bg-[var(--pill-neutral-bg)] px-1.5 text-[10px] font-bold text-[var(--text-secondary)]">
+        <span className="shrink-0 rounded-full bg-[color-mix(in_srgb,var(--brand-water)_16%,transparent)] px-2 py-0.5 text-[11px] font-bold text-[var(--brand-sea)]">
           {projects.length}
         </span>
         {projects.length > 0 && (
@@ -595,7 +634,7 @@ function Column({
         )}
       </header>
 
-      <div className="flex min-h-16 flex-1 flex-col gap-2 overflow-y-auto px-2 pb-2">
+      <div className="flex min-h-16 flex-1 flex-col gap-2.5 overflow-y-auto px-3 pb-3">
         {projects.map((p) => (
           <div
             key={p.id}
@@ -671,6 +710,18 @@ function Chip({
     >
       {children}
     </button>
+  );
+}
+
+function HeroStat({ label, value, color }: { label: string; value: number; color: string }) {
+  return (
+    <div className="glass flex min-w-[92px] flex-col rounded-2xl border border-[var(--border)] px-4 py-2">
+      <span className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+        <span aria-hidden className="h-1.5 w-1.5 rounded-full" style={{ background: color }} />
+        {label}
+      </span>
+      <span className="page-title text-2xl leading-tight tabular-nums text-[var(--text-primary)]">{value}</span>
+    </div>
   );
 }
 
