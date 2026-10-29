@@ -2,10 +2,8 @@ import { Suspense } from "react";
 import { HubHome } from "@/components/HubHome";
 import {
   getCards,
-  getFolders,
   getSections,
   getSubfolders,
-  getWidgets,
   requireMember,
 } from "@/lib/hub";
 
@@ -13,12 +11,10 @@ export const dynamic = "force-dynamic";
 
 export default async function Page() {
   const member = await requireMember();
-  const [sections, subfolders, cards, folders, widgets] = await Promise.all([
+  const [sections, subfolders, cards] = await Promise.all([
     getSections(),
     getSubfolders(),
     getCards(member.id, member.role === "admin"),
-    getFolders(member.id),
-    getWidgets(member.id),
   ]);
 
   return (
@@ -34,8 +30,6 @@ export default async function Page() {
           isAdmin: member.role === "admin",
           teams: member.teams,
         }}
-        folders={folders}
-        widgets={widgets}
       />
     </Suspense>
   );

@@ -34,17 +34,22 @@ function faviconFor(url: string): string {
 export function EmbedArea({
   tabs,
   activeKey,
+  homeActive,
+  onHome,
   onSelect,
   onClose,
 }: {
   tabs: EmbedTab[];
   activeKey: string | null;
+  /** true cuando se muestra la vista de carpetas: el panel se reduce a la barra de pestañas. */
+  homeActive: boolean;
+  onHome: () => void;
   onSelect: (key: string) => void;
   onClose: (key: string) => void;
 }) {
   const stackRef = useRef<HTMLDivElement>(null);
   const [isFs, setIsFs] = useState(false);
-  const active = tabs.find((t) => t.key === activeKey) ?? tabs[tabs.length - 1] ?? null;
+  const active = homeActive ? null : (tabs.find((t) => t.key === activeKey) ?? tabs[tabs.length - 1] ?? null);
 
   useEffect(() => {
     const onFs = () => setIsFs(document.fullscreenElement === stackRef.current);
@@ -61,9 +66,22 @@ export function EmbedArea({
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-[var(--surface-1)]">
+    <div className={`flex min-h-0 flex-col bg-[var(--surface-1)] ${homeActive ? "shrink-0" : "flex-1"}`}>
       <div className="hub-tabs flex shrink-0 items-stretch border-b border-[var(--border)]">
         <div className="flex min-w-0 flex-1 items-stretch overflow-x-auto">
+          <button
+            type="button"
+            onClick={onHome}
+            data-active={homeActive}
+            className={`hub-tab flex shrink-0 items-center gap-1.5 px-3.5 text-sm font-medium ${
+              homeActive ? "text-[var(--text-primary)]" : "text-[var(--text-secondary)] hover:bg-[var(--row-hover)]"
+            }`}
+          >
+            <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" aria-hidden>
+              <path d="M2.5 7.5 8 3l5.5 4.5V13a.5.5 0 0 1-.5.5H3a.5.5 0 0 1-.5-.5V7.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+            </svg>
+            Inicio
+          </button>
           {tabs.map((t) => (
             <TabButton
               key={t.key}
@@ -74,7 +92,7 @@ export function EmbedArea({
             />
           ))}
         </div>
-        <div className="flex shrink-0 items-center gap-1 border-l border-[var(--border)] px-2">
+        <div className="flex shrink-0 items-center gap-1 border-l border-[var(--border)] px-2" hidden={homeActive}>
           <ToolbarBtn
             onClick={toggleFullscreen}
             title={isFs ? "Salir de pantalla completa" : "Pantalla completa"}
@@ -87,13 +105,13 @@ export function EmbedArea({
         </div>
       </div>
 
-      <div ref={stackRef} className="relative min-h-0 flex-1 bg-[var(--surface-1)]">
+      <div ref={stackRef} className="relative min-h-0 flex-1 bg-[var(--surface-1)]" hidden={homeActive}>
         {tabs.map((t) => (
           <EmbedFrame key={t.key} target={t.target} hidden={t.key !== active?.key} />
         ))}
       </div>
 
-      <p className="shrink-0 border-t border-[var(--border)] px-3 py-1.5 text-[11px] text-[var(--text-muted)]">
+      <p className="shrink-0 border-t border-[var(--border)] px-3 py-1.5 text-[11px] text-[var(--text-muted)]" hidden={homeActive}>
         ¿No carga? Algunas webs no permiten embeberse —{" "}
         <button type="button" onClick={openExternal} className="underline hover:text-[var(--text-primary)]">
           ábrela en pestaña nueva
