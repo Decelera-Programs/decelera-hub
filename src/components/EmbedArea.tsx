@@ -62,7 +62,7 @@ export function EmbedArea({
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-[var(--surface-1)]">
-      <div className="flex shrink-0 items-stretch border-b border-[var(--border)] bg-[var(--page)]">
+      <div className="hub-tabs flex shrink-0 items-stretch border-b border-[var(--border)]">
         <div className="flex min-w-0 flex-1 items-stretch overflow-x-auto">
           {tabs.map((t) => (
             <TabButton
@@ -117,12 +117,12 @@ function TabButton({
 }) {
   return (
     <div
-      className={`group flex shrink-0 items-center gap-1.5 border-r border-[var(--border)] pl-3 pr-2 text-sm transition-colors ${
+      data-active={active}
+      className={`hub-tab group flex shrink-0 items-center gap-1.5 pl-3 pr-2 text-sm ${
         active
-          ? "bg-[var(--surface-1)] text-[var(--text-primary)]"
+          ? "text-[var(--text-primary)]"
           : "text-[var(--text-secondary)] hover:bg-[var(--row-hover)]"
       }`}
-      style={active ? { boxShadow: "inset 0 -2px 0 var(--brand-water)" } : undefined}
     >
       <button
         type="button"

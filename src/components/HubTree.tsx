@@ -478,10 +478,9 @@ function LeafRow({
       onDragOver={onDragOver}
       onDragLeave={() => setHint(null)}
       onDrop={onDrop}
-      className="group relative flex items-center gap-1.5 rounded-lg px-2 py-1.5 transition-colors"
+      className={`group relative flex items-center gap-1.5 rounded-lg px-2 py-1.5 transition-colors${active ? " tree-row-active" : ""}`}
       style={{
-        ...(active ? { background: "color-mix(in srgb, var(--brand-water) 16%, transparent)" } : {}),
-        ...(dragging ? { opacity: 0.4 } : {}),
+                ...(dragging ? { opacity: 0.4 } : {}),
         ...hintStyle(hint),
       }}
     >

@@ -364,7 +364,7 @@ export function HubHome({
   return (
     <WorkspaceProvider value={workspace}>
     <div className="flex h-screen flex-col overflow-hidden bg-[var(--page)]">
-      <header className="glass relative z-20 flex h-14 shrink-0 items-center gap-3 border-b border-[var(--border)] px-3 sm:px-4">
+      <header className="glass hub-header relative z-20 flex h-14 shrink-0 items-center gap-3 border-b border-[var(--border)] px-3 sm:px-4">
         <button
           type="button"
           onClick={toggleNav}
@@ -449,7 +449,7 @@ export function HubHome({
         )}
 
         <aside
-          className={`z-40 flex w-[300px] shrink-0 flex-col overflow-hidden border-r border-[var(--border)] bg-[var(--surface-1)] transition-all duration-200 ease-out max-lg:fixed max-lg:inset-y-0 max-lg:left-0 max-lg:shadow-2xl ${
+          className={`hub-aside z-40 flex w-[300px] shrink-0 flex-col overflow-hidden border-r border-[var(--border)] transition-all duration-200 ease-out max-lg:fixed max-lg:inset-y-0 max-lg:left-0 max-lg:shadow-2xl ${
             navOpen
               ? "translate-x-0 lg:ml-0"
               : "max-lg:-translate-x-full lg:ml-[-300px]"

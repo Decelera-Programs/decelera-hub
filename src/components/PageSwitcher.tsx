@@ -18,8 +18,8 @@ export function PageSwitcher() {
             key={p.key}
             href={p.href}
             aria-current={on ? "page" : undefined}
-            className="rounded-full px-4 py-1.5 text-sm font-semibold transition-colors hover:bg-[var(--row-hover)]"
-            style={{ color: on ? "var(--text-primary)" : "var(--text-muted)" }}
+            className="nav-pill rounded-full px-4 py-1.5 text-sm font-semibold transition-colors hover:bg-[var(--row-hover)]"
+            style={{ color: on ? "var(--brand-sea)" : "var(--text-muted)" }}
           >
             {p.label}
           </Link>

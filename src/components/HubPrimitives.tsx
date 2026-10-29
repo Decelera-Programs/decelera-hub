@@ -72,7 +72,7 @@ export function SearchField({
 }) {
   return (
     <div
-      className={`flex items-center gap-2.5 rounded-[10px] border border-[var(--border)] bg-[var(--surface-1)] px-3.5 shadow-sm ${className}`}
+      className={`hub-search flex items-center gap-2.5 rounded-[10px] border border-[var(--border)] bg-[var(--surface-1)] px-3.5 shadow-sm ${className}`}
     >
       <span className="text-[var(--text-muted)]">
         <SearchIcon />
