@@ -74,7 +74,7 @@ export function ProjectCard({
       }}
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
-      className="hub-reveal spotlight card group relative flex w-full flex-col gap-2 overflow-hidden p-3.5 pl-5 text-left transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5"
+      className="hub-reveal spotlight card group relative flex w-full flex-col gap-1.5 overflow-hidden p-2.5 pl-4 text-left transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5"
       style={{
         opacity: dragging ? 0.4 : undefined,
         cursor: "grab",
@@ -100,7 +100,7 @@ export function ProjectCard({
           style={{ background: HEALTH_COLOR[project.health] }}
           title={HEALTH_LABEL[project.health]}
         />
-        <span className="min-w-0 flex-1 text-sm font-semibold leading-snug text-[var(--text-primary)]">
+        <span className="min-w-0 flex-1 text-[13px] font-semibold leading-snug text-[var(--text-primary)]">
           {project.title}
         </span>
         {project.owner && <OwnerAvatar owner={project.owner} />}

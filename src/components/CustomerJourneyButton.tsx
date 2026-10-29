@@ -41,11 +41,11 @@ export function CustomerJourneyButton() {
           role="dialog"
           aria-modal="true"
           aria-label="Customer Journey to Investment"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          className="modal-backdrop fixed inset-0 z-50 flex items-center justify-center p-4"
           onClick={() => setOpen(false)}
         >
           <div
-            className="card flex max-h-[90vh] w-full max-w-[95vw] flex-col gap-3 p-4 shadow-lg"
+            className="modal-panel flex max-h-[90vh] w-full max-w-[95vw] flex-col gap-3 p-5"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex flex-wrap items-center justify-between gap-2">

@@ -115,12 +115,11 @@ export function ProjectModal({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[200] grid place-items-center p-4"
-      style={{ background: "color-mix(in srgb, var(--brand-night) 45%, transparent)" }}
+      className="modal-backdrop fixed inset-0 z-[200] grid place-items-center p-4"
       onClick={onClose}
     >
       <div
-        className="flex max-h-[86vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface-1)] shadow-2xl"
+        className="modal-panel flex max-h-[86vh] w-full max-w-xl flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex flex-col gap-3 border-b border-[var(--border)] p-4">

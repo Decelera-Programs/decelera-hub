@@ -358,13 +358,13 @@ export function ProjectsBoard({
 
   return (
     <>
-      <div className="flex shrink-0 flex-col gap-3 px-4 pt-4 sm:px-6">
-      <div className="aurora-light hub-reveal flex flex-wrap items-end justify-between gap-4 rounded-[24px] px-6 py-5 sm:px-8">
+      <div className="flex shrink-0 flex-col gap-2 px-3 pt-3 sm:px-4">
+      <div className="aurora-light hub-reveal flex flex-wrap items-end justify-between gap-4 rounded-[20px] px-5 py-3 sm:px-6">
         <div>
-          <h1 className="page-title text-3xl tracking-tight text-[var(--text-primary)] sm:text-4xl">
+          <h1 className="page-title text-2xl tracking-tight text-[var(--text-primary)] sm:text-3xl">
             Proyectos
           </h1>
-          <p className="max-w-xl text-sm text-[var(--text-secondary)]">
+          <p className="max-w-xl text-xs text-[var(--text-secondary)]">
             Qué se está haciendo, quién lo lleva y en qué punto está cada cosa.
           </p>
         </div>
@@ -380,7 +380,7 @@ export function ProjectsBoard({
           ))}
         </div>
       </div>
-      <div className="glass flex flex-wrap items-center gap-2 rounded-2xl border border-[var(--border)] px-3 py-2 shadow-[0_8px_30px_-20px_rgba(45,56,82,0.35)]">
+      <div className="glass flex flex-wrap items-center gap-2 rounded-xl border border-[var(--border)] px-3 py-1.5 shadow-[0_8px_30px_-20px_rgba(45,56,82,0.35)]">
         <div className="flex items-center gap-0.5 rounded-full border border-[var(--border)] p-0.5">
           <ViewTab active={view === "kanban"} onClick={() => setView("kanban")}>
             Kanban
@@ -422,11 +422,11 @@ export function ProjectsBoard({
       </div>
 
       {view === "gantt" ? (
-        <div className="card mx-4 mb-4 mt-3 flex min-h-0 flex-1 flex-col overflow-hidden sm:mx-6">
+        <div className="card mx-3 mb-3 mt-2 flex min-h-0 flex-1 flex-col overflow-hidden sm:mx-4">
           <GanttView projects={visible} columns={columns} onOpen={setOpenId} onReschedule={reschedule} />
         </div>
       ) : (
-        <div className="flex min-h-0 flex-1 gap-4 overflow-x-auto px-4 pb-4 pt-3 sm:px-6">
+        <div className="flex min-h-0 flex-1 gap-3 overflow-x-auto px-3 pb-3 pt-2 sm:px-4">
         {columns.map((col) => (
           <Column
             key={col.id}
@@ -533,7 +533,7 @@ function Column({
 
   return (
     <section
-      className="flex w-[310px] shrink-0 flex-col rounded-[22px] border border-[var(--border)] bg-[color-mix(in_srgb,var(--surface-1)_55%,transparent)] shadow-[0_10px_34px_-22px_rgba(45,56,82,0.45)] backdrop-blur-md transition-colors"
+      className="flex w-[272px] shrink-0 flex-col rounded-[18px] border border-[var(--border)] bg-[color-mix(in_srgb,var(--surface-1)_55%,transparent)] shadow-[0_10px_34px_-22px_rgba(45,56,82,0.45)] backdrop-blur-md transition-colors"
       style={isDropTarget ? { borderColor: "var(--brand-water)" } : undefined}
       onDragOver={(e) => {
         if (dragId) {
@@ -548,7 +548,7 @@ function Column({
         }
       }}
     >
-      <header className="flex items-center gap-2 px-4 py-3">
+      <header className="flex items-center gap-2 px-3 py-2">
         <span
           aria-hidden
           className="h-2 w-2 shrink-0 rounded-full"
@@ -569,7 +569,7 @@ function Column({
             className="min-w-0 flex-1 rounded bg-[var(--surface-1)] px-1 text-sm font-semibold text-[var(--text-primary)] outline-none ring-1 ring-[var(--brand-water)]"
           />
         ) : (
-          <span className="min-w-0 flex-1 truncate text-[13px] font-semibold uppercase tracking-[0.08em] text-[var(--text-primary)]">
+          <span className="min-w-0 flex-1 truncate text-xs font-semibold uppercase tracking-[0.06em] text-[var(--text-primary)]">
             {col.label}
           </span>
         )}
@@ -634,7 +634,7 @@ function Column({
         )}
       </header>
 
-      <div className="flex min-h-16 flex-1 flex-col gap-2.5 overflow-y-auto px-3 pb-3">
+      <div className="flex min-h-16 flex-1 flex-col gap-2 overflow-y-auto px-2 pb-2">
         {projects.map((p) => (
           <div
             key={p.id}
@@ -715,12 +715,12 @@ function Chip({
 
 function HeroStat({ label, value, color }: { label: string; value: number; color: string }) {
   return (
-    <div className="glass flex min-w-[92px] flex-col rounded-2xl border border-[var(--border)] px-4 py-2">
-      <span className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+    <div className="glass flex min-w-[78px] flex-col rounded-xl border border-[var(--border)] px-3 py-1">
+      <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">
         <span aria-hidden className="h-1.5 w-1.5 rounded-full" style={{ background: color }} />
         {label}
       </span>
-      <span className="page-title text-2xl leading-tight tabular-nums text-[var(--text-primary)]">{value}</span>
+      <span className="page-title text-xl leading-tight tabular-nums text-[var(--text-primary)]">{value}</span>
     </div>
   );
 }

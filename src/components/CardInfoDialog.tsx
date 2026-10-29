@@ -22,12 +22,11 @@ export function CardInfoDialog({ card, onClose }: { card: HubApp; onClose: () =>
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[200] grid place-items-center p-4"
-      style={{ background: "color-mix(in srgb, var(--brand-night) 45%, transparent)" }}
+      className="modal-backdrop fixed inset-0 z-[200] grid place-items-center p-4"
       onClick={onClose}
     >
       <div
-        className="hub-reveal flex w-full max-w-sm flex-col gap-4 rounded-2xl border border-[var(--border)] bg-[var(--surface-1)] p-5 shadow-2xl"
+        className="modal-panel flex w-full max-w-sm flex-col gap-4 p-6"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start gap-3">

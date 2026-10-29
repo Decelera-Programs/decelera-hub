@@ -543,6 +543,48 @@ h3 {
   opacity: 0.9;
 }
 
+/* Modales: velo con desenfoque + panel de cristal que entra con un pequeño "pop". */
+.modal-backdrop {
+  background: color-mix(in srgb, var(--brand-night) 38%, transparent);
+  backdrop-filter: blur(6px) saturate(1.2);
+  -webkit-backdrop-filter: blur(6px) saturate(1.2);
+  animation: modal-fade 0.18s ease-out both;
+}
+.modal-panel {
+  position: relative;
+  background: color-mix(in srgb, var(--surface-1) 90%, transparent);
+  backdrop-filter: blur(22px) saturate(1.5);
+  -webkit-backdrop-filter: blur(22px) saturate(1.5);
+  border: 1px solid color-mix(in srgb, var(--border) 80%, white);
+  border-radius: 26px;
+  box-shadow:
+    0 30px 80px -30px rgba(45, 56, 82, 0.55),
+    0 8px 24px -12px rgba(45, 56, 82, 0.25);
+  animation: modal-pop 0.26s cubic-bezier(0.2, 0.9, 0.3, 1.1) both;
+}
+.modal-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0 24px auto 24px;
+  height: 2px;
+  border-radius: 2px;
+  pointer-events: none;
+  background: linear-gradient(90deg, var(--brand-water), var(--brand-sea), var(--brand-sun));
+  opacity: 0.85;
+}
+@keyframes modal-fade {
+  from { opacity: 0; }
+}
+@keyframes modal-pop {
+  from { opacity: 0; transform: translateY(14px) scale(0.97); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .modal-backdrop,
+  .modal-panel {
+    animation: none;
+  }
+}
+
 /* Cristal esmerilado para cabeceras y menús flotantes. */
 .glass {
   background: color-mix(in srgb, var(--surface-1) 72%, transparent);

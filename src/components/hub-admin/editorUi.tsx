@@ -30,7 +30,7 @@ export function AdminBtn({
 }
 
 export const fieldCls =
-  "rounded-lg border border-[var(--border)] bg-[var(--surface-1)] px-2.5 py-1.5 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--brand-water)]";
+  "rounded-xl border border-[var(--border)] bg-[color-mix(in_srgb,var(--surface-1)_70%,transparent)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none transition-shadow focus:border-[var(--brand-water)] focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--brand-water)_22%,transparent)]";
 export const labelCls =
   "text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]";
 
@@ -54,15 +54,14 @@ export function Overlay({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[200] grid place-items-center p-4"
-      style={{ background: "color-mix(in srgb, var(--brand-night) 45%, transparent)" }}
+      className="modal-backdrop fixed inset-0 z-[200] grid place-items-center p-4"
       onClick={onClose}
     >
       <div
-        className="flex w-full max-w-md flex-col gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-1)] p-5 shadow-2xl"
+        className="modal-panel flex w-full max-w-md flex-col gap-3 p-6"
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="text-base font-semibold text-[var(--text-primary)]">{title}</h3>
+        <h3 className="page-title text-2xl tracking-tight text-[var(--text-primary)]">{title}</h3>
         {children}
       </div>
     </div>,
