@@ -1,0 +1,141 @@
+/** Tipos y catálogos compartidos para el dashboard de auditoría de agentes (`/agentes`). Los datos
+ * viven en `hub.agent_audit_runs` / `hub.agent_audit_events` (ver src/lib/supabase/agents.ts) — ambos
+ * escritos por los propios agentes (hoy solo `inbound-follow-up`) a través de un script compartido en
+ * el VPS, no por esta app. */
+
+export type AgentRunStatus = "running" | "success" | "error" | "no_op";
+export type AgentPass = "fast" | "slow" | null;
+
+export type AgentRun = {
+  id: string;
+  agentId: string;
+  pass: AgentPass;
+  trigger: string | null;
+  startedAt: string;
+  endedAt: string | null;
+  status: AgentRunStatus;
+  itemsIn: number;
+  summary: string | null;
+  error: string | null;
+};
+
+/** event_type: catálogo cerrado, ver audit_log.py en el repo del agente para la lista autoritativa. */
+export type AgentEvent = {
+  id: string;
+  runId: string | null;
+  agentId: string;
+  eventType: string;
+  messageId: string | null;
+  threadId: string | null;
+  founder: string | null;
+  company: string | null;
+  region: string | null;
+  detail: Record<string, unknown>;
+  createdAt: string;
+};
+
+export type AgentHealth = "healthy" | "stalled" | "unknown";
+
+export type AgentSummary = {
+  agentId: string;
+  label: string;
+  health: AgentHealth;
+  lastRunAt: string | null;
+  lastRunStatus: AgentRunStatus | null;
+  eventsToday: number;
+  runsToday: number;
+};
+
+export type PendingApproval = {
+  threadId: string;
+  founder: string | null;
+  company: string | null;
+  region: string | null;
+  draftedAt: string;
+};
+
+/** Agentes que escriben a esta auditoría, por ahora solo uno — cualquier otro (milu, main) puede
+ * sumarse más adelante sin cambiar el modelo, solo añadiendo su entrada aquí. */
+export const KNOWN_AGENTS: { id: string; label: string; emoji: string }[] = [
+  { id: "inbound-follow-up", label: "Inbound Follow-Up", emoji: "📨" },
+];
+
+export const EVENT_LABEL: Record<string, string> = {
+  attio_deal_created: "Lead nuevo registrado en Attio",
+  attio_deal_merged: "Lead ya existente actualizado",
+  attio_needs_review: "Marcado para revisión humana",
+  first_reply_queued: "Primera respuesta en cola",
+  first_reply_sent: "Primera respuesta enviada",
+  reply_drafted: "Borrador listo para aprobar",
+  approval_sent: "Respuesta aprobada y enviada",
+  approval_rejected: "Respuesta rechazada",
+  reply_escalated: "Escalado a un humano",
+  watchdog_stall: "El agente lleva varias veces sin avanzar",
+  watchdog_recovered: "El agente volvió a avanzar",
+};
+
+export const EVENT_ICON: Record<string, string> = {
+  attio_deal_created: "🏢",
+  attio_deal_merged: "🔄",
+  attio_needs_review: "🔎",
+  first_reply_queued: "⏳",
+  first_reply_sent: "📨",
+  reply_drafted: "📝",
+  approval_sent: "✅",
+  approval_rejected: "🚫",
+  reply_escalated: "🙋",
+  watchdog_stall: "⚠️",
+  watchdog_recovered: "💚",
+};
+
+export function eventLabel(eventType: string): string {
+  return EVENT_LABEL[eventType] ?? eventType;
+}
+
+export function eventIcon(eventType: string): string {
+  return EVENT_ICON[eventType] ?? "•";
+}
+
+/** `Date.now()` wrapped in a plain helper (not inline in a Server Component body) — same pattern as
+ * GanttView.tsx's own comment on this: a component render function must stay pure, impure reads like
+ * the clock belong in a helper the render just calls, not inline in the component itself. */
+export function daysAgoIso(days: number): string {
+  return new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+}
+
+// --- Diagrama de flujo (Opción A: forma fija, estadísticas en vivo) ---
+//
+// Los nodos y las flechas se definen a mano por agente (reflejan el SKILL.md de cada uno), y cada nodo
+// se anota con cuántas veces disparó ese tipo de evento en la ventana de tiempo elegida — ver
+// FlowDiagram.tsx. No es una animación en vivo de cada ejecución (eso quedó descartado el 2026-11-03:
+// cada ejecución dura 30-60s y ocurre cada 5 min o 2 veces al día, nadie se va a quedar mirándolo
+// correr). Si se quiere "repetir" una ejecución concreta más adelante, se resuelve resaltando sobre
+// este mismo diagrama la secuencia de eventos de ese run_id — no hace falta un modelo de datos nuevo.
+export type FlowNode = { id: string; label: string; eventTypes: string[]; col: number; row: number };
+export type FlowEdge = { from: string; to: string };
+
+export const AGENT_FLOWS: Record<string, { nodes: FlowNode[]; edges: FlowEdge[] }> = {
+  "inbound-follow-up": {
+    nodes: [
+      { id: "intake", label: "Correo nuevo", eventTypes: [], col: 0, row: 1 },
+      { id: "attio", label: "Registrar en Attio", eventTypes: ["attio_deal_created", "attio_deal_merged"], col: 1, row: 1 },
+      { id: "needs_review", label: "Revisión humana", eventTypes: ["attio_needs_review"], col: 2, row: 0 },
+      { id: "queue", label: "Cola (EU)", eventTypes: ["first_reply_queued"], col: 2, row: 2 },
+      { id: "sent1", label: "1ª respuesta enviada", eventTypes: ["first_reply_sent"], col: 3, row: 2 },
+      { id: "draft", label: "Founder responde → borrador", eventTypes: ["reply_drafted"], col: 4, row: 2 },
+      { id: "approved", label: "Aprobada y enviada", eventTypes: ["approval_sent"], col: 5, row: 1 },
+      { id: "rejected", label: "Rechazada", eventTypes: ["approval_rejected"], col: 5, row: 2 },
+      { id: "escalated", label: "Escalado", eventTypes: ["reply_escalated"], col: 5, row: 3 },
+    ],
+    edges: [
+      { from: "intake", to: "attio" },
+      { from: "attio", to: "needs_review" },
+      { from: "attio", to: "queue" },
+      { from: "queue", to: "sent1" },
+      { from: "sent1", to: "draft" },
+      { from: "draft", to: "approved" },
+      { from: "draft", to: "rejected" },
+      { from: "draft", to: "escalated" },
+    ],
+  },
+};
