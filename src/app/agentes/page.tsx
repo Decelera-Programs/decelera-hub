@@ -74,18 +74,23 @@ export default async function AgentesPage() {
         </div>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {summaries.map((s) => (
-            <AgentPulseCard
-              key={s.agentId}
-              emoji={KNOWN_AGENTS.find((a) => a.id === s.agentId)?.emoji ?? "🤖"}
-              label={s.label}
-              health={s.health}
-              lastRunAt={s.lastRunAt}
-              lastRunStatus={s.lastRunStatus}
-              runsToday={s.runsToday}
-              eventsToday={s.eventsToday}
-            />
-          ))}
+          {summaries.map((s) => {
+            const meta = KNOWN_AGENTS.find((a) => a.id === s.agentId);
+            return (
+              <AgentPulseCard
+                key={s.agentId}
+                emoji={meta?.emoji ?? "🤖"}
+                label={s.label}
+                description={meta?.description ?? ""}
+                vpsPath={meta?.vpsPath ?? ""}
+                health={s.health}
+                lastRunAt={s.lastRunAt}
+                lastRunStatus={s.lastRunStatus}
+                runsToday={s.runsToday}
+                eventsToday={s.eventsToday}
+              />
+            );
+          })}
         </div>
 
         {pendingApprovals.length > 0 && <PendingApprovalsPanel items={pendingApprovals} />}

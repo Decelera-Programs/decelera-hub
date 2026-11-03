@@ -28,6 +28,8 @@ function timeAgo(iso: string | null): string {
 export function AgentPulseCard({
   emoji,
   label,
+  description,
+  vpsPath,
   health,
   lastRunAt,
   lastRunStatus,
@@ -36,6 +38,8 @@ export function AgentPulseCard({
 }: {
   emoji: string;
   label: string;
+  description: string;
+  vpsPath: string;
   health: AgentHealth;
   lastRunAt: string | null;
   lastRunStatus: AgentRunStatus | null;
@@ -46,11 +50,24 @@ export function AgentPulseCard({
   return (
     <div className="card spotlight flex flex-col gap-3 p-5">
       <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
+        <div className="group relative flex items-center gap-2">
           <span className="text-2xl" aria-hidden>
             {emoji}
           </span>
           <h3 className="text-base font-semibold text-[var(--text-primary)]">{label}</h3>
+          <span
+            aria-hidden
+            tabIndex={0}
+            className="grid h-4 w-4 shrink-0 cursor-help place-items-center rounded-full border border-[var(--border)] text-[10px] font-bold text-[var(--text-muted)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-water)]"
+          >
+            i
+          </span>
+          <div className="pointer-events-none absolute left-0 top-full z-20 mt-2 w-72 origin-top-left scale-95 rounded-xl border border-[var(--border)] bg-[var(--surface-1)] p-3 text-left opacity-0 shadow-[0_18px_40px_-14px_rgba(45,56,82,0.35)] transition-all duration-150 group-hover:scale-100 group-hover:opacity-100 group-focus-within:scale-100 group-focus-within:opacity-100">
+            <p className="text-xs leading-relaxed text-[var(--text-secondary)]">{description}</p>
+            <p className="mt-2 break-all rounded-md bg-[var(--row-alt)] px-2 py-1 font-mono text-[11px] text-[var(--text-muted)]">
+              {vpsPath}
+            </p>
+          </div>
         </div>
         <span
           className="flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.06em]"

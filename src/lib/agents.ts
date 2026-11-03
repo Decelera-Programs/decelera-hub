@@ -54,10 +54,20 @@ export type PendingApproval = {
   draftedAt: string;
 };
 
-/** Agentes que escriben a esta auditoría, por ahora solo uno — cualquier otro (milu, main) puede
- * sumarse más adelante sin cambiar el modelo, solo añadiendo su entrada aquí. */
-export const KNOWN_AGENTS: { id: string; label: string; emoji: string }[] = [
-  { id: "inbound-follow-up", label: "Inbound Follow-Up", emoji: "📨" },
+/** Agentes que escriben a esta auditoría, por ahora solo uno — cualquier otro (milu, main, el de
+ * LinkedIn outreach) puede sumarse más adelante sin cambiar el modelo, solo añadiendo su entrada aquí.
+ * `description`/`vpsPath` alimentan el hover de AgentPulseCard (2026-11-03, operator request). */
+export const KNOWN_AGENTS: { id: string; label: string; emoji: string; description: string; vpsPath: string }[] = [
+  {
+    id: "inbound-follow-up",
+    label: "Inbound Follow-Up",
+    emoji: "📨",
+    description:
+      "Lee los correos nuevos a startups@decelera.com, registra cada lead en Attio y gestiona la primera " +
+      "respuesta automática (solo EU) y las conversaciones de seguimiento con founders, siempre con " +
+      "aprobación humana en Slack para cualquier cosa más allá del primer correo.",
+    vpsPath: "/home/maru/.openclaw/agents/inbound-follow-up",
+  },
 ];
 
 export const EVENT_LABEL: Record<string, string> = {
