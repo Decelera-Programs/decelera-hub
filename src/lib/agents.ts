@@ -121,21 +121,31 @@ export function daysAgoIso(days: number): string {
 // cada ejecución dura 30-60s y ocurre cada 5 min o 2 veces al día, nadie se va a quedar mirándolo
 // correr). Si se quiere "repetir" una ejecución concreta más adelante, se resuelve resaltando sobre
 // este mismo diagrama la secuencia de eventos de ese run_id — no hace falta un modelo de datos nuevo.
-export type FlowNode = { id: string; label: string; eventTypes: string[]; col: number; row: number };
+export type FlowTone = "neutral" | "info" | "warning" | "progress" | "success" | "critical";
+
+export type FlowNode = {
+  id: string;
+  label: string;
+  icon: string;
+  tone: FlowTone;
+  eventTypes: string[];
+  col: number;
+  row: number;
+};
 export type FlowEdge = { from: string; to: string };
 
 export const AGENT_FLOWS: Record<string, { nodes: FlowNode[]; edges: FlowEdge[] }> = {
   "inbound-follow-up": {
     nodes: [
-      { id: "intake", label: "Correo nuevo", eventTypes: [], col: 0, row: 1 },
-      { id: "attio", label: "Registrar en Attio", eventTypes: ["attio_deal_created", "attio_deal_merged"], col: 1, row: 1 },
-      { id: "needs_review", label: "Revisión humana", eventTypes: ["attio_needs_review"], col: 2, row: 0 },
-      { id: "queue", label: "Cola (EU)", eventTypes: ["first_reply_queued"], col: 2, row: 2 },
-      { id: "sent1", label: "1ª respuesta enviada", eventTypes: ["first_reply_sent"], col: 3, row: 2 },
-      { id: "draft", label: "Founder responde → borrador", eventTypes: ["reply_drafted"], col: 4, row: 2 },
-      { id: "approved", label: "Aprobada y enviada", eventTypes: ["approval_sent"], col: 5, row: 1 },
-      { id: "rejected", label: "Rechazada", eventTypes: ["approval_rejected"], col: 5, row: 2 },
-      { id: "escalated", label: "Escalado", eventTypes: ["reply_escalated"], col: 5, row: 3 },
+      { id: "intake", label: "Correo nuevo", icon: "📧", tone: "neutral", eventTypes: [], col: 0, row: 1 },
+      { id: "attio", label: "Registrar en Attio", icon: "🏢", tone: "info", eventTypes: ["attio_deal_created", "attio_deal_merged"], col: 1, row: 1 },
+      { id: "needs_review", label: "Revisión humana", icon: "🔎", tone: "warning", eventTypes: ["attio_needs_review"], col: 2, row: 0 },
+      { id: "queue", label: "Cola (EU)", icon: "⏳", tone: "progress", eventTypes: ["first_reply_queued"], col: 2, row: 2 },
+      { id: "sent1", label: "1ª respuesta enviada", icon: "📨", tone: "progress", eventTypes: ["first_reply_sent"], col: 3, row: 2 },
+      { id: "draft", label: "Founder responde → borrador", icon: "💬", tone: "progress", eventTypes: ["reply_drafted"], col: 4, row: 2 },
+      { id: "approved", label: "Aprobada y enviada", icon: "✅", tone: "success", eventTypes: ["approval_sent"], col: 5, row: 1 },
+      { id: "rejected", label: "Rechazada", icon: "🚫", tone: "critical", eventTypes: ["approval_rejected"], col: 5, row: 2 },
+      { id: "escalated", label: "Escalado", icon: "🙋", tone: "warning", eventTypes: ["reply_escalated"], col: 5, row: 3 },
     ],
     edges: [
       { from: "intake", to: "attio" },
