@@ -24,27 +24,31 @@ export default async function ProyectosPage() {
 
   return (
     <div className="ambient flex h-screen flex-col overflow-hidden">
-      <header className="glass hub-header relative z-20 flex h-14 shrink-0 items-center gap-3 border-b border-[var(--border)] px-3 sm:px-4">
-        <div className="flex items-center gap-2">
+      <header className="glass hub-header relative z-20 grid h-14 shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-3 border-b border-[var(--border)] px-3 sm:px-4">
+        <div className="flex min-w-0 items-center gap-2 justify-self-start">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/decelera-mark.svg" alt="Decelera" className="h-6 w-6" />
+          <img src="/decelera-mark.svg" alt="Decelera" className="h-6 w-6 shrink-0" />
           <div className="hidden items-baseline gap-1.5 lg:flex">
             <span className="text-sm font-bold tracking-tight text-[var(--text-primary)]">Decelera</span>
             <span className="text-sm font-normal tracking-tight text-[var(--text-muted)]">Brain</span>
           </div>
-        </div>
-
-        <div className="sm:hidden">
-          <PageSwitcher />
-        </div>
-        <div className="pointer-events-none absolute inset-0 hidden items-center justify-center sm:flex">
-          <div className="pointer-events-auto">
+          <div className="sm:hidden">
             <PageSwitcher />
           </div>
         </div>
 
-        <div className="flex-1" />
-        <AccountMenu user={user} />
+        {/* Navegación de páginas, en su propia columna de grid — antes vivía en un overlay
+            `absolute inset-0` sobre toda la cabecera, que se solapaba con el logo/AccountMenu y
+            escondía la pastilla en cuanto había 3 páginas en vez de 2 (2026-11-03, operator: "el
+            cartelito que dice agentes se oculta... problema en general con el zoom y los tamaños" —
+            mismo patrón roto en HubHome.tsx y esta página, arreglado en las tres a la vez). */}
+        <div className="hidden sm:flex sm:justify-self-center">
+          <PageSwitcher />
+        </div>
+
+        <div className="justify-self-end">
+          <AccountMenu user={user} />
+        </div>
       </header>
 
       <ProjectsBoard

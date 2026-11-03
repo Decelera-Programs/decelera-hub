@@ -365,62 +365,67 @@ export function HubHome({
   return (
     <WorkspaceProvider value={workspace}>
       <div className="ambient flex h-screen flex-col overflow-hidden bg-[var(--page)]">
-        <header className="glass hub-header relative z-20 flex h-14 shrink-0 items-center gap-3 border-b border-[var(--border)] px-3 sm:px-4">
-          <button
-            type="button"
-            onClick={() => setActiveKey(null)}
-            aria-label="Ir a Inicio"
-            className="flex items-center gap-2 rounded-lg"
-          >
-            <img src="/decelera-mark.svg" alt="Decelera" className="h-6 w-6" />
-            <div className="hidden items-baseline gap-1.5 lg:flex">
-              <span className="text-sm font-bold tracking-tight text-[var(--text-primary)]">Decelera</span>
-              <span className="text-sm font-normal tracking-tight text-[var(--text-muted)]">Brain</span>
-            </div>
-          </button>
+        <header className="glass hub-header relative z-20 grid h-14 shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-3 border-b border-[var(--border)] px-3 sm:px-4">
+          <div className="flex min-w-0 items-center gap-2 justify-self-start">
+            <button
+              type="button"
+              onClick={() => setActiveKey(null)}
+              aria-label="Ir a Inicio"
+              className="flex shrink-0 items-center gap-2 rounded-lg"
+            >
+              <img src="/decelera-mark.svg" alt="Decelera" className="h-6 w-6 shrink-0" />
+              <div className="hidden items-baseline gap-1.5 lg:flex">
+                <span className="text-sm font-bold tracking-tight text-[var(--text-primary)]">Decelera</span>
+                <span className="text-sm font-normal tracking-tight text-[var(--text-muted)]">Brain</span>
+              </div>
+            </button>
 
-          {/* En móvil, sin sitio para centrarla: va en línea tras el logo. */}
-          <div className="sm:hidden">
-            <PageSwitcher />
-          </div>
-
-          {/* Navegación de páginas centrada en la cabecera. */}
-          <div className="pointer-events-none absolute inset-0 hidden items-center justify-center sm:flex">
-            <div className="pointer-events-auto">
+            {/* En móvil, sin sitio para centrarla: va en línea tras el logo. */}
+            <div className="sm:hidden">
               <PageSwitcher />
             </div>
           </div>
 
-          <div className="flex-1" />
+          {/* Navegación de páginas, en su propia columna de grid — antes vivía en un overlay
+              `absolute inset-0` sobre toda la cabecera, que se solapaba con el logo/el botón de
+              Editar/AccountMenu y escondía la pastilla en cuanto había 3 páginas en vez de 2
+              (2026-11-03, operator: "el cartelito que dice agentes se oculta... problema en general
+              con el zoom y los tamaños" — mismo arreglo aplicado también en proyectos/page.tsx y
+              agentes/page.tsx). */}
+          <div className="hidden sm:flex sm:justify-self-center">
+            <PageSwitcher />
+          </div>
 
-          {isAdmin && (
-            <button
-              type="button"
-              onClick={toggleEditMode}
-              aria-pressed={editMode}
-              className="flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 text-sm font-semibold transition-colors"
-              style={{
-                borderColor: editMode ? "var(--brand-water)" : "var(--border)",
-                background: editMode
-                  ? "color-mix(in srgb, var(--brand-water) 14%, transparent)"
-                  : "var(--surface-1)",
-                color: editMode ? "var(--brand-water)" : "var(--text-secondary)",
-              }}
-            >
-              <span
-                aria-hidden
-                className="grid h-4 w-7 items-center rounded-full p-0.5 transition-colors"
-                style={{ background: editMode ? "var(--brand-water)" : "var(--border)" }}
+          <div className="flex items-center justify-self-end gap-3">
+            {isAdmin && (
+              <button
+                type="button"
+                onClick={toggleEditMode}
+                aria-pressed={editMode}
+                className="flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 text-sm font-semibold transition-colors"
+                style={{
+                  borderColor: editMode ? "var(--brand-water)" : "var(--border)",
+                  background: editMode
+                    ? "color-mix(in srgb, var(--brand-water) 14%, transparent)"
+                    : "var(--surface-1)",
+                  color: editMode ? "var(--brand-water)" : "var(--text-secondary)",
+                }}
               >
                 <span
-                  className="h-3 w-3 rounded-full bg-white transition-transform"
-                  style={{ transform: editMode ? "translateX(12px)" : "translateX(0)" }}
-                />
-              </span>
-              <span className="hidden sm:inline">Editar</span>
-            </button>
-          )}
-          <AccountMenu user={member} />
+                  aria-hidden
+                  className="grid h-4 w-7 items-center rounded-full p-0.5 transition-colors"
+                  style={{ background: editMode ? "var(--brand-water)" : "var(--border)" }}
+                >
+                  <span
+                    className="h-3 w-3 rounded-full bg-white transition-transform"
+                    style={{ transform: editMode ? "translateX(12px)" : "translateX(0)" }}
+                  />
+                </span>
+                <span className="hidden sm:inline">Editar</span>
+              </button>
+            )}
+            <AccountMenu user={member} />
+          </div>
         </header>
 
         <main className="flex min-h-0 min-w-0 flex-1 flex-col">
