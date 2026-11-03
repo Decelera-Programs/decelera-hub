@@ -113,16 +113,17 @@ export function FlowDiagram({
                   boxShadow: active ? `0 8px 20px -16px color-mix(in srgb, ${accent} 50%, transparent)` : undefined,
                 }}
               >
-                {active && (
-                  <span
-                    aria-hidden
-                    className="absolute inset-x-4 top-0 h-[3px] rounded-full"
-                    style={{ background: accent, opacity: 0.8 }}
-                  />
-                )}
+                {/* Barra de acento SIEMPRE en el flujo normal (no absolute) — así nunca se solapa con el
+                    icono aunque la etiqueta ocupe dos líneas y empuje el bloque hacia arriba. Se reserva
+                    su altura siempre (visible solo si active) para que no haya salto de layout. */}
                 <span
                   aria-hidden
-                  className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-xs"
+                  className="h-[3px] w-10 shrink-0 rounded-full"
+                  style={{ background: active ? accent : "transparent", opacity: active ? 0.8 : 0 }}
+                />
+                <span
+                  aria-hidden
+                  className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-sm leading-none"
                   style={{
                     background: active ? `color-mix(in srgb, ${accent} 16%, transparent)` : "var(--pill-neutral-bg)",
                   }}
