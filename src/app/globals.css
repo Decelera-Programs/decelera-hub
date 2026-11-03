@@ -545,6 +545,17 @@ h3 {
   }
 }
 
+/* Línea de flujo "viva": el guión se desplaza en bucle a lo largo del trazo (diagrama de agentes). */
+@keyframes flow-dash {
+  to {
+    stroke-dashoffset: -16;
+  }
+}
+.flow-edge-animated {
+  stroke-dasharray: 5 4;
+  animation: flow-dash 0.9s linear infinite;
+}
+
 /* Pastilla con punto que late (estado "en vivo"). */
 @keyframes pulse-ring {
   0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--brand-water) 55%, transparent); }
@@ -579,7 +590,8 @@ h3 {
   .text-gradient,
   .shimmer:hover::after,
   .marquee-track,
-  .scroll-reveal {
+  .scroll-reveal,
+  .flow-edge-animated {
     animation: none;
   }
   .spotlight::before,

@@ -24,13 +24,14 @@ function center(n: FlowNode) {
 
 /**
  * Diagrama de flujo de forma fija (Opción A, 2026-11-03 — ver [[project-inbound-follow-up-build]]). Los
- * nodos/aristas se definen a mano en src/lib/agents.ts a partir del SKILL.md de cada agente; aquí solo se
- * posicionan y se anotan con el recuento real de la ventana recibida en `counts`. Restyled 2026-11-03
- * (operator: "mira en herramientas... algo no tan minimalista, más moderno, como una startup de ai") para
- * usar el mismo lenguaje visual que las tarjetas de Herramientas (DriveView's FileTile): halo radial
- * teñido por categoría, glow en el borde cuando hay actividad, icono grande. Candidatos obvios para una v2
- * (no construidos): resaltar el camino de una ejecución concreta al hacer click en el feed de actividad,
- * animar el flujo de las líneas en vez de un gradiente estático.
+ * nodos/aristas se definen a mano en src/lib/agents.ts; aquí solo se posicionan y se anotan con el
+ * recuento real de `counts`. Restyled dos veces el mismo día: primero para parecerse a las tarjetas de
+ * Herramientas (halo de color + icono grande), luego calmado ("el degradado es un poco feo, menos
+ * cantoso... menos emojis y alguna animación") — ahora: una textura de puntos muy tenue de fondo (misma
+ * técnica que `.dot-grid`, pero en tono claro para encajar sobre `--surface-1` en vez del original para
+ * fondos oscuros), un solo icono pequeño en una píldora circular, una barra de acento de 3px arriba en
+ * vez de un degradado radial, y el trazo de las aristas activas fluye con `.flow-edge-animated` en lugar
+ * de mostrar solo un color estático.
  */
 export function FlowDiagram({
   agentId,
@@ -67,22 +68,11 @@ export function FlowDiagram({
             width,
             height,
             minWidth: width,
-            background:
-              "radial-gradient(60% 70% at 10% 0%, color-mix(in srgb, var(--brand-water) 7%, transparent), transparent 70%), " +
-              "radial-gradient(50% 60% at 90% 100%, color-mix(in srgb, var(--brand-sun) 6%, transparent), transparent 70%)",
+            backgroundImage: "radial-gradient(color-mix(in srgb, var(--text-primary) 10%, transparent) 1px, transparent 1px)",
+            backgroundSize: "16px 16px",
           }}
         >
           <svg width={width} height={height} className="absolute inset-0" aria-hidden>
-            <defs>
-              <linearGradient id="flow-edge-idle" x1="0" y1="0" x2="1" y2="0">
-                <stop offset="0%" stopColor="var(--border)" />
-                <stop offset="100%" stopColor="var(--border)" />
-              </linearGradient>
-              <linearGradient id="flow-edge-active" x1="0" y1="0" x2="1" y2="0">
-                <stop offset="0%" stopColor="var(--brand-water)" />
-                <stop offset="100%" stopColor="var(--brand-sea)" />
-              </linearGradient>
-            </defs>
             {flow.edges.map((e) => {
               const from = byId[e.from];
               const to = byId[e.to];
@@ -93,12 +83,13 @@ export function FlowDiagram({
               return (
                 <path
                   key={`${e.from}-${e.to}`}
+                  className={active ? "flow-edge-animated" : undefined}
                   d={`M ${a.x + NODE_W / 2} ${a.y} C ${midX} ${a.y}, ${midX} ${b.y}, ${b.x - NODE_W / 2} ${b.y}`}
                   fill="none"
-                  stroke={active ? "url(#flow-edge-active)" : "url(#flow-edge-idle)"}
-                  strokeWidth={active ? 2.5 : 2}
+                  stroke={active ? TONE_ACCENT[to.tone] : "var(--border)"}
+                  strokeWidth={active ? 2 : 1.5}
                   strokeLinecap="round"
-                  opacity={active ? 0.9 : 0.5}
+                  opacity={active ? 0.75 : 0.5}
                 />
               );
             })}
@@ -112,30 +103,34 @@ export function FlowDiagram({
             return (
               <div
                 key={n.id}
-                className="group absolute flex flex-col items-center justify-center gap-1 overflow-hidden rounded-2xl border px-3 text-center shadow-sm transition-all duration-200 hover:-translate-y-0.5"
+                className="absolute flex flex-col items-center justify-center gap-1 rounded-2xl border bg-[var(--surface-1)] px-3 text-center shadow-sm transition-transform duration-200 hover:-translate-y-0.5"
                 style={{
                   left: c.x - NODE_W / 2,
                   top: c.y - NODE_H / 2,
                   width: NODE_W,
                   height: NODE_H,
-                  background: active
-                    ? `radial-gradient(85% 130% at 50% -10%, color-mix(in srgb, ${accent} 22%, transparent), var(--surface-1) 70%)`
-                    : "color-mix(in srgb, var(--surface-1) 45%, transparent)",
-                  borderColor: active ? `color-mix(in srgb, ${accent} 45%, var(--border))` : "var(--border)",
-                  boxShadow: active ? `0 10px 28px -16px color-mix(in srgb, ${accent} 55%, transparent)` : undefined,
+                  borderColor: active ? `color-mix(in srgb, ${accent} 40%, var(--border))` : "var(--border)",
+                  boxShadow: active ? `0 8px 20px -16px color-mix(in srgb, ${accent} 50%, transparent)` : undefined,
                 }}
               >
+                {active && (
+                  <span
+                    aria-hidden
+                    className="absolute inset-x-4 top-0 h-[3px] rounded-full"
+                    style={{ background: accent, opacity: 0.8 }}
+                  />
+                )}
                 <span
-                  className="absolute -right-3 -top-3 text-3xl opacity-[0.12] transition-transform duration-200 group-hover:scale-110 group-hover:rotate-6"
                   aria-hidden
+                  className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-xs"
+                  style={{
+                    background: active ? `color-mix(in srgb, ${accent} 16%, transparent)` : "var(--pill-neutral-bg)",
+                  }}
                 >
                   {n.icon}
                 </span>
-                <span className="flex items-center gap-1.5 text-xs font-semibold leading-tight text-[var(--text-primary)]">
-                  <span aria-hidden>{n.icon}</span>
-                  {n.label}
-                </span>
-                {n.eventTypes.length > 0 ? (
+                <span className="text-[11px] font-semibold leading-tight text-[var(--text-primary)]">{n.label}</span>
+                {n.eventTypes.length > 0 && (
                   <span
                     className="rounded-full px-2 py-0.5 text-[11px] font-bold tabular-nums"
                     style={{
@@ -145,10 +140,6 @@ export function FlowDiagram({
                   >
                     {count}
                   </span>
-                ) : (
-                  isEntry && (
-                    <span className="pulse-dot inline-block h-1.5 w-1.5 rounded-full" style={{ background: accent }} />
-                  )
                 )}
               </div>
             );
