@@ -14,7 +14,18 @@ const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v
  * en trackpad) hace zoom hacia el cursor, y dos dedos pellizcan en táctil. La rueda sin Ctrl no se
  * captura, así la página sigue haciendo scroll. El contenido conserva su tamaño real (`width`×`height`).
  */
-export function PanZoom({ width, height, children }: { width: number; height: number; children: ReactNode }) {
+export function PanZoom({
+  width,
+  height,
+  children,
+  viewportClassName = "h-[320px] sm:h-[380px]",
+}: {
+  width: number;
+  height: number;
+  children: ReactNode;
+  /** Alto del visor (por defecto el del diagrama de Agentes). */
+  viewportClassName?: string;
+}) {
   const ref = useRef<HTMLDivElement>(null);
   const [view, setView] = useState<View>({ x: 0, y: 0, k: 1 });
   const [dragging, setDragging] = useState(false);
@@ -51,6 +62,9 @@ export function PanZoom({ width, height, children }: { width: number; height: nu
   }, [zoomAt]);
 
   function onPointerDown(e: React.PointerEvent) {
+    // Elementos clicables dentro del lienzo (marcados con data-nopan): sin capturar el puntero, o el clic
+    // no les llegaría.
+    if ((e.target as HTMLElement).closest("[data-nopan]")) return;
     ref.current?.setPointerCapture(e.pointerId);
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     setDragging(true);
@@ -90,7 +104,7 @@ export function PanZoom({ width, height, children }: { width: number; height: nu
     <div className="relative">
       <div
         ref={ref}
-        className="relative h-[320px] w-full touch-none select-none overflow-hidden rounded-2xl sm:h-[380px]"
+        className={`relative ${viewportClassName} w-full touch-none select-none overflow-hidden rounded-2xl`}
         style={{ cursor: dragging ? "grabbing" : "grab" }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}

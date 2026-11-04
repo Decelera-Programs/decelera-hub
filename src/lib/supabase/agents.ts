@@ -205,3 +205,24 @@ function buildSummary(
     eventsToday,
   };
 }
+
+/**
+ * Para el mapa de sistemas: cuántos correos (events@) y cuántas páginas web (Exa) evaluó el agente events
+ * desde `sinceIso`, a partir del `detail.source` que registra save-events.py. Los remitentes rechazados
+ * cuentan como correo.
+ */
+export const getEventsSourceCounts = cache(async (sinceIso: string): Promise<Record<string, number>> => {
+  const { data, error } = await hubDb
+    .from("agent_audit_events")
+    .select("event_type, detail")
+    .eq("agent_id", "events")
+    .in("event_type", ["event_publicado", "event_descartado", "event_duplicado", "event_remitente_rechazado"])
+    .gte("created_at", sinceIso);
+  if (error) throw new Error(`getEventsSourceCounts: ${error.message}`);
+  const out: Record<string, number> = { "source:email": 0, "source:exa": 0 };
+  for (const row of (data ?? []) as { event_type: string; detail: { source?: string } | null }[]) {
+    const src = row.event_type === "event_remitente_rechazado" ? "email" : row.detail?.source;
+    if (src === "email" || src === "exa") out[`source:${src}`] += 1;
+  }
+  return out;
+});

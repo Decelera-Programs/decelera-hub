@@ -9,6 +9,7 @@ export const HUB_PAGES: HubPage[] = [
   { key: "proyectos", label: "Proyectos", href: "/proyectos" },
   { key: "calendario", label: "Calendario", href: "/calendario" },
   { key: "agentes", label: "Agentes", href: "/agentes" },
+  { key: "mapa", label: "Mapa", href: "/mapa" },
 ];
 
 /** Página activa a partir del pathname. */
