@@ -51,7 +51,12 @@ export default async function CalendarioPage({ searchParams }: { searchParams: P
         </div>
       </header>
 
-      <CalendarView events={events} today={today} meEmail={member.email} initialView={isView(vista) ? vista : "mes"} />
+      <CalendarView
+        events={events}
+        today={today}
+        me={{ id: member.id, name: member.full_name, email: member.email, avatarUrl: member.avatar_url }}
+        initialView={isView(vista) ? vista : "mes"}
+      />
     </div>
   );
 }

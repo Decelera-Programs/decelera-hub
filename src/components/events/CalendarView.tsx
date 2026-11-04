@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
+import { useRouter } from "next/navigation";
+import { setRsvp } from "@/app/calendario/actions";
 import {
   addDays,
   addMonths,
@@ -29,8 +31,8 @@ import {
 /**
  * Calendario de eventos del equipo, con la forma de Google Calendar (mes / semana / agenda, "Hoy" y
  * flechas, mini-calendario a la izquierda) y el estilo del Brain (tarjetas de cristal, acento sea,
- * números en círculo para hoy). Solo lectura: Voy / No voy se responde en #events (el agente gestiona la
- * invitación de Calendar desde ahí), así que la ficha enlaza a Slack y a Google Calendar.
+ * números en círculo para hoy). Voy / No voy se puede responder aquí (setRsvp → hub.event_attendees, y el
+ * agente del VPS manda la invitación de Calendar y actualiza #events en ~1 min) o en el propio #events.
  *
  * Un evento al que vas se pinta relleno (como un evento aceptado en Google); el resto, en tono suave.
  */
@@ -51,21 +53,63 @@ function chipStyle(going: boolean, past: boolean): React.CSSProperties {
   };
 }
 
+/** El evento con `me` movido a la lista que toca según su respuesta (actualización optimista). */
+function withAnswer(ev: CalendarEvent, me: CalendarPerson, response: "voy" | "no_voy"): CalendarEvent {
+  const notMe = (l: CalendarPerson[]) => l.filter((p) => p.id !== me.id);
+  return {
+    ...ev,
+    going: response === "voy" ? [...notMe(ev.going), me] : notMe(ev.going),
+    notGoing: response === "no_voy" ? [...notMe(ev.notGoing), me] : notMe(ev.notGoing),
+    suggested: notMe(ev.suggested),
+  };
+}
+
 export function CalendarView({
-  events: unsorted,
+  events: initialEvents,
   today,
-  meEmail,
+  me,
   initialView = "mes",
 }: {
   events: CalendarEvent[];
   today: DayKey;
-  meEmail: string;
+  me: CalendarPerson;
   initialView?: View;
 }) {
+  const meEmail = me.email;
+  const router = useRouter();
   const [view, setView] = useState<View>(initialView);
   const [anchor, setAnchor] = useState<DayKey>(today);
-  const [open, setOpen] = useState<CalendarEvent | null>(null);
-  const events = useMemo(() => [...unsorted].sort((a, b) => a.startsAt.localeCompare(b.startsAt)), [unsorted]);
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [local, setLocal] = useState(initialEvents);
+  const [lastProp, setLastProp] = useState(initialEvents);
+  if (initialEvents !== lastProp) {
+    // Datos nuevos del servidor (router.refresh): mandan sobre lo optimista.
+    setLastProp(initialEvents);
+    setLocal(initialEvents);
+  }
+  const [rsvpError, setRsvpError] = useState<string | null>(null);
+  const [saving, startSaving] = useTransition();
+  const events = useMemo(() => [...local].sort((a, b) => a.startsAt.localeCompare(b.startsAt)), [local]);
+  const open = openId ? (events.find((e) => e.id === openId) ?? null) : null;
+  const setOpen = (ev: CalendarEvent | null) => {
+    setRsvpError(null);
+    setOpenId(ev?.id ?? null);
+  };
+
+  function answer(ev: CalendarEvent, response: "voy" | "no_voy") {
+    const before = local;
+    setRsvpError(null);
+    setLocal((l) => l.map((e) => (e.id === ev.id ? withAnswer(e, me, response) : e)));
+    startSaving(async () => {
+      try {
+        await setRsvp(ev.id, response);
+      } catch (err) {
+        setLocal(before);
+        setRsvpError(err instanceof Error ? err.message : "No se pudo guardar");
+        router.refresh();
+      }
+    });
+  }
 
   // Índice día → eventos (un evento de varios días aparece en cada uno).
   const byDay = useMemo(() => {
@@ -145,8 +189,10 @@ export function CalendarView({
                     {ev.location ? ` · ${ev.location}` : ""}
                   </span>
                 </span>
-                {isGoing(ev, meEmail) && (
-                  <span className="ml-auto h-2 w-2 shrink-0 rounded-full" style={{ background: ACCENT }} title="Vas" />
+                {ev.going.length > 0 && (
+                  <span className="ml-auto">
+                    <AvatarStack people={ev.going} size={18} max={3} />
+                  </span>
                 )}
               </button>
             );
@@ -159,7 +205,7 @@ export function CalendarView({
           <span className="flex items-center gap-2">
             <span className="h-2.5 w-5 rounded" style={chipStyle(false, false)} /> Sin respuesta tuya
           </span>
-          <span className="pt-1">Voy / No voy se responde en #events.</span>
+          <span className="pt-1">Pincha un evento para decir si vas.</span>
         </div>
       </aside>
 
@@ -227,7 +273,17 @@ export function CalendarView({
         </div>
       </section>
 
-      {open && <EventDialog ev={open} today={today} me={meEmail} onClose={() => setOpen(null)} />}
+      {open && (
+        <EventDialog
+          ev={open}
+          today={today}
+          me={meEmail}
+          saving={saving}
+          error={rsvpError}
+          onAnswer={(r) => answer(open, r)}
+          onClose={() => setOpen(null)}
+        />
+      )}
     </div>
   );
 }
@@ -448,7 +504,14 @@ function MonthChip({
         className="truncate rounded-md px-1.5 py-0.5 text-left text-[11px] font-semibold transition-transform hover:-translate-y-px"
         style={chipStyle(going, past)}
       >
-        {days.length > 1 && day !== days[0] ? `↳ ${ev.title}` : ev.title}
+        <span className="flex min-w-0 items-center gap-1">
+          <span className="truncate">{days.length > 1 && day !== days[0] ? `↳ ${ev.title}` : ev.title}</span>
+          {ev.going.length > 0 && (
+            <span className="ml-auto hidden xl:block">
+              <AvatarStack people={ev.going} size={14} max={3} ring={going ? ACCENT : undefined} />
+            </span>
+          )}
+        </span>
       </button>
     );
   }
@@ -462,6 +525,11 @@ function MonthChip({
       {!going && <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: ACCENT }} />}
       <span className={going ? "font-medium" : "text-[var(--text-secondary)]"}>{hhmm(ev.startsAt)}</span>
       <span className={`truncate font-semibold ${going ? "" : "text-[var(--text-primary)]"}`}>{ev.title}</span>
+      {ev.going.length > 0 && (
+        <span className="ml-auto hidden shrink-0 xl:block">
+          <AvatarStack people={ev.going} size={14} max={3} ring={going ? ACCENT : undefined} />
+        </span>
+      )}
     </button>
   );
 }
@@ -621,6 +689,11 @@ function WeekView({
                       {p.height > 56 && p.ev.location && (
                         <span className={`truncate ${going ? "opacity-90" : "text-[var(--text-muted)]"}`}>{p.ev.location}</span>
                       )}
+                      {p.height > 72 && p.ev.going.length > 0 && (
+                        <span className="mt-auto pt-0.5">
+                          <AvatarStack people={p.ev.going} size={16} max={4} ring={going ? ACCENT : undefined} />
+                        </span>
+                      )}
                     </button>
                   );
                 })}
@@ -705,12 +778,12 @@ function AgendaView({
 }
 
 // --- Personas ---
-function Avatar({ p, size = 24 }: { p: CalendarPerson; size?: number }) {
+function Avatar({ p, size = 24, ring }: { p: CalendarPerson; size?: number; ring?: string }) {
   const label = p.name ?? p.email;
   if (p.avatarUrl) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
-      <img src={p.avatarUrl} alt={label} title={label} width={size} height={size} referrerPolicy="no-referrer" className="shrink-0 rounded-full ring-2 ring-[var(--surface-1)]" />
+      <img src={p.avatarUrl} alt={label} title={label} width={size} height={size} referrerPolicy="no-referrer" className="shrink-0 rounded-full" style={{ boxShadow: `0 0 0 1.5px ${ring ?? "var(--surface-1)"}` }} />
     );
   }
   const initials = label
@@ -722,23 +795,45 @@ function Avatar({ p, size = 24 }: { p: CalendarPerson; size?: number }) {
   return (
     <span
       title={label}
-      className="grid shrink-0 place-items-center rounded-full font-bold ring-2 ring-[var(--surface-1)]"
-      style={{ width: size, height: size, fontSize: Math.max(8, size * 0.42), background: "var(--tile-1-bg)", color: "var(--tile-1-ink)" }}
+      className="grid shrink-0 place-items-center rounded-full font-bold"
+      style={{
+        width: size,
+        height: size,
+        fontSize: Math.max(7, size * 0.42),
+        background: "color-mix(in srgb, var(--brand-sea) 16%, var(--surface-1))",
+        color: "var(--brand-sea)",
+        boxShadow: `0 0 0 1.5px ${ring ?? "var(--surface-1)"}`,
+      }}
     >
       {initials || "?"}
     </span>
   );
 }
 
-function AvatarStack({ people }: { people: CalendarPerson[] }) {
+function AvatarStack({
+  people,
+  size = 22,
+  max = 4,
+  ring,
+}: {
+  people: CalendarPerson[];
+  size?: number;
+  max?: number;
+  ring?: string;
+}) {
   return (
-    <span className="flex shrink-0 -space-x-1.5">
-      {people.slice(0, 4).map((p) => (
-        <Avatar key={p.id} p={p} size={22} />
+    <span className="flex shrink-0" title={`Van: ${people.map((p) => p.name ?? p.email).join(", ")}`}>
+      {people.slice(0, max).map((p, i) => (
+        <span key={p.id} style={{ marginLeft: i ? -size * 0.3 : 0 }}>
+          <Avatar p={p} size={size} ring={ring} />
+        </span>
       ))}
-      {people.length > 4 && (
-        <span className="grid h-[22px] w-[22px] place-items-center rounded-full bg-[var(--pill-neutral-bg)] text-[9px] font-bold text-[var(--text-secondary)] ring-2 ring-[var(--surface-1)]">
-          +{people.length - 4}
+      {people.length > max && (
+        <span
+          className="grid place-items-center rounded-full bg-[var(--surface-1)] font-bold text-[var(--text-secondary)]"
+          style={{ width: size, height: size, fontSize: Math.max(7, size * 0.4), marginLeft: -size * 0.3, boxShadow: `0 0 0 1.5px ${ring ?? "var(--surface-1)"}` }}
+        >
+          +{people.length - max}
         </span>
       )}
     </span>
@@ -766,7 +861,23 @@ function PeopleRow({ label, people, tone }: { label: string; people: CalendarPer
 }
 
 // --- Ficha del evento ---
-function EventDialog({ ev, today, me, onClose }: { ev: CalendarEvent; today: DayKey; me: string; onClose: () => void }) {
+function EventDialog({
+  ev,
+  today,
+  me,
+  saving,
+  error,
+  onAnswer,
+  onClose,
+}: {
+  ev: CalendarEvent;
+  today: DayKey;
+  me: string;
+  saving: boolean;
+  error: string | null;
+  onAnswer: (r: "voy" | "no_voy") => void;
+  onClose: () => void;
+}) {
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") onClose();
@@ -776,6 +887,7 @@ function EventDialog({ ev, today, me, onClose }: { ev: CalendarEvent; today: Day
   }, [onClose]);
 
   const going = isGoing(ev, me);
+  const notGoing = ev.notGoing.some((p) => p.email.toLowerCase() === me.toLowerCase());
   const past = eventDays(ev).at(-1)! < today;
   const otherTz = ev.eventTz && ev.eventTz !== "Europe/Madrid";
 
@@ -843,6 +955,46 @@ function EventDialog({ ev, today, me, onClose }: { ev: CalendarEvent; today: Day
           )}
         </div>
 
+        {!past && (
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-semibold text-[var(--text-primary)]">¿Vas?</span>
+              <div className="flex items-center gap-0.5 rounded-full border border-[var(--border)] bg-[var(--surface-1)] p-0.5 shadow-sm">
+                {(
+                  [
+                    ["voy", "Voy", going],
+                    ["no_voy", "No voy", notGoing],
+                  ] as const
+                ).map(([value, label, on]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    disabled={saving || on}
+                    aria-pressed={on}
+                    onClick={() => onAnswer(value)}
+                    className="rounded-full px-4 py-1 text-sm font-semibold transition-colors disabled:cursor-default"
+                    style={
+                      on
+                        ? value === "voy"
+                          ? { background: ACCENT, color: "#fff" }
+                          : { background: "var(--pill-neutral-bg)", color: "var(--text-primary)" }
+                        : { color: "var(--text-muted)" }
+                    }
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {saving && <span className="text-xs text-[var(--text-muted)]">Guardando…</span>}
+            </div>
+            {error ? (
+              <p className="text-xs font-semibold text-[var(--status-critical)]">{error}</p>
+            ) : going ? (
+              <p className="text-xs text-[var(--text-muted)]">Te llega la invitación de Google Calendar en un minuto.</p>
+            ) : null}
+          </div>
+        )}
+
         <div className="flex flex-wrap items-center justify-end gap-2">
           {ev.googleUrl && (
             <a
@@ -859,10 +1011,9 @@ function EventDialog({ ev, today, me, onClose }: { ev: CalendarEvent; today: Day
               href={ev.slackUrl}
               target="_blank"
               rel="noreferrer"
-              className="rounded-full px-4 py-1.5 text-sm font-semibold text-white shadow-sm transition-transform hover:-translate-y-px"
-              style={{ background: ACCENT }}
+              className="rounded-full px-3.5 py-1.5 text-sm font-semibold text-[var(--text-secondary)] transition-colors hover:bg-[var(--row-hover)]"
             >
-              Voy / No voy en #events
+              Ver en #events
             </a>
           )}
         </div>
