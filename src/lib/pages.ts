@@ -7,6 +7,7 @@ export type HubPage = { key: string; label: string; href: string };
 export const HUB_PAGES: HubPage[] = [
   { key: "workspace", label: "Herramientas", href: "/" },
   { key: "proyectos", label: "Proyectos", href: "/proyectos" },
+  { key: "calendario", label: "Calendario", href: "/calendario" },
   { key: "agentes", label: "Agentes", href: "/agentes" },
 ];
 
