@@ -114,8 +114,33 @@ export function monthGrid(anchor: DayKey): DayKey[] {
   return Array.from({ length: 42 }, (_, i) => addDays(first, i));
 }
 
-/** Días (de Madrid) que ocupa un evento: uno solo, o varios si dura más de un día. */
+const dayFmts = new Map<string, Intl.DateTimeFormat>();
+/** Día de calendario de un instante en una zona concreta. */
+function dayIn(iso: string, tz: string): DayKey {
+  let f = dayFmts.get(tz);
+  if (!f) {
+    try {
+      f = new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" });
+    } catch {
+      f = new Intl.DateTimeFormat("en-CA", { timeZone: TZ, year: "numeric", month: "2-digit", day: "2-digit" });
+    }
+    dayFmts.set(tz, f);
+  }
+  return f.format(new Date(iso));
+}
+
+/** Días que ocupa un evento: uno solo, o varios si dura más de un día. */
 export function eventDays(ev: CalendarEvent): DayKey[] {
+  if (ev.allDay) {
+    // Días de calendario EN LA ZONA DEL EVENTO (Slush 18 nov 00:00 Helsinki son las 23:00 del 17 en Madrid), y
+    // ends_at es el último día, inclusive (así lo escribe el agente).
+    const tz = ev.eventTz || TZ;
+    const first = dayIn(ev.startsAt, tz);
+    const last = ev.endsAt ? dayIn(ev.endsAt, tz) : first;
+    const out: DayKey[] = [];
+    for (let k = first; k <= last && out.length < 31; k = addDays(k, 1)) out.push(k);
+    return out.length ? out : [first];
+  }
   const start = madrid(ev.startsAt).day;
   let end = ev.endsAt ? madrid(ev.endsAt).day : start;
   // Un evento que termina justo a medianoche no "ocupa" el día siguiente.

@@ -167,7 +167,7 @@ export function CalendarView({
             </p>
           )}
           {upcoming.map((ev) => {
-            const d = madrid(ev.startsAt).day;
+            const d = eventDays(ev)[0];
             return (
               <button
                 key={ev.id}
@@ -730,7 +730,7 @@ function AgendaView({
   const list = events.filter((ev) => eventDays(ev).at(-1)! >= from);
   const groups: { day: DayKey; items: CalendarEvent[] }[] = [];
   for (const ev of list) {
-    const d = madrid(ev.startsAt).day < from ? from : madrid(ev.startsAt).day;
+    const d = eventDays(ev)[0] < from ? from : eventDays(ev)[0];
     const g = groups.at(-1);
     if (g && g.day === d) g.items.push(ev);
     else groups.push({ day: d, items: [ev] });
