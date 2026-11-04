@@ -1,3 +1,4 @@
+import { PanZoom } from "./PanZoom";
 import { AGENT_FLOWS, type FlowNode, type FlowTone } from "@/lib/agents";
 
 const CELL_W = 200;
@@ -61,9 +62,9 @@ export function FlowDiagram({
         <h3 className="text-base font-semibold text-[var(--text-primary)]">Flujo — {label}</h3>
         <span className="text-xs text-[var(--text-muted)]">Últimos 7 días</span>
       </div>
-      <div className="w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain rounded-2xl pb-2 [-webkit-overflow-scrolling:touch]">
+      <PanZoom width={width} height={height}>
         <div
-          className="relative shrink-0 rounded-2xl"
+          className="relative rounded-2xl"
           style={{
             width,
             height,
@@ -146,7 +147,7 @@ export function FlowDiagram({
             );
           })}
         </div>
-      </div>
+      </PanZoom>
     </div>
   );
 }
