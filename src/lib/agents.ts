@@ -1,10 +1,10 @@
 /** Tipos y catálogos compartidos para el dashboard de auditoría de agentes (`/agentes`). Los datos
  * viven en `hub.agent_audit_runs` / `hub.agent_audit_events` (ver src/lib/supabase/agents.ts) — ambos
- * escritos por los propios agentes (hoy solo `inbound-follow-up`) a través de un script compartido en
+ * escritos por los propios agentes (`inbound-follow-up` y `events`) a través de un script compartido en
  * el VPS, no por esta app. */
 
 export type AgentRunStatus = "running" | "success" | "error" | "no_op";
-export type AgentPass = "fast" | "slow" | null;
+export type AgentPass = "fast" | "slow" | "email" | "exa" | null;
 
 export type AgentRun = {
   id: string;
@@ -68,6 +68,16 @@ export const KNOWN_AGENTS: { id: string; label: string; emoji: string; descripti
       "aprobación humana en Slack para cualquier cosa más allá del primer correo.",
     vpsPath: "/home/maru/.openclaw/agents/inbound-follow-up",
   },
+  {
+    id: "events",
+    label: "Events",
+    emoji: "📅",
+    description:
+      "Lee lo que el equipo envía a events@decelera.com (y una búsqueda semanal en Exa), decide qué eventos " +
+      "de startups/VC merecen la pena, los guarda en el calendario del hub y los publica en #events con " +
+      "botones Voy / No voy que gestionan la invitación en Google Calendar.",
+    vpsPath: "/home/maru/.openclaw/agents/events",
+  },
 ];
 
 export const EVENT_LABEL: Record<string, string> = {
@@ -82,6 +92,8 @@ export const EVENT_LABEL: Record<string, string> = {
   reply_escalated: "Escalado a un humano",
   watchdog_stall: "El agente lleva varias veces sin avanzar",
   watchdog_recovered: "El agente volvió a avanzar",
+  event_publicado: "Evento publicado",
+  event_descartado: "Evento descartado",
 };
 
 export const EVENT_ICON: Record<string, string> = {
@@ -96,6 +108,8 @@ export const EVENT_ICON: Record<string, string> = {
   reply_escalated: "🙋",
   watchdog_stall: "⚠️",
   watchdog_recovered: "💚",
+  event_publicado: "📅",
+  event_descartado: "🗑️",
 };
 
 export function eventLabel(eventType: string): string {
@@ -156,6 +170,17 @@ export const AGENT_FLOWS: Record<string, { nodes: FlowNode[]; edges: FlowEdge[] 
       { from: "draft", to: "approved" },
       { from: "draft", to: "rejected" },
       { from: "draft", to: "escalated" },
+    ],
+  },
+  events: {
+    nodes: [
+      { id: "intake", label: "Email / búsqueda", icon: "📧", tone: "neutral", eventTypes: [], col: 0, row: 1 },
+      { id: "published", label: "Publicado", icon: "📅", tone: "success", eventTypes: ["event_publicado"], col: 1, row: 0 },
+      { id: "discarded", label: "Descartado", icon: "🗑️", tone: "neutral", eventTypes: ["event_descartado"], col: 1, row: 2 },
+    ],
+    edges: [
+      { from: "intake", to: "published" },
+      { from: "intake", to: "discarded" },
     ],
   },
 };
