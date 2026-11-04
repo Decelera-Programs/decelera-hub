@@ -23,7 +23,7 @@ export default async function ProyectosPage() {
   };
 
   return (
-    <div className="ambient flex h-screen flex-col overflow-hidden">
+    <div className="ambient flex h-dvh flex-col overflow-hidden">
       <header className="glass hub-header relative z-20 grid h-14 shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-3 border-b border-[var(--border)] px-3 sm:px-4">
         <div className="flex min-w-0 items-center gap-2 justify-self-start">
           {/* eslint-disable-next-line @next/next/no-img-element */}

@@ -56,14 +56,14 @@ export function FlowDiagram({
   }
 
   return (
-    <div className="card spotlight flex flex-col gap-3 overflow-hidden p-5">
+    <div className="card spotlight flex w-full min-w-0 max-w-full shrink-0 flex-col gap-3 overflow-hidden p-4 sm:p-5">
       <div className="flex items-center justify-between">
         <h3 className="text-base font-semibold text-[var(--text-primary)]">Flujo — {label}</h3>
         <span className="text-xs text-[var(--text-muted)]">Últimos 7 días</span>
       </div>
-      <div className="overflow-x-auto rounded-2xl">
+      <div className="w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain rounded-2xl pb-2 [-webkit-overflow-scrolling:touch]">
         <div
-          className="relative rounded-2xl"
+          className="relative shrink-0 rounded-2xl"
           style={{
             width,
             height,

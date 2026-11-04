@@ -39,7 +39,7 @@ export default async function AgentesPage() {
   };
 
   return (
-    <div className="ambient flex h-screen flex-col overflow-hidden">
+    <div className="ambient flex h-dvh flex-col overflow-hidden">
       <header className="glass hub-header relative z-20 grid h-14 shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-3 border-b border-[var(--border)] px-3 sm:px-4">
         <div className="flex min-w-0 items-center gap-2 justify-self-start">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -64,7 +64,7 @@ export default async function AgentesPage() {
         </div>
       </header>
 
-      <div className="mx-auto flex w-full max-w-[1180px] flex-1 flex-col gap-6 overflow-y-auto px-6 py-6 lg:px-10">
+      <div className="mx-auto flex w-full max-w-[1180px] min-w-0 flex-1 flex-col gap-6 overflow-y-auto [&>*]:shrink-0 px-4 py-6 sm:px-6 lg:px-10">
         <div className="aurora-light hub-reveal flex flex-wrap items-end justify-between gap-4 rounded-[20px] px-5 py-3 sm:px-6">
           <div>
             <h1 className="page-title text-2xl tracking-tight text-[var(--text-primary)] sm:text-3xl">Agentes</h1>
