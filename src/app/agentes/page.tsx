@@ -108,7 +108,7 @@ export default async function AgentesPage({ searchParams }: { searchParams: Prom
 
         {pendingApprovals.length > 0 && <PendingApprovalsPanel items={pendingApprovals} />}
 
-        {selectedId === "inbound-follow-up" && <MetricsRow counts={countsByAgent[selectedId] ?? {}} />}
+        <MetricsRow agentId={selectedId} counts={countsByAgent[selectedId] ?? {}} />
 
         <FlowDiagram key={selectedId} agentId={selectedId} label={selected.label} counts={countsByAgent[selectedId] ?? {}} />
 
