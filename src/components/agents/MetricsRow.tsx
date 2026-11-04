@@ -17,7 +17,7 @@ type Tile = { label: string; value: string; accent: string };
 function tilesFor(agentId: string, counts: Record<string, number>): Tile[] {
   if (agentId === "events") {
     const published = counts.event_publicado ?? 0;
-    const discarded = counts.event_descartado ?? 0;
+    const discarded = (counts.event_descartado ?? 0) + (counts.event_duplicado ?? 0);
     const total = published + discarded;
     const pct = total > 0 ? Math.round((published / total) * 100) : 0;
     return [

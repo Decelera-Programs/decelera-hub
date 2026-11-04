@@ -94,6 +94,11 @@ export const EVENT_LABEL: Record<string, string> = {
   watchdog_recovered: "El agente volvió a avanzar",
   event_publicado: "Evento publicado",
   event_descartado: "Evento descartado",
+  event_duplicado: "Evento duplicado (ya estaba)",
+  event_remitente_rechazado: "Correo de remitente no autorizado",
+  event_slack_posted: "Publicado en #events y Calendar",
+  event_rsvp_voy: "Alguien va (invitación enviada)",
+  event_rsvp_no_voy: "Alguien no va",
 };
 
 export const EVENT_ICON: Record<string, string> = {
@@ -110,6 +115,11 @@ export const EVENT_ICON: Record<string, string> = {
   watchdog_recovered: "💚",
   event_publicado: "📅",
   event_descartado: "🗑️",
+  event_duplicado: "🔁",
+  event_remitente_rechazado: "🛡️",
+  event_slack_posted: "💬",
+  event_rsvp_voy: "✅",
+  event_rsvp_no_voy: "👋",
 };
 
 export function eventLabel(eventType: string): string {
@@ -174,13 +184,27 @@ export const AGENT_FLOWS: Record<string, { nodes: FlowNode[]; edges: FlowEdge[] 
   },
   events: {
     nodes: [
-      { id: "intake", label: "Email / búsqueda", icon: "📧", tone: "neutral", eventTypes: [], col: 0, row: 1 },
-      { id: "published", label: "Publicado", icon: "📅", tone: "success", eventTypes: ["event_publicado"], col: 1, row: 0 },
-      { id: "discarded", label: "Descartado", icon: "🗑️", tone: "neutral", eventTypes: ["event_descartado"], col: 1, row: 2 },
+      { id: "email", label: "Correo a events@", icon: "📧", tone: "neutral", eventTypes: [], col: 0, row: 0 },
+      { id: "exa", label: "Búsqueda semanal (Exa)", icon: "🔎", tone: "neutral", eventTypes: [], col: 0, row: 2 },
+      { id: "rejected", label: "Remitente no autorizado", icon: "🛡️", tone: "warning", eventTypes: ["event_remitente_rechazado"], col: 1, row: 0 },
+      { id: "judge", label: "El agente evalúa", icon: "🧠", tone: "info", eventTypes: ["event_publicado", "event_descartado", "event_duplicado"], col: 1, row: 1 },
+      { id: "discarded", label: "Descartado", icon: "🗑️", tone: "neutral", eventTypes: ["event_descartado"], col: 2, row: 0 },
+      { id: "published", label: "Guardado en el hub", icon: "📅", tone: "progress", eventTypes: ["event_publicado"], col: 2, row: 1 },
+      { id: "duplicate", label: "Duplicado", icon: "🔁", tone: "neutral", eventTypes: ["event_duplicado"], col: 2, row: 2 },
+      { id: "posted", label: "#events + Calendar", icon: "💬", tone: "progress", eventTypes: ["event_slack_posted"], col: 3, row: 1 },
+      { id: "voy", label: "Voy → invitación", icon: "✅", tone: "success", eventTypes: ["event_rsvp_voy"], col: 4, row: 0 },
+      { id: "no_voy", label: "No voy", icon: "👋", tone: "neutral", eventTypes: ["event_rsvp_no_voy"], col: 4, row: 2 },
     ],
     edges: [
-      { from: "intake", to: "published" },
-      { from: "intake", to: "discarded" },
+      { from: "email", to: "rejected" },
+      { from: "email", to: "judge" },
+      { from: "exa", to: "judge" },
+      { from: "judge", to: "discarded" },
+      { from: "judge", to: "published" },
+      { from: "judge", to: "duplicate" },
+      { from: "published", to: "posted" },
+      { from: "posted", to: "voy" },
+      { from: "posted", to: "no_voy" },
     ],
   },
 };
