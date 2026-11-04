@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { AccountMenu } from "@/components/AccountMenu";
 import { ActivityFeed } from "@/components/agents/ActivityFeed";
 import { AgentPulseCard } from "@/components/agents/AgentPulseCard";
@@ -16,18 +17,21 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic";
 
-export default async function AgentesPage() {
+export default async function AgentesPage({ searchParams }: { searchParams: Promise<{ agente?: string }> }) {
   const member = await requireMember();
+  const { agente } = await searchParams;
+  const selectedId = KNOWN_AGENTS.find((a) => a.id === agente)?.id ?? KNOWN_AGENTS[0].id;
+  const selected = KNOWN_AGENTS.find((a) => a.id === selectedId)!;
   const sevenDaysAgo = daysAgoIso(7);
 
   const [summaries, events, pendingLists, countsEntries] = await Promise.all([
     getAgentSummaries(),
-    getRecentEvents(),
+    getRecentEvents(selectedId),
     Promise.all(KNOWN_AGENTS.map((a) => getPendingApprovals(a.id))),
     Promise.all(KNOWN_AGENTS.map(async (a) => [a.id, await getEventCountsSince(a.id, sevenDaysAgo)] as const)),
   ]);
 
-  const pendingApprovals = pendingLists.flat();
+  const pendingApprovals = pendingLists[KNOWN_AGENTS.findIndex((a) => a.id === selectedId)] ?? [];
   const countsByAgent = Object.fromEntries(countsEntries);
 
   const user = {
@@ -78,8 +82,15 @@ export default async function AgentesPage() {
           {summaries.map((s) => {
             const meta = KNOWN_AGENTS.find((a) => a.id === s.agentId);
             return (
-              <AgentPulseCard
+              <Link
                 key={s.agentId}
+                href={`/agentes?agente=${s.agentId}`}
+                scroll={false}
+                aria-current={s.agentId === selectedId ? "true" : undefined}
+                className="block rounded-[20px] outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-water)]"
+              >
+              <AgentPulseCard
+                selected={s.agentId === selectedId}
                 emoji={meta?.emoji ?? "🤖"}
                 label={s.label}
                 description={meta?.description ?? ""}
@@ -90,21 +101,18 @@ export default async function AgentesPage() {
                 runsToday={s.runsToday}
                 eventsToday={s.eventsToday}
               />
+              </Link>
             );
           })}
         </div>
 
         {pendingApprovals.length > 0 && <PendingApprovalsPanel items={pendingApprovals} />}
 
-        {KNOWN_AGENTS.map((a) => (
-          <MetricsRow key={a.id} counts={countsByAgent[a.id] ?? {}} />
-        ))}
+        {selectedId === "inbound-follow-up" && <MetricsRow counts={countsByAgent[selectedId] ?? {}} />}
 
-        {KNOWN_AGENTS.map((a) => (
-          <FlowDiagram key={a.id} agentId={a.id} label={a.label} counts={countsByAgent[a.id] ?? {}} />
-        ))}
+        <FlowDiagram key={selectedId} agentId={selectedId} label={selected.label} counts={countsByAgent[selectedId] ?? {}} />
 
-        <ActivityFeed events={events} />
+        <ActivityFeed events={events} label={selected.label} />
       </div>
     </div>
   );

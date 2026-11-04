@@ -17,10 +17,10 @@ function subjectLine(e: AgentEvent): string {
   return who || e.threadId || "";
 }
 
-export function ActivityFeed({ events }: { events: AgentEvent[] }) {
+export function ActivityFeed({ events, label }: { events: AgentEvent[]; label?: string }) {
   return (
     <div className="card flex flex-col gap-1 p-5">
-      <h3 className="mb-2 text-base font-semibold text-[var(--text-primary)]">Actividad reciente</h3>
+      <h3 className="mb-2 text-base font-semibold text-[var(--text-primary)]">Actividad reciente{label ? ` — ${label}` : ""}</h3>
       {events.length === 0 ? (
         <p className="py-6 text-center text-sm text-[var(--text-muted)]">
           Nada registrado todavía — en cuanto el agente actúe, aparecerá aquí.

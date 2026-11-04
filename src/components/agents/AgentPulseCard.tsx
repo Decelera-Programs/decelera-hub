@@ -35,6 +35,7 @@ export function AgentPulseCard({
   lastRunStatus,
   runsToday,
   eventsToday,
+  selected = false,
 }: {
   emoji: string;
   label: string;
@@ -45,10 +46,11 @@ export function AgentPulseCard({
   lastRunStatus: AgentRunStatus | null;
   runsToday: number;
   eventsToday: number;
+  selected?: boolean;
 }) {
   const s = HEALTH_STYLE[health];
   return (
-    <div className="card spotlight flex flex-col gap-3 p-5">
+    <div className={`card spotlight flex flex-col gap-3 p-5 transition-shadow ${selected ? "ring-2 ring-[var(--brand-water)]" : "hover:ring-1 hover:ring-[var(--border)]"}`}>
       <div className="flex items-center justify-between gap-2">
         <div className="group relative flex items-center gap-2">
           <span className="text-2xl" aria-hidden>
