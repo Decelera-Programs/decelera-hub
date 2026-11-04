@@ -1,9 +1,8 @@
 import type { AgentHealth, AgentRunStatus } from "@/lib/agents";
 
-const HEALTH_STYLE: Record<AgentHealth, { bg: string; ink: string; label: string; dot: string }> = {
+const HEALTH_STYLE: Partial<Record<AgentHealth, { bg: string; ink: string; label: string; dot: string }>> = {
   healthy: { bg: "var(--pill-good-bg)", ink: "var(--status-good)", label: "Activo", dot: "var(--status-good)" },
   stalled: { bg: "var(--pill-critical-bg)", ink: "var(--status-critical)", label: "Estancado", dot: "var(--status-critical)" },
-  unknown: { bg: "var(--pill-neutral-bg)", ink: "var(--text-muted)", label: "Sin datos aún", dot: "var(--text-muted)" },
 };
 
 const RUN_STATUS_LABEL: Record<AgentRunStatus, string> = {
@@ -48,9 +47,26 @@ export function AgentPulseCard({
   eventsToday: number;
   selected?: boolean;
 }) {
+  // "unknown" no tiene píldora: el agente puede tener datos aunque el watchdog nunca haya disparado.
   const s = HEALTH_STYLE[health];
   return (
-    <div className={`card spotlight flex flex-col gap-3 p-5 transition-shadow ${selected ? "ring-2 ring-[var(--brand-water)]" : "hover:ring-1 hover:ring-[var(--border)]"}`}>
+    <div
+      className="card spotlight hub-card relative flex flex-col gap-3 p-5"
+      style={
+        selected
+          ? {
+              borderColor: "color-mix(in srgb, var(--brand-water) 55%, var(--border))",
+              boxShadow: "0 18px 40px -18px color-mix(in srgb, var(--brand-sea) 32%, transparent)",
+            }
+          : undefined
+      }
+    >
+      {selected && (
+        <span
+          aria-hidden
+          className="absolute inset-x-6 top-0 h-[3px] rounded-b-full bg-gradient-to-r from-[var(--brand-water)] to-[var(--brand-sea)]"
+        />
+      )}
       <div className="flex items-center justify-between gap-2">
         <div className="group relative flex items-center gap-2">
           <span className="text-2xl" aria-hidden>
@@ -71,17 +87,33 @@ export function AgentPulseCard({
             </p>
           </div>
         </div>
-        <span
-          className="flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.06em]"
-          style={{ background: s.bg, color: s.ink }}
-        >
-          <span
-            aria-hidden
-            className={health === "healthy" ? "pulse-dot h-1.5 w-1.5 rounded-full" : "h-1.5 w-1.5 rounded-full"}
-            style={{ background: s.dot }}
-          />
-          {s.label}
-        </span>
+        <div className="flex shrink-0 items-center gap-1.5">
+          {selected && (
+            <span
+              className="flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold text-[var(--brand-sea)]"
+              style={{
+                background: "color-mix(in srgb, var(--brand-water) 16%, transparent)",
+                boxShadow: "inset 0 0 0 1px color-mix(in srgb, var(--brand-water) 40%, transparent)",
+              }}
+            >
+              <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-[var(--brand-water)]" />
+              Viendo
+            </span>
+          )}
+          {s && (
+            <span
+              className="flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.06em]"
+              style={{ background: s.bg, color: s.ink }}
+            >
+              <span
+                aria-hidden
+                className={health === "healthy" ? "pulse-dot h-1.5 w-1.5 rounded-full" : "h-1.5 w-1.5 rounded-full"}
+                style={{ background: s.dot }}
+              />
+              {s.label}
+            </span>
+          )}
+        </div>
       </div>
       <div className="flex items-center gap-4 text-sm text-[var(--text-secondary)]">
         <span>
