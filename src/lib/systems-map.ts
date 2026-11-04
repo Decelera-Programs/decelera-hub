@@ -54,9 +54,10 @@ export const MAP_SYSTEMS: MapSystem[] = [
   { id: "linkedin", label: "LinkedIn", sub: "Sales Navigator", icon: "💼", x: 30, y: 420 },
   { id: "calendly", label: "Calendly", sub: "calls reservadas", icon: "🗓️", x: 30, y: 545 },
   { id: "supabase", label: "Brain", sub: "Supabase · eventos", icon: "🧠", x: 492, y: 80 },
-  { id: "attio", label: "Attio", sub: "CRM · deal flow", icon: "🏢", x: 492, y: 390 },
-  { id: "gcal", label: "Google Calendar", sub: "invitaciones", icon: "📆", x: 954, y: 40 },
-  { id: "slack", label: "Slack", sub: "canales", icon: "💬", x: 954, y: 340 },
+  { id: "attio", label: "Attio", sub: "CRM · deal flow", icon: "🏢", x: 492, y: 480 },
+  { id: "gcal", label: "Google Calendar", sub: "invitaciones", icon: "📆", x: 954, y: 30 },
+  { id: "slack", label: "Slack", sub: "canales", icon: "💬", x: 954, y: 250 },
+  { id: "gmail-out", label: "Gmail", sub: "respuestas a founders", icon: "📤", x: 954, y: 470 },
 ];
 
 export type MapFlow = {
@@ -76,7 +77,7 @@ export const MAP_FLOWS: MapFlow[] = [
   // Inbound Follow-Up
   { id: "i-lead", agent: "inbound-follow-up", from: "gmail", to: "attio", label: "Registra el lead", when: "cada 5 min",
     eventTypes: ["attio_deal_created", "attio_deal_merged"] },
-  { id: "i-reply", agent: "inbound-follow-up", from: "gmail", to: "gmail", label: "Responde al founder", when: "9:00 y 18:00",
+  { id: "i-reply", agent: "inbound-follow-up", from: "gmail", to: "gmail-out", label: "Responde al founder", when: "9:00 y 18:00",
     eventTypes: ["first_reply_sent", "approval_sent"] },
   { id: "i-slack", agent: "inbound-follow-up", from: "gmail", to: "slack", label: "Borradores para aprobar", when: "al responder un founder",
     eventTypes: ["reply_drafted", "attio_needs_review", "reply_escalated"] },

@@ -348,7 +348,7 @@ export function SystemsMap({ counts }: { counts: Record<string, Record<string, n
                   return (
                     <span key={f.id} className="flex items-center gap-2 text-xs">
                       <span className="w-28 shrink-0 truncate text-[var(--text-muted)]">
-                        {byId[f.from].label.split(" ·")[0]} → {byId[f.to].label.split(" ·")[0]}
+                        {byId[f.from].label} → {f.to === "gmail-out" ? "founder" : byId[f.to].label}
                       </span>
                       <span className="min-w-0 flex-1 truncate font-medium text-[var(--text-primary)]">{f.label}</span>
                       <span className="shrink-0 text-[var(--text-muted)]">{f.when}</span>
