@@ -11,8 +11,8 @@ const norm = (s: string) =>
 
 export type CategoryFilter = "Todos" | AppCategory;
 
-/** Subcarpeta con sus tarjetas ya resueltas y ordenadas. */
-export type TreeSubfolder = Subfolder & { apps: HubApp[] };
+/** Subcarpeta con sus tarjetas ya resueltas y ordenadas, y sus subcarpetas hijas (3.er nivel). */
+export type TreeSubfolder = Subfolder & { apps: HubApp[]; children: TreeSubfolder[]; count: number };
 
 /** Sección con su subárbol: subcarpetas + tarjetas sueltas (directas en la sección). */
 export type TreeSection = Section & {
@@ -71,33 +71,45 @@ export function useHub(apps: HubApp[], sections: Section[], subfolders: Subfolde
   // tarjetas sueltas de la sección. Sin filtros se muestra todo (aunque haya nodos
   // vacíos, para poder añadirles contenido); con filtros se podan las ramas vacías.
   const groups = useMemo<TreeSection[]>(() => {
-    const subsBySection = new Map<string, Subfolder[]>();
-    for (const sf of [...subfolders].sort((a, b) => a.position - b.position)) {
-      const list = subsBySection.get(sf.sectionId) ?? [];
+    const byPosSf = (x: Subfolder, y: Subfolder) => x.position - y.position;
+    const childrenOf = new Map<string, Subfolder[]>();
+    const topBySection = new Map<string, Subfolder[]>();
+    for (const sf of [...subfolders].sort(byPosSf)) {
+      const map = sf.parentId ? childrenOf : topBySection;
+      const key = sf.parentId ?? sf.sectionId;
+      const list = map.get(key) ?? [];
       list.push(sf);
-      subsBySection.set(sf.sectionId, list);
+      map.set(key, list);
     }
 
     const byPos = (a: HubApp, b: HubApp) => a.position - b.position;
 
+    const build = (sf: Subfolder): TreeSubfolder => {
+      const children = (childrenOf.get(sf.id) ?? []).map(build);
+      const own = visible.filter((t) => t.subfolderId === sf.id).sort(byPos);
+      return { ...sf, apps: own, children, count: own.length + children.reduce((n, c) => n + c.count, 0) };
+    };
+
     const tree = [...sections]
       .sort((a, b) => a.position - b.position)
       .map<TreeSection>((s) => {
-        const subs = (subsBySection.get(s.id) ?? []).map<TreeSubfolder>((sf) => ({
-          ...sf,
-          apps: visible.filter((t) => t.subfolderId === sf.id).sort(byPos),
-        }));
+        const subs = (topBySection.get(s.id) ?? []).map(build);
         const direct = visible
           .filter((t) => t.sectionId === s.id && !t.subfolderId)
           .sort(byPos);
-        const count = direct.length + subs.reduce((n, sf) => n + sf.apps.length, 0);
+        const count = direct.length + subs.reduce((n, sf) => n + sf.count, 0);
         return { ...s, subfolders: subs, apps: direct, count };
       });
 
     if (!filtering) return tree;
     return tree
       .filter((g) => g.count > 0)
-      .map((g) => ({ ...g, subfolders: g.subfolders.filter((sf) => sf.apps.length > 0) }));
+      .map((g) => ({
+        ...g,
+        subfolders: g.subfolders
+          .map((sf) => ({ ...sf, children: sf.children.filter((c) => c.count > 0) }))
+          .filter((sf) => sf.count > 0),
+      }));
   }, [sections, subfolders, visible, filtering]);
 
   return {

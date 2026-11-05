@@ -80,7 +80,7 @@ export async function requireAdmin(): Promise<Member> {
 // --- Secciones y tarjetas del hub (compartidas: las ve todo el equipo) ---
 
 type SectionRow = { id: string; label: string; blurb: string | null; accent: string | null; position: number };
-type SubfolderRow = { id: string; section_id: string; label: string; position: number };
+type SubfolderRow = { id: string; section_id: string; parent_id: string | null; label: string; position: number };
 type CardRow = {
   id: string;
   slug: string;
@@ -115,11 +115,12 @@ export const getSections = cache(async (): Promise<Section[]> => {
 export const getSubfolders = cache(async (): Promise<Subfolder[]> => {
   const { data } = await hubDb
     .from("subfolders")
-    .select("id, section_id, label, position")
+    .select("id, section_id, parent_id, label, position")
     .order("position");
   return ((data ?? []) as SubfolderRow[]).map((s) => ({
     id: s.id,
     sectionId: s.section_id,
+    parentId: s.parent_id ?? null,
     label: s.label,
     position: s.position,
   }));

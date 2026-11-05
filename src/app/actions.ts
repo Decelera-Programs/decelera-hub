@@ -184,7 +184,7 @@ export async function saveSpaceLayout(
 // --- Secciones y tarjetas del hub (solo admin) ---
 
 const SECTION_COLS = "id, label, blurb, accent, position";
-const SUBFOLDER_COLS = "id, section_id, label, position";
+const SUBFOLDER_COLS = "id, section_id, parent_id, label, position";
 const CARD_COLS =
   "id, slug, section_id, subfolder_id, initial, title, description, href, category, status, meta, external, embeddable, position";
 
@@ -226,6 +226,7 @@ function toSubfolder(r: Record<string, unknown>): Subfolder {
   return {
     id: r.id as string,
     sectionId: r.section_id as string,
+    parentId: (r.parent_id as string | null) ?? null,
     label: r.label as string,
     position: r.position as number,
   };
@@ -317,19 +318,28 @@ export async function reorderSections(ids: string[]): Promise<void> {
 
 // --- Subcarpetas (nivel intermedio, solo admin) ---
 
-export async function createSubfolder(sectionId: string): Promise<Subfolder> {
+export async function createSubfolder(sectionId: string, parentId: string | null = null): Promise<Subfolder> {
   await requireAdmin();
-  const { data: last } = await hubDb
-    .from("subfolders")
-    .select("position")
-    .eq("section_id", sectionId)
+  if (parentId) {
+    // Solo un nivel de anidación: el padre tiene que ser una subcarpeta de primer nivel de esa sección.
+    const { data: parent } = await hubDb
+      .from("subfolders")
+      .select("section_id, parent_id")
+      .eq("id", parentId)
+      .maybeSingle();
+    if (!parent || parent.parent_id || parent.section_id !== sectionId) {
+      throw new Error("No se puede crear una subcarpeta aquí (máximo un nivel dentro de una subcarpeta)");
+    }
+  }
+  const scope = hubDb.from("subfolders").select("position").eq("section_id", sectionId);
+  const { data: last } = await (parentId ? scope.eq("parent_id", parentId) : scope.is("parent_id", null))
     .order("position", { ascending: false })
     .limit(1)
     .maybeSingle();
   const position = ((last?.position as number | undefined) ?? -1) + 1;
   const { data, error } = await hubDb
     .from("subfolders")
-    .insert({ section_id: sectionId, label: "Nueva subcarpeta", position })
+    .insert({ section_id: sectionId, parent_id: parentId, label: "Nueva subcarpeta", position })
     .select(SUBFOLDER_COLS)
     .single();
   if (error || !data) throw new Error(error?.message ?? "create subfolder failed");
@@ -353,11 +363,18 @@ export async function deleteSubfolder(id: string): Promise<void> {
   revalidatePath("/");
 }
 
-export async function reorderSubfolders(sectionId: string, ids: string[]): Promise<void> {
+export async function reorderSubfolders(
+  sectionId: string,
+  ids: string[],
+  parentId: string | null = null,
+): Promise<void> {
   await requireAdmin();
   await Promise.all(
     ids.map((id, i) =>
-      hubDb.from("subfolders").update({ position: i, section_id: sectionId }).eq("id", id),
+      hubDb
+        .from("subfolders")
+        .update({ position: i, section_id: sectionId, parent_id: parentId })
+        .eq("id", id),
     ),
   );
   revalidatePath("/");
@@ -371,12 +388,31 @@ export async function moveSubfolderToSection(
   subfolderId: string,
   sectionId: string,
   orderedIds: string[],
+  parentId: string | null = null,
 ): Promise<void> {
   await requireAdmin();
-  await hubDb.from("cards").update({ section_id: sectionId }).eq("subfolder_id", subfolderId);
+  const { data: kids } = await hubDb.from("subfolders").select("id").eq("parent_id", subfolderId);
+  const family = [subfolderId, ...((kids ?? []) as { id: string }[]).map((k) => k.id)];
+  if (parentId) {
+    const { data: parent } = await hubDb
+      .from("subfolders")
+      .select("section_id, parent_id")
+      .eq("id", parentId)
+      .maybeSingle();
+    // Sin ciclos ni más de un nivel de anidación: el padre es de primer nivel y la que se mueve no tiene hijas.
+    if (!parent || parent.parent_id || parentId === subfolderId || family.length > 1) {
+      throw new Error("Movimiento de subcarpeta no permitido");
+    }
+  }
+  // La subcarpeta, sus hijas y las tarjetas de ambas pasan a la sección destino.
+  await hubDb.from("cards").update({ section_id: sectionId }).in("subfolder_id", family);
+  await hubDb.from("subfolders").update({ section_id: sectionId }).in("id", family);
   await Promise.all(
     orderedIds.map((id, i) =>
-      hubDb.from("subfolders").update({ position: i, section_id: sectionId }).eq("id", id),
+      hubDb
+        .from("subfolders")
+        .update({ position: i, section_id: sectionId, parent_id: parentId })
+        .eq("id", id),
     ),
   );
   revalidatePath("/");

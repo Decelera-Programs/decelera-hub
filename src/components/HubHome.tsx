@@ -253,13 +253,19 @@ export function HubHome({
       reorderSections(ids);
     });
   }
-  function moveSubfolder(sectionId: string, subIds: string[], index: number, dir: -1 | 1) {
+  function moveSubfolder(
+    sectionId: string,
+    subIds: string[],
+    index: number,
+    dir: -1 | 1,
+    parentId: string | null,
+  ) {
     const j = index + dir;
     if (j < 0 || j >= subIds.length) return;
     const ids = [...subIds];
     [ids[index], ids[j]] = [ids[j], ids[index]];
     startAdmin(() => {
-      reorderSubfolders(sectionId, ids);
+      reorderSubfolders(sectionId, ids, parentId);
     });
   }
   function moveCard(
@@ -279,7 +285,17 @@ export function HubHome({
   }
 
   function dropItem(item: DragItem, target: DragItem) {
-    const sectionOf = (subId: string) => groups.find((g) => g.subfolders.some((s) => s.id === subId));
+    // Busca una subcarpeta (de primer nivel o hija) con su sección, su padre y su lista de hermanas.
+    const findSub = (subId: string) => {
+      for (const g of groups) {
+        for (const top of g.subfolders) {
+          if (top.id === subId) return { section: g, node: top, parent: null, siblings: g.subfolders };
+          const child = top.children.find((c) => c.id === subId);
+          if (child) return { section: g, node: child, parent: top, siblings: top.children };
+        }
+      }
+      return null;
+    };
     const insertBefore = <T extends { id: string }>(list: T[], moving: T, beforeId: string | null) => {
       const rest = list.filter((x) => x.id !== moving.id);
       const at = beforeId ? rest.findIndex((x) => x.id === beforeId) : -1;
@@ -296,18 +312,38 @@ export function HubHome({
     }
 
     if (item.kind === "subfolder") {
-      const dest = target.kind === "section" ? groups.find((g) => g.id === target.id) : sectionOf(target.id);
-      const moving = groups.flatMap((g) => g.subfolders).find((s) => s.id === item.id);
-      if (!dest || !moving) return;
-      const ids = insertBefore(dest.subfolders, moving, target.kind === "subfolder" ? target.id : null).map(
-        (s) => s.id,
-      );
-      startAdmin(() => void moveSubfolderToSection(item.id, dest.id, ids));
+      const moving = findSub(item.id)?.node;
+      if (!moving) return;
+      let dest: (typeof groups)[number] | undefined;
+      let parentId: string | null = null;
+      let siblings: { id: string }[] = [];
+      let beforeId: string | null = null;
+      if (target.kind === "section") {
+        dest = groups.find((g) => g.id === target.id);
+        siblings = dest?.subfolders ?? [];
+      } else if (target.kind === "subfolder") {
+        const t = findSub(target.id);
+        if (!t) return;
+        dest = t.section;
+        parentId = t.parent?.id ?? null;
+        siblings = t.siblings;
+        beforeId = t.node.id;
+      } else {
+        return;
+      }
+      if (!dest) return;
+      // Un solo nivel de anidación: una subcarpeta con hijas no puede bajar a un 3.er nivel.
+      if (parentId && (moving.children.length > 0 || parentId === moving.id)) return;
+      const ids = insertBefore(siblings as { id: string }[], moving, beforeId).map((s) => s.id);
+      startAdmin(() => void moveSubfolderToSection(item.id, dest.id, ids, parentId));
       return;
     }
 
     if (item.kind === "card") {
-      const all = groups.flatMap((g) => [...g.apps, ...g.subfolders.flatMap((s) => s.apps)]);
+      const all = groups.flatMap((g) => [
+        ...g.apps,
+        ...g.subfolders.flatMap((s) => [...s.apps, ...s.children.flatMap((c) => c.apps)]),
+      ]);
       const moving = all.find((a) => a.id === item.id);
       if (!moving) return;
       let sectionId: string;
@@ -321,12 +357,11 @@ export function HubHome({
         subfolderId = null;
         siblings = g.apps;
       } else if (target.kind === "subfolder") {
-        const g = sectionOf(target.id);
-        const sf = g?.subfolders.find((s) => s.id === target.id);
-        if (!g || !sf) return;
-        sectionId = g.id;
-        subfolderId = sf.id;
-        siblings = sf.apps;
+        const t = findSub(target.id);
+        if (!t) return;
+        sectionId = t.section.id;
+        subfolderId = t.node.id;
+        siblings = t.node.apps;
       } else {
         const tc = all.find((a) => a.id === target.id);
         if (!tc || !tc.sectionId) return;
@@ -354,7 +389,7 @@ export function HubHome({
       }),
     onAddSection: () => startAdmin(async () => void (await createSection())),
     onAddCard: (sectionId, subfolderId) => setCardEditor({ sectionId, subfolderId, card: null }),
-    onAddSubfolder: (sectionId) => startAdmin(() => void createSubfolder(sectionId)),
+    onAddSubfolder: (sectionId, parentId) => startAdmin(() => void createSubfolder(sectionId, parentId)),
     onMoveSection: moveSection,
     onMoveSubfolder: moveSubfolder,
     onMoveCard: moveCard,

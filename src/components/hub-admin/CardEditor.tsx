@@ -68,9 +68,14 @@ export function CardEditor({
   const set = <K extends keyof Draft>(k: K, v: Draft[K]) => setD((p) => ({ ...p, [k]: v }));
 
   // Subcarpetas de la sección elegida (para el selector de ubicación).
-  const sectionSubfolders = subfolders
-    .filter((s) => s.sectionId === d.sectionId)
-    .sort((a, b) => a.position - b.position);
+  // En orden de árbol: cada subcarpeta seguida de sus hijas ("Padre › Hija").
+  const inSection = subfolders.filter((s) => s.sectionId === d.sectionId).sort((a, b) => a.position - b.position);
+  const sectionSubfolders = inSection
+    .filter((s) => !s.parentId)
+    .flatMap((s) => [
+      { id: s.id, label: s.label },
+      ...inSection.filter((c) => c.parentId === s.id).map((c) => ({ id: c.id, label: `${s.label} › ${c.label}` })),
+    ]);
 
   function save() {
     if (!d.title.trim() || !d.href.trim()) return;

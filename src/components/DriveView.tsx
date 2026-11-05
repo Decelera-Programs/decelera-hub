@@ -13,11 +13,17 @@ export type DriveHandlers = {
   onEditSubfolder: (sf: TreeSubfolder) => void;
   onEditCard: (card: HubApp) => void;
   onAddSection: () => void;
-  onAddSubfolder: (sectionId: string) => void;
+  onAddSubfolder: (sectionId: string, parentId: string | null) => void;
   onAddCard: (sectionId: string, subfolderId: string | null) => void;
   onDrop: (item: DragItem, target: DragItem) => void;
   onMoveSection: (index: number, dir: -1 | 1) => void;
-  onMoveSubfolder: (sectionId: string, subIds: string[], index: number, dir: -1 | 1) => void;
+  onMoveSubfolder: (
+    sectionId: string,
+    subIds: string[],
+    index: number,
+    dir: -1 | 1,
+    parentId: string | null,
+  ) => void;
   onMoveCard: (
     sectionId: string,
     subfolderId: string | null,
@@ -94,7 +100,19 @@ export function DriveView({
 
   // Si la carpeta actual desaparece (borrada o filtrada) volvemos al nivel que sigue existiendo.
   const section = groups.find((g) => g.id === path.sectionId) ?? null;
-  const subfolder = section?.subfolders.find((s) => s.id === path.subfolderId) ?? null;
+  // La subcarpeta actual puede ser de primer nivel o hija de una de ellas.
+  let subfolder: TreeSubfolder | null = null;
+  let parent: TreeSubfolder | null = null;
+  for (const top of section?.subfolders ?? []) {
+    if (top.id === path.subfolderId) subfolder = top;
+    else {
+      const child = top.children.find((c) => c.id === path.subfolderId);
+      if (child) {
+        subfolder = child;
+        parent = top;
+      }
+    }
+  }
   const here: Path = {
     sectionId: section?.id ?? null,
     subfolderId: subfolder?.id ?? null,
@@ -104,8 +122,11 @@ export function DriveView({
     const out: { app: HubApp; where: string }[] = [];
     for (const g of groups) {
       for (const a of g.apps) out.push({ app: a, where: g.label });
-      for (const sf of g.subfolders)
+      for (const sf of g.subfolders) {
         for (const a of sf.apps) out.push({ app: a, where: `${g.label} › ${sf.label}` });
+        for (const c of sf.children)
+          for (const a of c.apps) out.push({ app: a, where: `${g.label} › ${sf.label} › ${c.label}` });
+      }
     }
     return out;
   }, [groups]);
@@ -128,6 +149,7 @@ export function DriveView({
           <Breadcrumb
             path={showResults ? null : here}
             section={section}
+            parent={parent}
             subfolder={subfolder}
             onGo={setPath}
             results={showResults}
@@ -230,6 +252,7 @@ export function DriveView({
                 groups={groups}
                 section={section}
                 subfolder={subfolder}
+                parent={parent}
                 view={view}
                 canEdit={canEdit}
                 openSlugs={openSlugs}
@@ -251,6 +274,7 @@ function Level({
   groups,
   section,
   subfolder,
+  parent,
   view,
   canEdit,
   openSlugs,
@@ -260,6 +284,7 @@ function Level({
   groups: TreeSection[];
   section: TreeSection;
   subfolder: TreeSubfolder | null;
+  parent: TreeSubfolder | null;
   view: ViewMode;
   canEdit: boolean;
   openSlugs: Set<string>;
@@ -267,38 +292,43 @@ function Level({
   onGo: (p: Path) => void;
 }) {
   const apps = subfolder ? subfolder.apps : section.apps;
-  const subIds = section.subfolders.map((s) => s.id);
+  // Carpetas que se ven aquí: las de la sección, o las hijas de la subcarpeta abierta.
+  const folders = subfolder ? subfolder.children : section.subfolders;
+  const subIds = folders.map((s) => s.id);
+  const parentId = subfolder?.id ?? null;
+  // Un solo nivel de anidación: dentro de una subcarpeta hija ya no se pueden crear más.
+  const canNest = !parent;
 
   return (
     <>
       <DropStrip groups={groups} />
-      {!subfolder && (section.subfolders.length > 0 || canEdit) && (
+      {(folders.length > 0 || (canEdit && canNest)) && (
         <Block title="Carpetas">
           <FolderGrid>
-            {section.subfolders.map((sf, i) => (
+            {folders.map((sf, i) => (
               <FolderTile
                 key={sf.id}
                 label={sf.label}
-                hint={plural(sf.apps.length, "elemento", "elementos")}
-                count={sf.apps.length}
+                hint={plural(sf.count, "elemento", "elementos")}
+                count={sf.count}
                 accent={section.accent}
                 canEdit={canEdit}
                 dnd={{ kind: "subfolder", id: sf.id }}
                 onOpen={() => onGo({ sectionId: section.id, subfolderId: sf.id })}
                 onEdit={() => handlers.onEditSubfolder(sf)}
-                onMove={(dir) => handlers.onMoveSubfolder(section.id, subIds, i, dir)}
+                onMove={(dir) => handlers.onMoveSubfolder(section.id, subIds, i, dir, parentId)}
                 first={i === 0}
-                last={i === section.subfolders.length - 1}
+                last={i === folders.length - 1}
               />
             ))}
-            {canEdit && (
-              <AddTile label="Nueva subcarpeta" onClick={() => handlers.onAddSubfolder(section.id)} />
+            {canEdit && canNest && (
+              <AddTile label="Nueva subcarpeta" onClick={() => handlers.onAddSubfolder(section.id, parentId)} />
             )}
           </FolderGrid>
         </Block>
       )}
 
-      <Block title={subfolder || section.subfolders.length > 0 ? "Archivos" : undefined}>
+      <Block title={subfolder || folders.length > 0 ? "Archivos" : undefined}>
         {apps.length === 0 && !canEdit ? (
           <Empty>Esta carpeta está vacía.</Empty>
         ) : (
@@ -389,12 +419,14 @@ function Hero({
 function Breadcrumb({
   path,
   section,
+  parent,
   subfolder,
   onGo,
   results,
 }: {
   path: Path | null;
   section: TreeSection | null;
+  parent: TreeSubfolder | null;
   subfolder: TreeSubfolder | null;
   onGo: (p: Path) => void;
   results: boolean;
@@ -417,6 +449,17 @@ function Breadcrumb({
               {section.label}
             </button>
           </Sep>
+          {parent && (
+            <Sep>
+              <button
+                type="button"
+                className={`${crumb} text-[var(--text-secondary)]`}
+                onClick={() => onGo({ sectionId: section.id, subfolderId: parent.id })}
+              >
+                {parent.label}
+              </button>
+            </Sep>
+          )}
           {subfolder && (
             <Sep>
               <span className="px-2 py-1 font-semibold text-[var(--text-primary)]">{subfolder.label}</span>

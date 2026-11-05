@@ -14,13 +14,15 @@ export type Section = {
 };
 
 /**
- * Nivel intermedio del árbol: sección → subcarpeta → tarjeta. Se gestiona desde
+ * Niveles intermedios del árbol: sección → subcarpeta → subcarpeta → tarjeta (un nivel de anidación máximo). Se gestiona desde
  * la base de datos (`hub.subfolders`). Una tarjeta con `subfolderId` null cuelga
  * directamente de la sección.
  */
 export type Subfolder = {
   id: string;
   sectionId: string;
+  /** Subcarpeta padre (3.er nivel), o null si cuelga directamente de la sección. */
+  parentId: string | null;
   label: string;
   position: number;
 };
