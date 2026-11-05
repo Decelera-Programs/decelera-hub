@@ -153,7 +153,7 @@ h3 {
 @keyframes hub-reveal {
   from {
     opacity: 0;
-    transform: translateY(14px) scale(0.985);
+    transform: translateY(22px) scale(0.98);
   }
   to {
     opacity: 1;
@@ -162,7 +162,7 @@ h3 {
 }
 
 .hub-reveal {
-  animation: hub-reveal 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: hub-reveal 1s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .hub-card {
@@ -363,7 +363,7 @@ h3 {
   height: 2px;
   border-radius: 2px;
   background: linear-gradient(90deg, var(--brand-water), var(--brand-sea));
-  animation: tab-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: tab-in 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 @keyframes tab-in {
   from { transform: scaleX(0.2); opacity: 0; }
@@ -486,7 +486,7 @@ h3 {
   background: color-mix(in srgb, var(--brand-night) 38%, transparent);
   backdrop-filter: blur(6px) saturate(1.2);
   -webkit-backdrop-filter: blur(6px) saturate(1.2);
-  animation: modal-fade 0.18s ease-out both;
+  animation: modal-fade 0.35s ease-out both;
 }
 .modal-panel {
   position: relative;
@@ -498,7 +498,7 @@ h3 {
   box-shadow:
     0 30px 80px -30px rgba(45, 56, 82, 0.55),
     0 8px 24px -12px rgba(45, 56, 82, 0.25);
-  animation: modal-pop 0.26s cubic-bezier(0.2, 0.9, 0.3, 1.1) both;
+  animation: modal-pop 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 .modal-panel::before {
   content: "";
@@ -514,7 +514,7 @@ h3 {
   from { opacity: 0; }
 }
 @keyframes modal-pop {
-  from { opacity: 0; transform: translateY(14px) scale(0.97); }
+  from { opacity: 0; transform: translateY(22px) scale(0.965); }
 }
 @media (prefers-reduced-motion: reduce) {
   .modal-backdrop,
@@ -638,4 +638,11 @@ h3 {
 .pj a,
 .pj select {
   cursor: pointer;
+}
+
+/* Cambios de pestaña/página más pausados: transiciones de color y fondo con más duración. */
+.nav-pill,
+.hub-tab {
+  transition-duration: 0.35s;
+  transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
 }
