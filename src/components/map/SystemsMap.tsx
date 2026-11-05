@@ -310,7 +310,14 @@ export function SystemsMap({ counts }: { counts: Record<string, Record<string, n
                     boxShadow: selected ? "0 10px 26px -14px color-mix(in srgb, var(--brand-sea) 60%, transparent)" : undefined,
                   }}
                 >
-                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[var(--pill-neutral-bg)] text-lg">{s.icon}</span>
+                  <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl text-lg ${s.logo ? "border border-[var(--border)] bg-white" : "bg-[var(--pill-neutral-bg)]"}`}>
+                    {s.logo ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={s.logo} alt="" width={22} height={22} className="h-[22px] w-[22px] object-contain" />
+                    ) : (
+                      s.icon
+                    )}
+                  </span>
                   <span className="flex min-w-0 flex-col">
                     <span className="truncate text-sm font-semibold text-[var(--text-primary)]">{s.label}</span>
                     <span className="truncate text-[11px] text-[var(--text-muted)]">{s.sub}</span>

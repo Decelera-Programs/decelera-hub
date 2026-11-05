@@ -40,6 +40,8 @@ export type MapSystem = {
   label: string;
   sub: string;
   icon: string;
+  /** Logo oficial en /public/logos (si existe); si no, se usa el emoji. */
+  logo?: string;
   x: number;
   y: number;
 };
@@ -49,15 +51,15 @@ export const NODE_H = 66;
 
 // Izquierda: de dónde entran los datos · centro: dónde se guardan · derecha: dónde se avisa / se actúa.
 export const MAP_SYSTEMS: MapSystem[] = [
-  { id: "gmail", label: "Gmail", sub: "startups@ · events@", icon: "✉️", x: 30, y: 100 },
-  { id: "exa", label: "Exa", sub: "búsqueda web", icon: "🔎", x: 30, y: 255 },
-  { id: "linkedin", label: "LinkedIn", sub: "Sales Navigator", icon: "💼", x: 30, y: 420 },
-  { id: "calendly", label: "Calendly", sub: "calls reservadas", icon: "🗓️", x: 30, y: 545 },
-  { id: "supabase", label: "Brain", sub: "Supabase · eventos", icon: "🧠", x: 492, y: 80 },
-  { id: "attio", label: "Attio", sub: "CRM · deal flow", icon: "🏢", x: 492, y: 480 },
-  { id: "gcal", label: "Google Calendar", sub: "invitaciones", icon: "📆", x: 954, y: 30 },
-  { id: "slack", label: "Slack", sub: "canales", icon: "💬", x: 954, y: 250 },
-  { id: "gmail-out", label: "Gmail", sub: "respuestas a founders", icon: "📤", x: 954, y: 470 },
+  { id: "gmail", label: "Gmail", sub: "startups@ · events@", icon: "✉️", logo: "/logos/gmail.svg", x: 30, y: 100 },
+  { id: "exa", label: "Exa", sub: "búsqueda web", icon: "🔎", logo: "/logos/exa.png", x: 30, y: 255 },
+  { id: "linkedin", label: "LinkedIn", sub: "Sales Navigator", icon: "💼", logo: "/logos/linkedin.svg", x: 30, y: 420 },
+  { id: "calendly", label: "Calendly", sub: "calls reservadas", icon: "🗓️", logo: "/logos/calendly.svg", x: 30, y: 545 },
+  { id: "supabase", label: "Brain", sub: "Supabase · eventos", icon: "🧠", logo: "/logos/supabase.svg", x: 492, y: 80 },
+  { id: "attio", label: "Attio", sub: "CRM · deal flow", icon: "🏢", logo: "/logos/attio.ico", x: 492, y: 480 },
+  { id: "gcal", label: "Google Calendar", sub: "invitaciones", icon: "📆", logo: "/logos/gcal.svg", x: 954, y: 30 },
+  { id: "slack", label: "Slack", sub: "canales", icon: "💬", logo: "/logos/slack.svg", x: 954, y: 250 },
+  { id: "gmail-out", label: "Gmail", sub: "respuestas a founders", icon: "📤", logo: "/logos/gmail.svg", x: 954, y: 470 },
 ];
 
 export type MapFlow = {
