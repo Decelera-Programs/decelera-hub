@@ -616,6 +616,9 @@ function WeekView({
 
   return (
     <div className="card flex min-h-0 flex-1 flex-col overflow-hidden">
+      {/* Móvil: la semana mantiene un ancho legible y se desliza en horizontal (cabecera y horas juntas). */}
+      <div className="flex min-h-0 flex-1 flex-col max-sm:overflow-x-auto">
+      <div className="flex min-h-0 flex-1 flex-col max-sm:min-w-[640px]">
       <div className={`grid ${gridCols} border-b border-[var(--border)]`}>
         <span />
         {days.map((d) => (
@@ -708,6 +711,8 @@ function WeekView({
             );
           })}
         </div>
+      </div>
+      </div>
       </div>
     </div>
   );

@@ -115,7 +115,7 @@ export function DriveView({
 
   return (
     <DndProvider enabled={canEdit} onDrop={handlers.onDrop}>
-    <div className="mx-auto flex w-full max-w-[1180px] flex-col gap-7 px-6 py-8 lg:px-10">
+    <div className="mx-auto flex w-full max-w-[1180px] flex-col gap-7 px-4 py-6 sm:px-6 sm:py-8 lg:px-10">
       {atRoot && !showResults ? (
         <Hero
           totalCount={totalCount}
@@ -359,7 +359,7 @@ function Hero({
   searchRef: React.Ref<HTMLInputElement>;
 }) {
   return (
-    <div className="aurora hub-reveal rounded-[28px] px-7 py-10 sm:px-10 sm:py-12">
+    <div className="aurora hub-reveal rounded-[28px] px-5 py-8 sm:px-10 sm:py-12">
       <span aria-hidden className="aurora-sun" />
       <span aria-hidden className="dot-grid pointer-events-none absolute inset-0 -z-10" />
       <div className="flex max-w-2xl flex-col gap-4">

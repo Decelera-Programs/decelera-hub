@@ -15,14 +15,14 @@ export default async function Page() {
   const data = await getMenorcaDashboardData();
 
   return (
-    <div className="ambient mx-auto flex w-full max-w-6xl flex-col gap-6 px-6 py-8">
+    <div className="ambient mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-6 sm:px-6 sm:py-8">
       <Link
         href="/"
         className="inline-flex w-fit items-center gap-1.5 text-sm font-medium text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]"
       >
         <span aria-hidden>←</span> Decelera Brain
       </Link>
-      <header className="aurora-light hub-reveal flex items-start gap-4 rounded-[24px] px-6 py-6 sm:px-8">
+      <header className="aurora-light hub-reveal flex items-start gap-4 rounded-[24px] px-5 py-5 sm:px-8 sm:py-6">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/decelera-mark.svg" alt="Decelera" className="mt-1 h-10 w-10 shrink-0" />
         <div>

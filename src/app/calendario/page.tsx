@@ -36,7 +36,7 @@ export default async function CalendarioPage({ searchParams }: { searchParams: P
             <span className="text-sm font-bold tracking-tight text-[var(--text-primary)]">Decelera</span>
             <span className="text-sm font-normal tracking-tight text-[var(--text-muted)]">Brain</span>
           </div>
-          <div className="sm:hidden">
+          <div className="min-w-0 sm:hidden">
             <PageSwitcher />
           </div>
         </div>

@@ -358,7 +358,7 @@ export function ProjectsBoard({
 
   return (
     <>
-      <div className="mx-auto flex min-h-0 w-full max-w-[1180px] flex-1 flex-col px-6 py-6 lg:px-10">
+      <div className="mx-auto flex min-h-0 w-full max-w-[1180px] flex-1 flex-col px-4 py-6 sm:px-6 lg:px-10">
       <div className="flex shrink-0 flex-col gap-3">
       <div className="aurora-light hub-reveal flex flex-wrap items-end justify-between gap-4 rounded-[20px] px-5 py-3 sm:px-6">
         <div>

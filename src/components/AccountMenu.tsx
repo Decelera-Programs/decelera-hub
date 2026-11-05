@@ -36,7 +36,7 @@ export function AccountMenu({ user }: { user: AccountUser }) {
   const label = user.name ?? user.email.split("@")[0];
 
   return (
-    <div ref={ref} className="relative flex w-[180px] justify-end">
+    <div ref={ref} className="relative flex justify-end sm:w-[180px]">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -45,7 +45,7 @@ export function AccountMenu({ user }: { user: AccountUser }) {
         className="flex h-9 max-w-full items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface-1)] pl-1 pr-2.5 text-sm font-semibold text-[var(--text-primary)] transition-colors hover:border-[var(--brand-water)]"
       >
         <Avatar user={user} size={26} />
-        <span className="truncate">{label}</span>
+        <span className="hidden truncate sm:inline">{label}</span>
         <span aria-hidden className="text-xs text-[var(--text-muted)]">
           ▾
         </span>

@@ -381,7 +381,7 @@ export function HubHome({
             </button>
 
             {/* En móvil, sin sitio para centrarla: va en línea tras el logo. */}
-            <div className="sm:hidden">
+            <div className="min-w-0 sm:hidden">
               <PageSwitcher />
             </div>
           </div>
