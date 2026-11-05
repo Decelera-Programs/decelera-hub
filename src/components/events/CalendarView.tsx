@@ -155,7 +155,7 @@ export function CalendarView({
   const upcoming = events.filter((ev) => eventDays(ev).at(-1)! >= today).slice(0, 6);
 
   return (
-    <div className="mx-auto flex w-full max-w-[1500px] min-h-0 flex-1 gap-5 px-3 py-4 sm:px-5 lg:px-6">
+    <div className="cal mx-auto flex w-full max-w-[1500px] min-h-0 flex-1 gap-5 px-3 py-4 sm:px-5 lg:px-6">
       {/* --- Lateral: mini-calendario + próximos --- */}
       <aside className="hidden w-64 shrink-0 flex-col gap-4 overflow-y-auto lg:flex">
         <MiniMonth anchor={anchor} today={today} byDay={byDay} onPick={(d) => setAnchor(d)} />
@@ -455,7 +455,7 @@ function MonthView({
               {/* Móvil: puntos; desde sm: pastillas como en Google. */}
               <div className="flex flex-wrap justify-center gap-0.5 sm:hidden">
                 {list.map((ev) => (
-                  <button key={ev.id} type="button" aria-label={ev.title} onClick={() => onOpen(ev)} className="h-1.5 w-1.5 rounded-full" style={{ background: ACCENT }} />
+                  <button key={ev.id} type="button" aria-label={ev.title} onClick={() => onOpen(ev)} className="cal-chip h-1.5 w-1.5 rounded-full" style={{ background: ACCENT }} />
                 ))}
               </div>
               <div className="hidden min-w-0 flex-col gap-0.5 sm:flex">
@@ -501,7 +501,7 @@ function MonthChip({
       <button
         type="button"
         onClick={() => onOpen(ev)}
-        className="truncate rounded-md px-1.5 py-0.5 text-left text-[11px] font-semibold transition-transform hover:-translate-y-px"
+        className="cal-chip truncate rounded-md px-1.5 py-0.5 text-left text-[11px] font-semibold hover:-translate-y-px"
         style={chipStyle(going, past)}
       >
         <span className="flex min-w-0 items-center gap-1">
@@ -519,7 +519,7 @@ function MonthChip({
     <button
       type="button"
       onClick={() => onOpen(ev)}
-      className="flex min-w-0 items-center gap-1.5 rounded-md px-1.5 py-0.5 text-left text-[11px] transition-colors hover:bg-[var(--row-hover)]"
+      className="cal-chip flex min-w-0 items-center gap-1.5 rounded-md px-1.5 py-0.5 text-left text-[11px] hover:bg-[var(--row-hover)]"
       style={{ opacity: past ? 0.55 : 1, ...(going ? chipStyle(true, past) : {}) }}
     >
       {!going && <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: ACCENT }} />}
@@ -672,7 +672,7 @@ function WeekView({
                       key={p.ev.id}
                       type="button"
                       onClick={() => onOpen(p.ev)}
-                      className="absolute flex flex-col overflow-hidden rounded-lg border-l-[3px] px-1.5 py-1 text-left text-[11px] leading-tight shadow-sm transition-transform hover:z-10 hover:-translate-y-px"
+                      className="cal-chip absolute flex flex-col overflow-hidden rounded-lg border-l-[3px] px-1.5 py-1 text-left text-[11px] leading-tight shadow-sm hover:z-10 hover:-translate-y-px"
                       style={{
                         top: p.top + 1,
                         height: p.height,

@@ -14,14 +14,15 @@ import {
   type ProjectOwner,
   type ProjectPriority,
 } from "@/lib/projects";
-import { TEAMS, TEAM_LABEL, type Team } from "@/lib/teams";
+import { TEAMS, TEAM_ACCENT, TEAM_LABEL, type Team } from "@/lib/teams";
 import { useWorkspace } from "@/components/WorkspaceContext";
+import { OwnerAvatar } from "./ProjectCard";
 
 const fieldCls =
   "rounded-lg border border-[var(--border)] bg-[var(--surface-1)] px-2.5 py-1.5 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--brand-water)]";
-const labelCls = "text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]";
-
-type Tab = "info" | "docs" | "checklist";
+const labelCls = "text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--text-muted)]";
+const panelCls =
+  "rounded-2xl border border-[var(--border)] bg-[color-mix(in_srgb,var(--surface-1)_70%,transparent)] p-4 transition-colors focus-within:border-[var(--brand-water)]";
 
 /**
  * Texto con guardado con debounce (500ms) + flush al desmontar. `projectId` en las
@@ -89,7 +90,6 @@ export function ProjectModal({
   handlers: ModalHandlers;
   onClose: () => void;
 }) {
-  const [tab, setTab] = useState<Tab>("info");
   const [title, setTitle] = useState(project.title);
   const [confirmDel, setConfirmDel] = useState(false);
   const [info, onInfoChange] = useDebouncedField(project.id, project.info, (v) =>
@@ -113,27 +113,48 @@ export function ProjectModal({
     if (title.trim() && title !== project.title) handlers.patch(project.id, { title });
   }
 
+  const tasks = project.tasks.slice().sort((x, y) => x.position - y.position);
+  const doneCount = tasks.filter((t) => t.done).length;
+  const pct = tasks.length ? Math.round((doneCount / tasks.length) * 100) : 0;
+  const next = tasks.find((t) => !t.done);
+  const teamColor = project.team ? TEAM_ACCENT[project.team] : "var(--brand-water)";
+
   return createPortal(
     <div
-      className="modal-backdrop fixed inset-0 z-[200] grid place-items-center p-4"
+      className="modal-backdrop fixed inset-0 z-[200] grid place-items-center p-3 sm:p-6"
       onClick={onClose}
     >
       <div
-        className="modal-panel flex max-h-[86vh] w-full max-w-xl flex-col overflow-hidden"
+        className="modal-panel pj flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex flex-col gap-3 border-b border-[var(--border)] p-4">
-          <input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            onBlur={saveTitle}
-            onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
-            placeholder="Título del proyecto"
-            className="w-full bg-transparent text-lg font-semibold text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]"
-          />
+        {/* Cabecera: título, estado y progreso de un vistazo */}
+        <div
+          className="relative flex flex-col gap-3 border-b border-[var(--border)] px-5 pb-4 pt-5 sm:px-7"
+          style={{
+            background: `radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, ${teamColor} 13%, transparent), transparent 60%)`,
+          }}
+        >
+          <div className="flex items-start gap-3">
+            <input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              onBlur={saveTitle}
+              onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
+              placeholder="Título del proyecto"
+              className="page-title min-w-0 flex-1 bg-transparent text-2xl tracking-tight text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] sm:text-3xl"
+            />
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Cerrar"
+              className="-mr-2 grid h-8 w-8 shrink-0 place-items-center rounded-full text-[var(--text-muted)] transition-colors hover:bg-[var(--row-hover)] hover:text-[var(--text-primary)]"
+            >
+              ✕
+            </button>
+          </div>
 
-          <div className="flex flex-col gap-1.5">
-            <span className={labelCls}>Seguimiento</span>
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
             <div className="flex flex-wrap gap-1">
               {PROJECT_HEALTHS.map((h) => (
                 <HealthPill
@@ -144,11 +165,8 @@ export function ProjectModal({
                 />
               ))}
             </div>
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <span className={labelCls}>Prioridad</span>
-            <div className="flex flex-wrap gap-1">
+            <div className="flex items-center gap-1.5">
+              <span className={labelCls}>Prioridad</span>
               {PROJECT_PRIORITIES.map((p) => (
                 <PriorityPill
                   key={p}
@@ -160,111 +178,153 @@ export function ProjectModal({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <label className="flex flex-col gap-1">
-              <span className={labelCls}>Encargado</span>
-              <select
-                className={fieldCls}
-                value={project.ownerId ?? ""}
-                onChange={(e) => handlers.patch(project.id, { ownerId: e.target.value || null })}
-              >
-                <option value="">— Sin asignar —</option>
-                {members.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.name ?? m.email}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="flex flex-col gap-1">
-              <span className={labelCls}>Equipo</span>
-              <select
-                className={fieldCls}
-                value={project.team ?? ""}
-                onChange={(e) =>
-                  handlers.patch(project.id, { team: (e.target.value || null) as Team | null })
-                }
-              >
-                <option value="">— Ninguno —</option>
-                {TEAMS.map((t) => (
-                  <option key={t} value={t}>
-                    {TEAM_LABEL[t]}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="flex flex-col gap-1">
-              <span className={labelCls}>Inicio</span>
-              <input
-                type="date"
-                className={fieldCls}
-                value={project.startDate ?? ""}
-                onChange={(e) => handlers.patch(project.id, { startDate: e.target.value || null })}
-              />
-            </label>
-            <label className="flex flex-col gap-1">
-              <span className={labelCls}>Fecha límite</span>
-              <input
-                type="date"
-                className={fieldCls}
-                value={project.endDate ?? ""}
-                onChange={(e) => handlers.patch(project.id, { endDate: e.target.value || null })}
-              />
-            </label>
-          </div>
-        </div>
-
-        <div className="flex gap-1 border-b border-[var(--border)] px-4">
-          {(["info", "docs", "checklist"] as Tab[]).map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => setTab(t)}
-              className="relative px-3 py-2.5 text-sm font-semibold transition-colors"
-              style={{ color: tab === t ? "var(--text-primary)" : "var(--text-muted)" }}
-            >
-              {t === "info" ? "Info" : t === "docs" ? "Documentos" : "Roadmap"}
-              {tab === t && (
+          {tasks.length > 0 && (
+            <div className="flex items-center gap-3">
+              <div className="h-2 flex-1 overflow-hidden rounded-full bg-[var(--pill-neutral-bg)]">
                 <span
-                  aria-hidden
-                  className="absolute inset-x-2 -bottom-px h-0.5 rounded-full"
-                  style={{ background: "var(--brand-water)" }}
+                  className="block h-full rounded-full transition-[width] duration-500"
+                  style={{
+                    width: `${pct}%`,
+                    background:
+                      pct === 100
+                        ? "var(--status-good)"
+                        : "linear-gradient(90deg, var(--brand-water), var(--brand-sea))",
+                  }}
                 />
-              )}
-            </button>
-          ))}
+              </div>
+              <span className="shrink-0 text-xs font-bold tabular-nums text-[var(--text-secondary)]">
+                {doneCount}/{tasks.length} pasos · {pct}%
+              </span>
+            </div>
+          )}
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto p-4">
-          {tab === "info" && (
-            <div className="flex flex-col gap-4">
-              <label className="flex flex-col gap-1.5">
-                <span className={labelCls}>Descripción general</span>
+        <div className="grid min-h-0 flex-1 grid-cols-1 overflow-y-auto md:grid-cols-[minmax(0,1fr)_300px] md:overflow-hidden">
+          {/* Columna principal: siguiente paso, qué es, qué es éxito y roadmap */}
+          <div className="flex min-w-0 flex-col gap-5 p-5 sm:p-7 md:overflow-y-auto">
+            {next && (
+              <div
+                className="flex items-center gap-3 rounded-2xl border p-3.5"
+                style={{
+                  borderColor: "color-mix(in srgb, var(--brand-water) 45%, var(--border))",
+                  background:
+                    "linear-gradient(135deg, color-mix(in srgb, var(--brand-water) 14%, transparent), color-mix(in srgb, var(--brand-sea) 6%, transparent))",
+                }}
+              >
+                <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <span className={labelCls} style={{ color: "var(--brand-sea)" }}>
+                    ✦ Siguiente paso
+                  </span>
+                  <span className="truncate text-sm font-semibold text-[var(--text-primary)]">
+                    {next.label}
+                  </span>
+                </div>
+                {next.owner && <OwnerAvatar owner={next.owner} size={24} />}
+                <button
+                  type="button"
+                  onClick={() => handlers.toggleTask(project.id, next.id, true)}
+                  className="shrink-0 rounded-full bg-[var(--brand-sea)] px-3.5 py-1.5 text-xs font-semibold text-white shadow-[0_6px_16px_-6px_var(--brand-sea)] transition-transform hover:-translate-y-px"
+                >
+                  Hecho ✓
+                </button>
+              </div>
+            )}
+
+            <div className="grid gap-4 lg:grid-cols-2">
+              <label className={`${panelCls} flex flex-col gap-2`}>
+                <span className={labelCls}>De qué va</span>
                 <textarea
                   value={info}
                   onChange={(e) => onInfoChange(e.target.value)}
                   placeholder="Qué es, contexto, por qué está aquí…"
-                  className="min-h-32 w-full resize-y rounded-lg border border-[var(--border)] bg-[var(--surface-1)] p-2.5 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--brand-water)]"
+                  rows={4}
+                  className="w-full resize-none bg-transparent text-sm leading-relaxed text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]"
                 />
               </label>
-              <label className="flex flex-col gap-1.5">
-                <span className={labelCls}>¿Qué significa el éxito?</span>
+              <label className={`${panelCls} flex flex-col gap-2`}>
+                <span className={labelCls}>Cómo sabremos que está hecho</span>
                 <textarea
                   value={successCriteria}
                   onChange={(e) => onSuccessChange(e.target.value)}
                   placeholder="Cómo sabremos que esto está resuelto…"
-                  className="min-h-32 w-full resize-y rounded-lg border border-[var(--border)] bg-[var(--surface-1)] p-2.5 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--brand-water)]"
+                  rows={4}
+                  className="w-full resize-none bg-transparent text-sm leading-relaxed text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]"
                 />
               </label>
             </div>
-          )}
-          {tab === "docs" && <DocsTab project={project} handlers={handlers} />}
-          {tab === "checklist" && (
-            <ChecklistTab project={project} members={members} handlers={handlers} />
-          )}
+
+            <div className="flex flex-col gap-2">
+              <span className={labelCls}>Roadmap</span>
+              <ChecklistTab project={project} members={members} handlers={handlers} />
+            </div>
+          </div>
+
+          {/* Lateral: propiedades y documentos */}
+          <aside className="flex min-w-0 flex-col gap-5 border-t border-[var(--border)] bg-[color-mix(in_srgb,var(--surface-1)_40%,transparent)] p-5 md:overflow-y-auto md:border-l md:border-t-0">
+            <div className="flex flex-col gap-3">
+              <span className={labelCls}>Detalles</span>
+              <label className="flex flex-col gap-1">
+                <span className="text-xs text-[var(--text-secondary)]">Encargado</span>
+                <select
+                  className={fieldCls}
+                  value={project.ownerId ?? ""}
+                  onChange={(e) => handlers.patch(project.id, { ownerId: e.target.value || null })}
+                >
+                  <option value="">— Sin asignar —</option>
+                  {members.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.name ?? m.email}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-xs text-[var(--text-secondary)]">Equipo</span>
+                <select
+                  className={fieldCls}
+                  value={project.team ?? ""}
+                  onChange={(e) =>
+                    handlers.patch(project.id, { team: (e.target.value || null) as Team | null })
+                  }
+                >
+                  <option value="">— Ninguno —</option>
+                  {TEAMS.map((t) => (
+                    <option key={t} value={t}>
+                      {TEAM_LABEL[t]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <label className="flex flex-col gap-1">
+                  <span className="text-xs text-[var(--text-secondary)]">Inicio</span>
+                  <input
+                    type="date"
+                    className={`${fieldCls} min-w-0`}
+                    value={project.startDate ?? ""}
+                    onChange={(e) => handlers.patch(project.id, { startDate: e.target.value || null })}
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-xs text-[var(--text-secondary)]">Límite</span>
+                  <input
+                    type="date"
+                    className={`${fieldCls} min-w-0`}
+                    value={project.endDate ?? ""}
+                    onChange={(e) => handlers.patch(project.id, { endDate: e.target.value || null })}
+                  />
+                </label>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <span className={labelCls}>Documentos</span>
+              <DocsTab project={project} handlers={handlers} />
+            </div>
+          </aside>
         </div>
 
-        <div className="flex items-center justify-between border-t border-[var(--border)] p-3">
+        <div className="flex items-center justify-between border-t border-[var(--border)] px-5 py-3 sm:px-7">
           {confirmDel ? (
             <button
               type="button"
@@ -277,7 +337,7 @@ export function ProjectModal({
             <button
               type="button"
               onClick={() => setConfirmDel(true)}
-              className="text-sm font-semibold text-[var(--text-secondary)] hover:text-[var(--status-critical)]"
+              className="text-sm font-semibold text-[var(--text-muted)] transition-colors hover:text-[var(--status-critical)]"
             >
               Borrar proyecto
             </button>
@@ -285,9 +345,9 @@ export function ProjectModal({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg bg-[var(--brand-sea)] px-3 py-1.5 text-sm font-semibold text-white"
+            className="rounded-full bg-[var(--brand-sea)] px-5 py-1.5 text-sm font-semibold text-white shadow-[0_8px_20px_-8px_var(--brand-sea)] transition-transform hover:-translate-y-px"
           >
-            Cerrar
+            Listo
           </button>
         </div>
       </div>
@@ -312,12 +372,15 @@ function Pill({
     <button
       type="button"
       onClick={onClick}
-      className="flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold transition-colors"
-      style={{
-        borderColor: active ? color : "var(--border)",
-        background: active ? `color-mix(in srgb, ${color} 14%, transparent)` : "transparent",
-        color: active ? color : "var(--text-muted)",
-      }}
+      className="flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold transition-colors hover:border-[color:var(--pill-c)]"
+      style={
+        {
+          "--pill-c": color,
+          borderColor: active ? color : "var(--border)",
+          background: active ? `color-mix(in srgb, ${color} 14%, transparent)` : "transparent",
+          color: active ? color : "var(--text-muted)",
+        } as React.CSSProperties
+      }
     >
       <span className="h-1.5 w-1.5 rounded-full" style={{ background: color }} />
       {label}
@@ -376,8 +439,11 @@ function DocsTab({ project, handlers }: { project: Project; handlers: ModalHandl
       {project.docs.map((d) => (
         <div
           key={d.id}
-          className="group flex items-center gap-2 rounded-lg px-1 py-1 hover:bg-[var(--row-hover)]"
+          className="group flex items-center gap-2 rounded-lg px-1.5 py-1 hover:bg-[var(--row-hover)]"
         >
+          <span aria-hidden className="text-xs">
+            🔗
+          </span>
           <button
             type="button"
             onClick={() => ws.open({ kind: "url", href: d.url, title: d.label })}
@@ -395,7 +461,7 @@ function DocsTab({ project, handlers }: { project: Project; handlers: ModalHandl
           </button>
         </div>
       ))}
-      <div className="mt-1 flex flex-col gap-1.5 rounded-lg border border-[var(--border)] p-2">
+      <div className="flex flex-col gap-1.5 rounded-xl border border-dashed border-[var(--border)] p-2">
         <input
           value={url}
           onChange={(e) => setUrl(e.target.value)}
@@ -413,7 +479,7 @@ function DocsTab({ project, handlers }: { project: Project; handlers: ModalHandl
           <button
             type="button"
             onClick={add}
-            className="shrink-0 rounded-lg bg-[var(--brand-sea)] px-3 py-1.5 text-xs font-semibold text-white"
+            className="shrink-0 rounded-lg bg-[var(--brand-sea)] px-3 py-1.5 text-xs font-semibold text-white transition-transform hover:-translate-y-px"
           >
             Añadir
           </button>
@@ -468,7 +534,7 @@ function ChecklistTab({
       }}
     >
       {project.tasks.length === 0 && (
-        <p className="text-xs text-[var(--text-muted)]">Sin tareas todavía.</p>
+        <p className="text-xs text-[var(--text-muted)]">Sin pasos todavía. Añade el primero abajo.</p>
       )}
       {project.tasks.map((t, i) => (
         <div
@@ -485,7 +551,7 @@ function ChecklistTab({
               dropAt(after ? (project.tasks[i + 1]?.id ?? null) : t.id);
             }
           }}
-          className="group flex items-center gap-2 rounded-lg px-1 py-1 hover:bg-[var(--row-hover)]"
+          className="group flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl border border-transparent px-2 py-1.5 transition-colors hover:border-[var(--border)] hover:bg-[var(--row-hover)]"
           style={{ opacity: dragId === t.id ? 0.4 : undefined }}
         >
           <span
@@ -501,7 +567,7 @@ function ChecklistTab({
             }}
             aria-hidden
             title="Arrastrar para reordenar"
-            className="shrink-0 cursor-grab select-none text-[var(--text-muted)]"
+            className="shrink-0 cursor-grab select-none text-[var(--text-muted)] opacity-0 transition-opacity group-hover:opacity-100"
           >
             ⠿
           </span>
@@ -509,7 +575,7 @@ function ChecklistTab({
             type="checkbox"
             checked={t.done}
             onChange={() => handlers.toggleTask(project.id, t.id, !t.done)}
-            className="accent-[var(--brand-sea)]"
+            className="h-4 w-4 shrink-0 cursor-pointer accent-[var(--brand-sea)]"
           />
           <input
             defaultValue={t.label}
@@ -518,7 +584,7 @@ function ChecklistTab({
               if (e.target.value.trim() && e.target.value !== t.label)
                 handlers.updateTask(project.id, t.id, e.target.value.trim());
             }}
-            className={`min-w-0 flex-1 bg-transparent text-sm outline-none ${
+            className={`min-w-[140px] flex-1 bg-transparent text-sm outline-none ${
               t.done ? "text-[var(--text-muted)] line-through" : "text-[var(--text-primary)]"
             }`}
           />
@@ -527,13 +593,13 @@ function ChecklistTab({
             value={t.dueDate ?? ""}
             onChange={(e) => handlers.setTaskDueDate(project.id, t.id, e.target.value || null)}
             title="Fecha de vencimiento"
-            className="w-[126px] shrink-0 rounded-md border border-[var(--border)] bg-[var(--surface-1)] px-1 py-0.5 text-[11px] text-[var(--text-secondary)] outline-none focus:border-[var(--brand-water)]"
+            className="w-[118px] shrink-0 rounded-md border border-transparent bg-transparent px-1 py-0.5 text-[11px] text-[var(--text-muted)] outline-none hover:border-[var(--border)] focus:border-[var(--brand-water)]"
           />
           <select
             value={t.ownerId ?? ""}
             onChange={(e) => handlers.setTaskOwner(project.id, t.id, e.target.value || null)}
             title="Encargado del punto"
-            className="shrink-0 rounded-md border border-[var(--border)] bg-[var(--surface-1)] px-1 py-0.5 text-[11px] text-[var(--text-secondary)] outline-none focus:border-[var(--brand-water)]"
+            className="max-w-[110px] shrink-0 rounded-md border border-transparent bg-transparent px-1 py-0.5 text-[11px] text-[var(--text-muted)] outline-none hover:border-[var(--border)] focus:border-[var(--brand-water)]"
           >
             <option value="">— Sin encargado —</option>
             {members.map((m) => (
@@ -557,13 +623,13 @@ function ChecklistTab({
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && add()}
-          placeholder="Nueva tarea"
+          placeholder="+ Nuevo paso"
           className={`${fieldCls} min-w-0 flex-1`}
         />
         <button
           type="button"
           onClick={add}
-          className="shrink-0 rounded-lg bg-[var(--brand-sea)] px-3 py-1.5 text-xs font-semibold text-white"
+          className="shrink-0 rounded-lg bg-[var(--brand-sea)] px-3 py-1.5 text-xs font-semibold text-white transition-transform hover:-translate-y-px"
         >
           Añadir
         </button>

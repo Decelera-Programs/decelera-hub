@@ -4,7 +4,6 @@
 import type { Project } from "@/lib/projects";
 import { HEALTH_COLOR, HEALTH_LABEL, PRIORITY_COLOR, PRIORITY_LABEL, taskProgress } from "@/lib/projects";
 import { TEAM_ACCENT, TEAM_LABEL } from "@/lib/teams";
-import { useWorkspace } from "@/components/WorkspaceContext";
 
 const DAY_MS = 86_400_000;
 
@@ -21,40 +20,26 @@ function fmtDate(iso: string): string {
   return new Date(`${iso}T00:00:00`).toLocaleDateString("es-ES", { day: "numeric", month: "short" });
 }
 
-/** Rojo si ya venció, ámbar si queda ≤1 día, gris en el resto de casos. */
-function taskDueColor(dueDate: string): string {
-  const left = daysLeft(dueDate);
-  if (left == null) return "var(--text-muted)";
-  if (left < 0) return "var(--status-critical)";
-  if (left <= 1) return "var(--status-warning)";
-  return "var(--text-muted)";
-}
-
 export function ProjectCard({
   project,
   dragging,
-  expanded,
-  onToggleExpand,
   onOpen,
-  onToggleTask,
   onDragStart,
   onDragEnd,
 }: {
   project: Project;
   dragging: boolean;
-  expanded: boolean;
-  onToggleExpand: () => void;
   onOpen: () => void;
-  onToggleTask?: (taskId: string, done: boolean) => void;
   onDragStart: (e: React.DragEvent) => void;
   onDragEnd: () => void;
 }) {
-  const ws = useWorkspace();
   const prog = taskProgress(project.tasks);
   const pct = prog ? Math.round((prog.done / prog.total) * 100) : null;
   const teamColor = project.team ? TEAM_ACCENT[project.team] : "var(--text-muted)";
-  const hasDetails =
-    project.tasks.length > 0 || project.docs.length > 0 || project.successCriteria.trim() !== "";
+  const next = project.tasks
+    .slice()
+    .sort((a, b) => a.position - b.position)
+    .find((t) => !t.done);
 
   const left = daysLeft(project.endDate);
   const overdue = left != null && left < 0 && project.health !== "done";
@@ -74,201 +59,84 @@ export function ProjectCard({
       }}
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
-      className="hub-reveal spotlight card group relative flex w-full flex-col gap-1.5 overflow-hidden p-2.5 pl-4 text-left transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5"
+      className="hub-reveal spotlight card group relative flex w-full flex-col gap-2 overflow-hidden p-3 text-left transition-[transform,box-shadow,border-color] duration-200 hover:-translate-y-0.5 hover:border-[color-mix(in_srgb,var(--brand-water)_55%,var(--border))] hover:shadow-[0_14px_30px_-16px_color-mix(in_srgb,var(--brand-sea)_55%,transparent)]"
       style={{
         opacity: dragging ? 0.4 : undefined,
         cursor: "grab",
         borderColor: overdue ? "var(--status-critical)" : undefined,
-        background: overdue
-          ? "color-mix(in srgb, var(--status-critical) 7%, var(--surface-1))"
-          : undefined,
       }}
     >
-      {/* Franja de color del equipo */}
-      <span
-        aria-hidden
-        className="absolute inset-y-0 left-0 w-1.5"
-        style={{ background: teamColor }}
-      />
-
-      <div className="flex items-start gap-2">
-        {/* Solo se marca la prioridad alta: es la única que pide atención inmediata. */}
+      {/* Fila superior: equipo · prioridad · responsable */}
+      <div className="flex items-center gap-2">
+        <span
+          className="flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
+          style={{ background: `color-mix(in srgb, ${teamColor} 14%, transparent)`, color: teamColor }}
+        >
+          <span aria-hidden className="h-1.5 w-1.5 rounded-full" style={{ background: teamColor }} />
+          {project.team ? TEAM_LABEL[project.team] : "Sin equipo"}
+        </span>
         {project.priority === "high" && <PriorityFlag />}
         <span
           aria-hidden
-          className="mt-1 h-2 w-2 shrink-0 rounded-full"
-          style={{ background: HEALTH_COLOR[project.health] }}
+          className="ml-auto h-2 w-2 shrink-0 rounded-full"
+          style={{ background: HEALTH_COLOR[project.health], boxShadow: `0 0 0 3px color-mix(in srgb, ${HEALTH_COLOR[project.health]} 20%, transparent)` }}
           title={HEALTH_LABEL[project.health]}
         />
-        <span className="min-w-0 flex-1 text-[13px] font-semibold leading-snug text-[var(--text-primary)]">
-          {project.title}
-        </span>
-        {project.owner && <OwnerAvatar owner={project.owner} />}
+        {project.owner && <OwnerAvatar owner={project.owner} size={22} />}
       </div>
 
+      <span className="text-sm font-semibold leading-snug text-[var(--text-primary)]">{project.title}</span>
+
       {project.info && (
-        <p className="line-clamp-2 text-xs leading-relaxed text-[var(--text-muted)]">
-          {project.info}
-        </p>
+        <p className="line-clamp-2 text-xs leading-relaxed text-[var(--text-muted)]">{project.info}</p>
       )}
 
-      {/* Barra de progreso de la checklist */}
-      {pct != null && (
-        <div className="flex items-center gap-2">
-          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[var(--pill-neutral-bg)]">
+      {pct != null && prog && (
+        <div className="flex flex-col gap-1">
+          <div className="h-1 overflow-hidden rounded-full bg-[var(--pill-neutral-bg)]">
             <span
               className="block h-full rounded-full transition-[width]"
               style={{
                 width: `${pct}%`,
-                background: pct === 100 ? "var(--status-good)" : teamColor,
+                background: pct === 100 ? "var(--status-good)" : `linear-gradient(90deg, var(--brand-water), ${teamColor})`,
               }}
             />
           </div>
-          <span className="shrink-0 text-[10px] font-bold tabular-nums text-[var(--text-muted)]">
-            {pct}%
-          </span>
+          <div className="flex items-center gap-2 text-[11px]">
+            <span className="min-w-0 flex-1 truncate text-[var(--text-secondary)]">
+              {next ? (
+                <>
+                  <span aria-hidden className="text-[var(--brand-sea)]">→ </span>
+                  {next.label}
+                </>
+              ) : (
+                <span className="font-semibold text-[var(--status-good)]">✓ Todo hecho</span>
+              )}
+            </span>
+            <span className="shrink-0 font-bold tabular-nums text-[var(--text-muted)]">
+              {prog.done}/{prog.total}
+            </span>
+          </div>
         </div>
       )}
 
-      {project.docs.length > 0 && (
-        <span className="text-[10px] font-semibold text-[var(--text-muted)]">
-          🔗 {project.docs.length} {project.docs.length === 1 ? "documento" : "documentos"}
-        </span>
-      )}
-
-      {/* Un único desplegable con éxito + checklist + documentos, sin abrir la tarjeta */}
-      {hasDetails && (
-        <button
-          type="button"
-          aria-expanded={expanded}
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggleExpand();
-          }}
-          className="flex items-center gap-1 self-start text-[10px] font-semibold text-[var(--text-muted)] hover:text-[var(--text-primary)]"
-        >
-          <span
-            aria-hidden
-            className="inline-block leading-none transition-transform"
-            style={{ transform: expanded ? "rotate(90deg)" : undefined }}
-          >
-            ▸
-          </span>
-          Detalles
-        </button>
-      )}
-
-      {expanded && hasDetails && (
-        <div
-          className="flex flex-col gap-2 rounded-lg bg-[var(--pill-neutral-bg)] p-1.5"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {project.successCriteria.trim() && (
-            <div className="flex flex-col gap-0.5 px-1">
-              <span className="text-[9px] font-bold uppercase tracking-wide text-[var(--text-muted)]">
-                Éxito
-              </span>
-              <p className="text-xs leading-relaxed text-[var(--text-secondary)]">
-                {project.successCriteria}
-              </p>
-            </div>
+      {(project.endDate || project.docs.length > 0) && (
+        <div className="flex items-center gap-3 text-[11px] font-semibold text-[var(--text-muted)]">
+          {project.endDate && (
+            <span
+              className="tabular-nums"
+              style={{
+                color: overdue ? "var(--status-critical)" : dueSoon ? "var(--status-warning)" : undefined,
+              }}
+              title={overdue ? `Vencido hace ${Math.abs(left!)} d` : "Fecha límite"}
+            >
+              {overdue ? "⚠ " : "◷ "}
+              {fmtDate(project.endDate)}
+            </span>
           )}
-
-          {project.tasks.length > 0 && (
-            <div className="flex flex-col gap-0.5">
-              {project.tasks
-                .slice()
-                .sort((a, b) => a.position - b.position)
-                .map((t) => {
-                  const left = t.dueDate ? daysLeft(t.dueDate) : null;
-                  const taskOverdue = !t.done && left != null && left < 0;
-                  return (
-                  <label
-                    key={t.id}
-                    className="flex items-center gap-2 rounded px-1 py-0.5 text-xs hover:bg-[var(--row-hover)]"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={t.done}
-                      onChange={() => onToggleTask?.(t.id, !t.done)}
-                      className="accent-[var(--brand-sea)]"
-                    />
-                    <span
-                      className={`min-w-0 flex-1 truncate ${
-                        t.done
-                          ? "text-[var(--text-muted)] line-through"
-                          : taskOverdue
-                            ? "font-semibold"
-                            : "text-[var(--text-secondary)]"
-                      }`}
-                      style={taskOverdue ? { color: "var(--status-critical)" } : undefined}
-                    >
-                      {t.label}
-                    </span>
-                    {t.dueDate && (
-                      <span
-                        className="shrink-0 text-[10px] font-semibold tabular-nums"
-                        style={{ color: t.done ? "var(--text-muted)" : taskDueColor(t.dueDate) }}
-                      >
-                        {fmtDate(t.dueDate)}
-                      </span>
-                    )}
-                    {t.owner && <OwnerAvatar owner={t.owner} size={16} />}
-                  </label>
-                  );
-                })}
-            </div>
-          )}
-
-          {project.docs.length > 0 && (
-            <div className="flex flex-col gap-0.5">
-              {project.docs
-                .slice()
-                .sort((a, b) => a.position - b.position)
-                .map((d) => (
-                  <button
-                    key={d.id}
-                    type="button"
-                    onClick={() => ws.open({ kind: "url", href: d.url, title: d.label })}
-                    className="truncate rounded px-1 py-0.5 text-left text-xs text-[var(--brand-sea)] hover:bg-[var(--row-hover)] hover:underline"
-                  >
-                    {d.label}
-                  </button>
-                ))}
-            </div>
-          )}
+          {project.docs.length > 0 && <span>🔗 {project.docs.length}</span>}
         </div>
       )}
-
-      <div className="flex items-center justify-between gap-2">
-        {project.team ? (
-          <span
-            className="rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white"
-            style={{ background: teamColor }}
-          >
-            {TEAM_LABEL[project.team]}
-          </span>
-        ) : (
-          <span className="text-[10px] text-[var(--text-muted)]">Sin equipo</span>
-        )}
-
-        {project.endDate && (
-          <span
-            className="shrink-0 text-[11px] font-semibold tabular-nums"
-            style={{
-              color: overdue
-                ? "var(--status-critical)"
-                : dueSoon
-                  ? "var(--status-warning)"
-                  : "var(--text-muted)",
-            }}
-            title={overdue ? `Vencido hace ${Math.abs(left!)} d` : `Fecha límite`}
-          >
-            {overdue ? "⚠ " : ""}
-            {fmtDate(project.endDate)}
-          </span>
-        )}
-      </div>
     </div>
   );
 }

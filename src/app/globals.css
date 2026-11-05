@@ -614,3 +614,28 @@ h3 {
     transform: none;
   }
 }
+
+/* Calendario: cursor de mano en todo lo clicable y respuesta al hover en los eventos
+   (los chips llevan el fondo en línea, así que el hover va por filter/sombra, no por background). */
+.cal button:not(:disabled),
+.cal a {
+  cursor: pointer;
+}
+.cal-chip {
+  transition: filter 0.15s, transform 0.15s, box-shadow 0.15s;
+}
+.cal-chip:hover {
+  filter: brightness(0.93) saturate(1.1);
+  box-shadow: 0 4px 12px -4px color-mix(in srgb, var(--brand-sea) 55%, transparent);
+}
+.cal-chip:active {
+  transform: translateY(0);
+  filter: brightness(0.88);
+}
+
+/* Proyectos: cursor de mano en lo clicable. */
+.pj button:not(:disabled),
+.pj a,
+.pj select {
+  cursor: pointer;
+}
