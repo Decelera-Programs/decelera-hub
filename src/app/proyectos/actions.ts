@@ -2,6 +2,7 @@
 
 import { requireMember } from "@/lib/hub";
 import {
+  MAX_PROJECT_PRIORITIES,
   PROJECT_HEALTHS,
   PROJECT_PRIORITIES,
   type ProjectColumn,
@@ -99,10 +100,24 @@ type ProjectPatch = {
   team?: Team | null;
   startDate?: string | null;
   endDate?: string | null;
+  priorityIds?: string[];
 };
+
+/** Reemplaza las prioridades estratégicas del proyecto (máx. MAX_PROJECT_PRIORITIES). */
+async function setProjectPriorities(projectId: string, ids: string[]): Promise<void> {
+  const unique = [...new Set(ids)].slice(0, MAX_PROJECT_PRIORITIES);
+  const { error: delErr } = await hubDb.from("project_priorities").delete().eq("project_id", projectId);
+  if (delErr) throw new Error(`setProjectPriorities: ${delErr.message}`);
+  if (unique.length === 0) return;
+  const { error } = await hubDb
+    .from("project_priorities")
+    .insert(unique.map((priority_id) => ({ project_id: projectId, priority_id })));
+  if (error) throw new Error(`setProjectPriorities: ${error.message}`);
+}
 
 export async function updateProject(id: string, patch: ProjectPatch): Promise<void> {
   await requireMember();
+  if (Array.isArray(patch.priorityIds)) await setProjectPriorities(id, patch.priorityIds);
   const clean: Record<string, unknown> = {};
   if (typeof patch.title === "string") clean.title = patch.title.trim().slice(0, 120) || "Sin título";
   if (typeof patch.info === "string") clean.info = patch.info.slice(0, 4000);
