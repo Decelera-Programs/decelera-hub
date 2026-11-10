@@ -334,7 +334,6 @@ function Graph({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [priorities, year],
   );
-  const future = priorities.filter((p) => !p.isActive);
   const colIds = useMemo(() => new Set(columns.map((c) => c.id)), [columns]);
   const byId = useMemo(() => new Map(columns.map((c) => [c.id, c])), [columns]);
 
@@ -491,21 +490,6 @@ function Graph({
           )}
         </ReactFlow>
       </div>
-
-      {future.length > 0 && (
-        <div className="flex shrink-0 flex-wrap items-center gap-2 text-[11px] text-[var(--text-muted)]">
-          <span className="font-semibold uppercase tracking-wide">Future Horizon · fuera de alcance</span>
-          {future.map((f) => (
-            <span
-              key={f.id}
-              title={f.context}
-              className="rounded-full border border-dashed border-[var(--border)] px-2 py-0.5"
-            >
-              {f.title}
-            </span>
-          ))}
-        </div>
-      )}
     </div>
   );
 }
