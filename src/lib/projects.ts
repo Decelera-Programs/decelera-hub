@@ -51,8 +51,8 @@ export type StrategicPriority = {
   isActive: boolean;
 };
 
-/** Un proyecto puede colgar como máximo de 2 prioridades (regla de UI, no de BD). */
-export const MAX_PROJECT_PRIORITIES = 2;
+/** Un proyecto puede colgar como máximo de 3 prioridades (regla de UI, no de BD). */
+export const MAX_PROJECT_PRIORITIES = 3;
 
 /** Color por posición de la prioridad; distinto de los colores de equipo. */
 const STRATEGIC_ACCENTS = ["#e11d48", "#059669", "#ca8a04", "#64748b"];
