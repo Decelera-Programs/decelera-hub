@@ -12,7 +12,7 @@ import {
   type ProjectOwner,
   type ProjectTask,
   type StrategicPriority,
-  strategicAccent,
+  strategicInk,
 } from "@/lib/projects";
 import { TEAMS, TEAM_LABEL, type Team } from "@/lib/teams";
 import {
@@ -39,7 +39,8 @@ import { ProjectModal, type ModalHandlers } from "./ProjectModal";
 import { StrategyView } from "./StrategyView";
 
 const NONE = "__none__";
-type Filter = { team: Team | "all"; mine: boolean; priority: string | "all" };
+type StatusFilter = "all" | "active" | "done";
+type Filter = { team: Team | "all"; mine: boolean; priority: string | "all"; status: StatusFilter };
 type View = "kanban" | "gantt" | "estrategia";
 
 /** Proyecto en blanco recién creado (espejo de los defaults de la tabla). */
@@ -86,7 +87,7 @@ export function ProjectsBoard({
   const [columns, setColumns] = useState(initialColumns);
   const [projects, setProjects] = useState(initialProjects);
   const [openId, setOpenId] = useState<string | null>(null);
-  const [filter, setFilter] = useState<Filter>({ team: "all", mine: false, priority: "all" });
+  const [filter, setFilter] = useState<Filter>({ team: "all", mine: false, priority: "all", status: "all" });
   const [view, setViewState] = useState<View>("kanban");
   const [dragId, setDragId] = useState<string | null>(null);
   const [dropCol, setDropCol] = useState<string | null>(null);
@@ -154,7 +155,9 @@ export function ProjectsBoard({
         (p) =>
           (filter.team === "all" || p.team === filter.team) &&
           (!filter.mine || p.ownerId === currentMemberId) &&
-          (filter.priority === "all" || p.priorityIds.includes(filter.priority)),
+          (filter.priority === "all" || p.priorityIds.includes(filter.priority)) &&
+          (filter.status === "all" ||
+            (filter.status === "done" ? p.health === "done" : p.health !== "done")),
       ),
     [projects, filter, currentMemberId],
   );
@@ -400,6 +403,22 @@ export function ProjectsBoard({
         <Chip active={filter.mine} onClick={() => setFilter((f) => ({ ...f, mine: !f.mine }))}>
           Míos
         </Chip>
+        <span className="mx-1 h-4 w-px bg-[var(--border)]" />
+        {(
+          [
+            ["all", "Cualquiera"],
+            ["active", "En curso"],
+            ["done", "Terminados"],
+          ] as [StatusFilter, string][]
+        ).map(([key, label]) => (
+          <Chip
+            key={key}
+            active={filter.status === key}
+            onClick={() => setFilter((f) => ({ ...f, status: key }))}
+          >
+            {label}
+          </Chip>
+        ))}
         {activePriorities.length > 0 && view !== "estrategia" && (
           <>
             <span className="mx-1 h-4 w-px bg-[var(--border)]" />
@@ -407,7 +426,7 @@ export function ProjectsBoard({
               <Chip
                 key={sp.id}
                 active={filter.priority === sp.id}
-                accent={strategicAccent(sp.position)}
+                accent={strategicInk(sp.position)}
                 onClick={() =>
                   setFilter((f) => ({ ...f, priority: f.priority === sp.id ? "all" : sp.id }))
                 }

@@ -2,7 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element */
 import type { Project, StrategicPriority } from "@/lib/projects";
-import { strategicAccent } from "@/lib/projects";
+import { strategicInk } from "@/lib/projects";
 import { HEALTH_COLOR, HEALTH_LABEL, PRIORITY_COLOR, PRIORITY_LABEL, taskProgress } from "@/lib/projects";
 import { TEAM_ACCENT, TEAM_LABEL } from "@/lib/teams";
 
@@ -94,7 +94,7 @@ export function ProjectCard({
       {priorities.length > 0 && (
         <div className="flex flex-wrap gap-1">
           {priorities.map((sp) => {
-            const c = strategicAccent(sp.position);
+            const c = strategicInk(sp.position);
             return (
               <span
                 key={sp.id}

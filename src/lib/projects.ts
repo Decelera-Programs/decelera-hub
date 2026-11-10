@@ -54,10 +54,15 @@ export type StrategicPriority = {
 /** Un proyecto puede colgar como máximo de 3 prioridades (regla de UI, no de BD). */
 export const MAX_PROJECT_PRIORITIES = 3;
 
-/** Color por posición de la prioridad; distinto de los colores de equipo. */
-const STRATEGIC_ACCENTS = ["#e11d48", "#059669", "#ca8a04", "#64748b"];
+/** Color por posición de la prioridad: solo paleta de marca (Sea, Sun, Water, Cloud). */
+const STRATEGIC_ACCENTS = ["var(--brand-sea)", "var(--brand-sun)", "var(--brand-water)", "var(--brand-cloud)"];
 export function strategicAccent(position: number): string {
   return STRATEGIC_ACCENTS[position % STRATEGIC_ACCENTS.length];
+}
+/** Versión para texto: Sun, Water y Cloud se mezclan con el color de texto para que se lean. */
+export function strategicInk(position: number): string {
+  const i = position % STRATEGIC_ACCENTS.length;
+  return i === 0 ? STRATEGIC_ACCENTS[0] : `color-mix(in srgb, ${STRATEGIC_ACCENTS[i]} 55%, var(--text-primary))`;
 }
 
 const PRIORITY_RANK: Record<ProjectPriority, number> = { high: 0, medium: 1, low: 2 };

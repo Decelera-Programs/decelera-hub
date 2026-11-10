@@ -15,7 +15,7 @@ import {
   type ProjectPriority,
 } from "@/lib/projects";
 import { TEAMS, TEAM_ACCENT, TEAM_LABEL, type Team } from "@/lib/teams";
-import { MAX_PROJECT_PRIORITIES, strategicAccent, type StrategicPriority } from "@/lib/projects";
+import { MAX_PROJECT_PRIORITIES, strategicInk, type StrategicPriority } from "@/lib/projects";
 import { useWorkspace } from "@/components/WorkspaceContext";
 import { OwnerAvatar } from "./ProjectCard";
 
@@ -311,7 +311,7 @@ export function ProjectModal({
                       .map((p) => {
                         const on = project.priorityIds.includes(p.id);
                         const full = !on && project.priorityIds.length >= MAX_PROJECT_PRIORITIES;
-                        const color = strategicAccent(p.position);
+                        const color = strategicInk(p.position);
                         return (
                           <button
                             key={p.id}

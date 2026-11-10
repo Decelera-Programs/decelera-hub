@@ -31,6 +31,7 @@ import {
   PRIORITY_LABEL,
   byProjectPriority,
   strategicAccent,
+  strategicInk,
   taskProgress,
   type Project,
   type StrategicPriority,
@@ -42,6 +43,7 @@ import { OwnerAvatar } from "./ProjectCard";
 type PriorityData = {
   priority: StrategicPriority;
   accent: string;
+  ink: string;
   projects: number;
   done: number;
   total: number;
@@ -118,6 +120,7 @@ function buildNodes(
       data: {
         priority: c,
         accent: strategicAccent(c.position),
+        ink: strategicInk(c.position),
         projects: linked.length,
         done: linked.reduce((n, p) => n + p.tasks.filter((t) => t.done).length, 0),
         total: linked.reduce((n, p) => n + p.tasks.length, 0),
@@ -138,7 +141,7 @@ function buildNodes(
 /* ---------- Nodos ---------- */
 
 function PriorityCard({ data, selected }: NodeProps<PriorityNode>) {
-  const { priority, accent, projects, done, total } = data;
+  const { priority, accent, ink, projects, done, total } = data;
   const pct = total ? Math.round((done / total) * 100) : 0;
   return (
     <div
@@ -151,7 +154,7 @@ function PriorityCard({ data, selected }: NodeProps<PriorityNode>) {
       <div className="flex items-start gap-2">
         <span aria-hidden className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: accent }} />
         <div className="min-w-0">
-          <div className="text-[10px] font-bold uppercase tracking-wide" style={{ color: accent }}>
+          <div className="text-[10px] font-bold uppercase tracking-wide" style={{ color: ink }}>
             {priority.shortName || "Prioridad"}
           </div>
           <div className="text-sm font-semibold leading-snug text-[var(--text-primary)]">{priority.title}</div>
