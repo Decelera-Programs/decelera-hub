@@ -155,11 +155,11 @@ export function ProjectsBoard({
         (p) =>
           (filter.team === "all" || p.team === filter.team) &&
           (!filter.mine || p.ownerId === currentMemberId) &&
-          (filter.priority === "all" || p.priorityIds.includes(filter.priority)) &&
+          (view !== "gantt" || filter.priority === "all" || p.priorityIds.includes(filter.priority)) &&
           (filter.status === "all" ||
             (filter.status === "done" ? p.health === "done" : p.health !== "done")),
       ),
-    [projects, filter, currentMemberId],
+    [projects, filter, currentMemberId, view],
   );
 
   const byColumn = useMemo(() => {
@@ -419,7 +419,7 @@ export function ProjectsBoard({
             {label}
           </Chip>
         ))}
-        {activePriorities.length > 0 && view !== "estrategia" && (
+        {activePriorities.length > 0 && view === "gantt" && (
           <>
             <span className="mx-1 h-4 w-px bg-[var(--border)]" />
             {activePriorities.map((sp) => (

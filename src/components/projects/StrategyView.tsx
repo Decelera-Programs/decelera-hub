@@ -218,6 +218,20 @@ function ProjectCardNode({ data }: NodeProps<ProjectNode>) {
         {project.title}
       </button>
       {prog && (
+        <div className="mt-2 h-1 overflow-hidden rounded-full bg-[var(--pill-neutral-bg)]">
+          <span
+            className="block h-full rounded-full transition-[width]"
+            style={{
+              width: `${Math.round((prog.done / prog.total) * 100)}%`,
+              background:
+                prog.done === prog.total
+                  ? "var(--status-good)"
+                  : "linear-gradient(90deg, var(--brand-water), var(--brand-sea))",
+            }}
+          />
+        </div>
+      )}
+      {prog && (
         <>
           <button
             type="button"
