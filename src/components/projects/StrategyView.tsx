@@ -1,9 +1,32 @@
 "use client";
 
-import { useState } from "react";
+import "@xyflow/react/dist/style.css";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  BaseEdge,
+  Background,
+  BackgroundVariant,
+  ConnectionMode,
+  Controls,
+  EdgeLabelRenderer,
+  Handle,
+  Panel,
+  Position,
+  ReactFlow,
+  ReactFlowProvider,
+  getBezierPath,
+  useReactFlow,
+  useNodesState,
+  type Connection,
+  type Edge,
+  type EdgeProps,
+  type Node,
+  type NodeProps,
+} from "@xyflow/react";
 import {
   HEALTH_COLOR,
   HEALTH_LABEL,
+  MAX_PROJECT_PRIORITIES,
   PRIORITY_COLOR,
   PRIORITY_LABEL,
   byProjectPriority,
@@ -14,66 +37,460 @@ import {
 } from "@/lib/projects";
 import { OwnerAvatar } from "./ProjectCard";
 
-const NO_PRIORITY = "__none__";
+/* ---------- Tipos de nodo ---------- */
+
+type PriorityData = {
+  priority: StrategicPriority;
+  accent: string;
+  projects: number;
+  done: number;
+  total: number;
+};
+type ProjectData = {
+  project: Project;
+  onOpen: (id: string) => void;
+  onToggleTask: (projectId: string, taskId: string, done: boolean) => void;
+};
+type PriorityNode = Node<PriorityData, "priority">;
+type ProjectNode = Node<ProjectData, "project">;
+type AppNode = PriorityNode | ProjectNode;
+type LinkData = { accent: string; onUnlink: () => void };
+type LinkEdge = Edge<LinkData, "link">;
+
+const PR = "pr:";
+const PJ = "pj:";
+const LANE = 270; // separación horizontal entre carriles
+const ROW = 170; // separación vertical entre proyectos de un mismo carril
+const PROJECT_TOP = 200;
+const POS_KEY = "hub:estrategia:pos";
+
+type Pos = Record<string, { x: number; y: number }>;
+
+function loadPos(): Pos {
+  try {
+    return JSON.parse(localStorage.getItem(POS_KEY) ?? "{}") as Pos;
+  } catch {
+    return {};
+  }
+}
+function savePos(p: Pos) {
+  try {
+    localStorage.setItem(POS_KEY, JSON.stringify(p));
+  } catch {
+    // sin persistencia
+  }
+}
 
 /**
- * Árbol estratégico: arriba las prioridades del año, debajo sus proyectos (ordenados por la
- * prioridad del proyecto, alta → baja) y, plegadas, las tareas de cada proyecto. Un proyecto
- * ligado a dos prioridades aparece bajo ambas, marcado como el mismo.
+ * Colocación automática: cada prioridad ocupa un carril; un proyecto compartido se sitúa en el
+ * carril medio de sus prioridades (entre ambas) y los huérfanos en un carril propio a la derecha.
  */
-export function StrategyView({
+function defaultLayout(columns: StrategicPriority[], projects: Project[]): Pos {
+  const pos: Pos = {};
+  const laneOf = new Map(columns.map((c, i) => [c.id, i * 2]));
+  columns.forEach((c, i) => (pos[PR + c.id] = { x: i * 2 * LANE, y: 0 }));
+  const orphanLane = Math.max(columns.length * 2, 1);
+  const used = new Map<number, number>();
+  for (const p of [...projects].sort(byProjectPriority)) {
+    const lanes = p.priorityIds.map((id) => laneOf.get(id)).filter((l): l is number => l !== undefined);
+    const lane = lanes.length ? Math.round(lanes.reduce((a, b) => a + b, 0) / lanes.length) : orphanLane;
+    const n = used.get(lane) ?? 0;
+    used.set(lane, n + 1);
+    pos[PJ + p.id] = { x: lane * LANE, y: PROJECT_TOP + n * ROW };
+  }
+  return pos;
+}
+
+function buildNodes(
+  columns: StrategicPriority[],
+  projects: Project[],
+  saved: Pos,
+  handlers: Pick<ProjectData, "onOpen" | "onToggleTask">,
+): AppNode[] {
+  const base = defaultLayout(columns, projects);
+  const nodes: AppNode[] = [];
+  for (const c of columns) {
+    const linked = projects.filter((p) => p.priorityIds.includes(c.id));
+    nodes.push({
+      id: PR + c.id,
+      type: "priority",
+      position: saved[PR + c.id] ?? base[PR + c.id],
+      data: {
+        priority: c,
+        accent: strategicAccent(c.position),
+        projects: linked.length,
+        done: linked.reduce((n, p) => n + p.tasks.filter((t) => t.done).length, 0),
+        total: linked.reduce((n, p) => n + p.tasks.length, 0),
+      },
+    });
+  }
+  for (const p of projects) {
+    nodes.push({
+      id: PJ + p.id,
+      type: "project",
+      position: saved[PJ + p.id] ?? base[PJ + p.id],
+      data: { project: p, ...handlers },
+    });
+  }
+  return nodes;
+}
+
+/* ---------- Nodos ---------- */
+
+function PriorityCard({ data, selected }: NodeProps<PriorityNode>) {
+  const { priority, accent, projects, done, total } = data;
+  const pct = total ? Math.round((done / total) * 100) : 0;
+  return (
+    <div
+      className="card w-[250px] cursor-grab p-3 active:cursor-grabbing"
+      style={{
+        borderColor: `color-mix(in srgb, ${accent} ${selected ? 90 : 55}%, var(--border))`,
+        boxShadow: selected ? `0 0 0 3px color-mix(in srgb, ${accent} 22%, transparent)` : undefined,
+      }}
+    >
+      <div className="flex items-start gap-2">
+        <span aria-hidden className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: accent }} />
+        <div className="min-w-0">
+          <div className="text-[10px] font-bold uppercase tracking-wide" style={{ color: accent }}>
+            {priority.shortName || "Prioridad"}
+          </div>
+          <div className="text-sm font-semibold leading-snug text-[var(--text-primary)]">{priority.title}</div>
+        </div>
+      </div>
+      <div className="mt-2 h-1 overflow-hidden rounded-full bg-[var(--pill-neutral-bg)]">
+        <span className="block h-full rounded-full" style={{ width: `${pct}%`, background: accent }} />
+      </div>
+      <div className="mt-1 flex justify-between text-[11px] font-semibold text-[var(--text-muted)]">
+        <span>
+          {projects} {projects === 1 ? "proyecto" : "proyectos"}
+        </span>
+        <span className="tabular-nums">
+          {done}/{total} tareas
+        </span>
+      </div>
+      <Handle
+        type="source"
+        position={Position.Bottom}
+        style={{ background: accent, width: 12, height: 12, border: "2px solid var(--surface-1)" }}
+      />
+    </div>
+  );
+}
+
+function ProjectCardNode({ data }: NodeProps<ProjectNode>) {
+  const { project, onOpen, onToggleTask } = data;
+  const [open, setOpen] = useState(false);
+  const prog = taskProgress(project.tasks);
+  return (
+    <div className="card w-[250px] cursor-grab p-2.5 active:cursor-grabbing">
+      <Handle
+        type="target"
+        position={Position.Top}
+        style={{ background: "var(--brand-water)", width: 12, height: 12, border: "2px solid var(--surface-1)" }}
+      />
+      <div className="flex items-center gap-1.5">
+        <span
+          aria-hidden
+          className="h-2 w-2 shrink-0 rounded-full"
+          style={{ background: HEALTH_COLOR[project.health] }}
+          title={HEALTH_LABEL[project.health]}
+        />
+        <span
+          className="text-[10px] font-bold uppercase tracking-wide"
+          style={{ color: PRIORITY_COLOR[project.priority] }}
+        >
+          {PRIORITY_LABEL[project.priority]}
+        </span>
+        {project.owner && (
+          <span className="ml-auto">
+            <OwnerAvatar owner={project.owner} size={18} />
+          </span>
+        )}
+      </div>
+      <button
+        type="button"
+        onClick={() => onOpen(project.id)}
+        className="nodrag mt-1 block text-left text-sm font-semibold leading-snug text-[var(--text-primary)] hover:underline"
+      >
+        {project.title}
+      </button>
+      {prog && (
+        <>
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            className="nodrag mt-1.5 flex items-center gap-1.5 text-[11px] font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+          >
+            <span aria-hidden>{open ? "▾" : "▸"}</span>
+            <span className="tabular-nums">
+              {prog.done}/{prog.total} tareas
+            </span>
+          </button>
+          {open && (
+            <ul className="nodrag nowheel mt-1 flex max-h-40 flex-col gap-0.5 overflow-y-auto border-l border-[var(--border)] pl-2">
+              {project.tasks.map((t) => (
+                <li key={t.id}>
+                  <label className="flex cursor-pointer items-start gap-1.5 text-xs">
+                    <input
+                      type="checkbox"
+                      checked={t.done}
+                      onChange={(e) => onToggleTask(project.id, t.id, e.target.checked)}
+                      className="mt-0.5"
+                    />
+                    <span className={t.done ? "text-[var(--text-muted)] line-through" : "text-[var(--text-secondary)]"}>
+                      {t.label}
+                    </span>
+                  </label>
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+/* ---------- Arista: curva con color de la prioridad y "×" al seleccionarla ---------- */
+
+function LinkEdgeView({
+  sourceX,
+  sourceY,
+  targetX,
+  targetY,
+  sourcePosition,
+  targetPosition,
+  data,
+  selected,
+  id,
+}: EdgeProps<LinkEdge>) {
+  const [path, lx, ly] = getBezierPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition });
+  const accent = data?.accent ?? "var(--brand-water)";
+  return (
+    <>
+      <BaseEdge
+        id={id}
+        path={path}
+        interactionWidth={22}
+        style={{ stroke: accent, strokeWidth: selected ? 3.5 : 2.25, opacity: selected ? 1 : 0.8 }}
+      />
+      {selected && (
+        <EdgeLabelRenderer>
+          <button
+            type="button"
+            onClick={() => data?.onUnlink()}
+            title="Quitar enlace"
+            className="nodrag nopan absolute grid h-5 w-5 place-items-center rounded-full border border-[var(--border)] bg-[var(--surface-1)] text-[11px] font-bold text-[var(--status-critical)] shadow"
+            style={{ transform: `translate(-50%, -50%) translate(${lx}px, ${ly}px)`, pointerEvents: "all" }}
+          >
+            ✕
+          </button>
+        </EdgeLabelRenderer>
+      )}
+    </>
+  );
+}
+
+const nodeTypes = { priority: PriorityCard, project: ProjectCardNode };
+const edgeTypes = { link: LinkEdgeView };
+
+/* ---------- Vista ---------- */
+
+export function StrategyView(props: {
+  priorities: StrategicPriority[];
+  projects: Project[];
+  onOpen: (id: string) => void;
+  onToggleTask: (projectId: string, taskId: string, done: boolean) => void;
+  onSetPriorities: (projectId: string, priorityIds: string[]) => void;
+}) {
+  return (
+    <ReactFlowProvider>
+      <Graph {...props} />
+    </ReactFlowProvider>
+  );
+}
+
+function Graph({
   priorities,
   projects,
   onOpen,
   onToggleTask,
+  onSetPriorities,
 }: {
   priorities: StrategicPriority[];
   projects: Project[];
   onOpen: (id: string) => void;
   onToggleTask: (projectId: string, taskId: string, done: boolean) => void;
+  onSetPriorities: (projectId: string, priorityIds: string[]) => void;
 }) {
+  const { fitView } = useReactFlow();
   const active = priorities.filter((p) => p.isActive);
-  // Año a mostrar: el más reciente con prioridades activas.
   const year = active.length ? Math.max(...active.map((p) => p.year)) : null;
-  const columns = active.filter((p) => p.year === year).sort((a, b) => a.position - b.position);
+  const columns = useMemo(
+    () => active.filter((p) => p.year === year).sort((a, b) => a.position - b.position),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [priorities, year],
+  );
   const future = priorities.filter((p) => !p.isActive);
-  const byId = new Map(priorities.map((p) => [p.id, p]));
+  const colIds = useMemo(() => new Set(columns.map((c) => c.id)), [columns]);
+  const byId = useMemo(() => new Map(columns.map((c) => [c.id, c])), [columns]);
 
-  const colIds = new Set(columns.map((c) => c.id));
-  const orphans = projects.filter((p) => !p.priorityIds.some((id) => colIds.has(id))).sort(byProjectPriority);
+  // Posiciones guardadas por el usuario (localStorage). El estado inicial las lee una vez;
+  // el ref se usa solo desde efectos y manejadores de eventos.
+  const [initialSaved] = useState<Pos>(loadPos);
+  const savedRef = useRef<Pos>(initialSaved);
+
+  const handlers = useMemo(() => ({ onOpen, onToggleTask }), [onOpen, onToggleTask]);
+  const [nodes, setNodes, onNodesChange] = useNodesState<AppNode>(
+    buildNodes(columns, projects, initialSaved, handlers),
+  );
+  const [selectedPriority, setSelectedPriority] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  // Resincroniza los datos de los nodos con las props conservando posición y medidas.
+  useEffect(() => {
+    setNodes((prev) => {
+      const prevById = new Map(prev.map((n) => [n.id, n]));
+      return buildNodes(columns, projects, savedRef.current, handlers).map((n) => {
+        const old = prevById.get(n.id);
+        return old ? ({ ...old, data: n.data } as AppNode) : n;
+      });
+    });
+  }, [columns, projects, handlers, setNodes]);
+
+  const link = useCallback(
+    (projectId: string, priorityId: string) => {
+      const p = projects.find((x) => x.id === projectId);
+      if (!p || p.priorityIds.includes(priorityId)) return;
+      if (p.priorityIds.length >= MAX_PROJECT_PRIORITIES) {
+        setNotice(`Un proyecto solo puede colgar de ${MAX_PROJECT_PRIORITIES} prioridades. Quita antes un enlace.`);
+        setTimeout(() => setNotice(null), 3500);
+        return;
+      }
+      onSetPriorities(projectId, [...p.priorityIds, priorityId]);
+    },
+    [projects, onSetPriorities],
+  );
+
+  const unlink = useCallback(
+    (projectId: string, priorityId: string) => {
+      const p = projects.find((x) => x.id === projectId);
+      if (p) onSetPriorities(projectId, p.priorityIds.filter((id) => id !== priorityId));
+    },
+    [projects, onSetPriorities],
+  );
+
+  const edges: LinkEdge[] = useMemo(
+    () =>
+      projects.flatMap((p) =>
+        p.priorityIds
+          .filter((id) => colIds.has(id))
+          .map((prId) => ({
+            id: `${PJ}${p.id}->${PR}${prId}`,
+            source: PR + prId,
+            target: PJ + p.id,
+            type: "link" as const,
+            data: {
+              accent: strategicAccent(byId.get(prId)!.position),
+              onUnlink: () => unlink(p.id, prId),
+            },
+          })),
+      ),
+    [projects, colIds, byId, unlink],
+  );
+
+  const onConnect = useCallback(
+    (c: Connection) => {
+      const [a, b] = [c.source, c.target];
+      const pr = [a, b].find((x) => x?.startsWith(PR));
+      const pj = [a, b].find((x) => x?.startsWith(PJ));
+      if (pr && pj) link(pj.slice(PJ.length), pr.slice(PR.length));
+    },
+    [link],
+  );
+
+  const isValidConnection = useCallback(
+    (c: Connection | Edge) =>
+      (c.source.startsWith(PR) && c.target.startsWith(PJ)) ||
+      (c.source.startsWith(PJ) && c.target.startsWith(PR)),
+    [],
+  );
+
+  function resetLayout() {
+    savedRef.current = {};
+    savePos({});
+    setNodes(buildNodes(columns, projects, {}, handlers));
+    requestAnimationFrame(() => fitView({ padding: 0.2, duration: 400 }));
+  }
+
+  const sel = selectedPriority ? byId.get(selectedPriority) : null;
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto pb-3 pt-4">
-      <div className="flex min-w-max flex-1 items-start gap-4">
-        {columns.map((pr) => (
-          <Branch
-            key={pr.id}
-            title={pr.shortName || pr.title}
-            accent={strategicAccent(pr.position)}
-            priority={pr}
-            projects={projects.filter((p) => p.priorityIds.includes(pr.id)).sort(byProjectPriority)}
-            thisId={pr.id}
-            byId={byId}
-            onOpen={onOpen}
-            onToggleTask={onToggleTask}
-          />
-        ))}
-        {orphans.length > 0 && (
-          <Branch
-            key={NO_PRIORITY}
-            title="Sin prioridad estratégica"
-            accent="var(--text-muted)"
-            projects={orphans}
-            thisId={NO_PRIORITY}
-            byId={byId}
-            onOpen={onOpen}
-            onToggleTask={onToggleTask}
-          />
-        )}
+    <div className="mt-4 flex min-h-0 flex-1 flex-col gap-2">
+      <div className="card relative min-h-0 flex-1 overflow-hidden">
+        <ReactFlow<AppNode, LinkEdge>
+          nodes={nodes}
+          edges={edges}
+          nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
+          onNodesChange={onNodesChange}
+          onConnect={onConnect}
+          isValidConnection={isValidConnection}
+          connectionMode={ConnectionMode.Loose}
+          onNodeClick={(_, n) => setSelectedPriority(n.id.startsWith(PR) ? n.id.slice(PR.length) : null)}
+          onPaneClick={() => setSelectedPriority(null)}
+          onNodeDragStop={(_, n) => {
+            savedRef.current = { ...(savedRef.current), [n.id]: n.position };
+            savePos(savedRef.current);
+          }}
+          fitView
+          fitViewOptions={{ padding: 0.2 }}
+          minZoom={0.3}
+          maxZoom={1.5}
+          deleteKeyCode={null}
+          proOptions={{ hideAttribution: true }}
+          connectionLineStyle={{ stroke: "var(--brand-water)", strokeWidth: 2.5 }}
+        >
+          <Background variant={BackgroundVariant.Dots} gap={22} size={1.2} color="var(--border)" />
+          <Controls showInteractive={false} />
+          <Panel position="top-left">
+            <div className="glass max-w-[260px] rounded-xl border border-[var(--border)] px-3 py-2 text-[11px] leading-relaxed text-[var(--text-secondary)]">
+              Arrastra las tarjetas para organizarlas. Para enlazar un proyecto, tira desde el punto de la
+              tarjeta hasta una prioridad (o al revés). Pulsa una línea para quitarla.
+              <button
+                type="button"
+                onClick={resetLayout}
+                className="mt-1 block font-semibold text-[var(--brand-sea)] hover:underline"
+              >
+                Reordenar automáticamente
+              </button>
+            </div>
+          </Panel>
+          {sel && (
+            <Panel position="top-right">
+              <div className="glass flex max-h-[70vh] w-[320px] flex-col gap-2 overflow-y-auto rounded-xl border border-[var(--border)] p-3 text-xs leading-relaxed text-[var(--text-secondary)]">
+                <div className="text-sm font-semibold text-[var(--text-primary)]">{sel.title}</div>
+                {sel.context && <p>{sel.context}</p>}
+                {sel.whyItMatters && (
+                  <Detail label="Por qué importa">{sel.whyItMatters}</Detail>
+                )}
+                {sel.successMetrics && <Detail label="Success metrics">{sel.successMetrics}</Detail>}
+                {sel.relatedProblemSpace && <Detail label="Problem space">{sel.relatedProblemSpace}</Detail>}
+              </div>
+            </Panel>
+          )}
+          {notice && (
+            <Panel position="bottom-center">
+              <div className="rounded-lg bg-[var(--status-critical)] px-3 py-1.5 text-xs font-semibold text-white shadow">
+                {notice}
+              </div>
+            </Panel>
+          )}
+        </ReactFlow>
       </div>
 
       {future.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 border-t border-[var(--border)] pt-3 text-[11px] text-[var(--text-muted)]">
+        <div className="flex shrink-0 flex-wrap items-center gap-2 text-[11px] text-[var(--text-muted)]">
           <span className="font-semibold uppercase tracking-wide">Future Horizon · fuera de alcance</span>
           {future.map((f) => (
             <span
@@ -90,207 +507,11 @@ export function StrategyView({
   );
 }
 
-function Branch({
-  title,
-  accent,
-  priority,
-  projects,
-  thisId,
-  byId,
-  onOpen,
-  onToggleTask,
-}: {
-  title: string;
-  accent: string;
-  priority?: StrategicPriority;
-  projects: Project[];
-  thisId: string;
-  byId: Map<string, StrategicPriority>;
-  onOpen: (id: string) => void;
-  onToggleTask: (projectId: string, taskId: string, done: boolean) => void;
-}) {
-  const [detail, setDetail] = useState(false);
-  const total = projects.reduce((n, p) => n + p.tasks.length, 0);
-  const done = projects.reduce((n, p) => n + p.tasks.filter((t) => t.done).length, 0);
-  const pct = total ? Math.round((done / total) * 100) : 0;
-
+function Detail({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <section className="flex w-[300px] shrink-0 flex-col">
-      {/* Nodo raíz: la prioridad */}
-      <div
-        className="card flex flex-col gap-2 p-3"
-        style={{ borderColor: `color-mix(in srgb, ${accent} 55%, var(--border))` }}
-      >
-        <div className="flex items-start gap-2">
-          <span aria-hidden className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: accent }} />
-          <div className="min-w-0 flex-1">
-            <div className="text-[10px] font-bold uppercase tracking-wide" style={{ color: accent }}>
-              {title}
-            </div>
-            {priority && (
-              <div className="text-sm font-semibold leading-snug text-[var(--text-primary)]">
-                {priority.title}
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-1">
-          <div className="h-1 overflow-hidden rounded-full bg-[var(--pill-neutral-bg)]">
-            <span className="block h-full rounded-full" style={{ width: `${pct}%`, background: accent }} />
-          </div>
-          <div className="flex justify-between text-[11px] font-semibold text-[var(--text-muted)]">
-            <span>
-              {projects.length} {projects.length === 1 ? "proyecto" : "proyectos"}
-            </span>
-            <span className="tabular-nums">
-              {done}/{total} tareas
-            </span>
-          </div>
-        </div>
-
-        {priority && (priority.context || priority.successMetrics) && (
-          <>
-            <button
-              type="button"
-              onClick={() => setDetail((v) => !v)}
-              className="self-start text-[11px] font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-            >
-              {detail ? "▾ Ocultar detalle" : "▸ Contexto y KPIs"}
-            </button>
-            {detail && (
-              <div className="flex flex-col gap-2 text-xs leading-relaxed text-[var(--text-secondary)]">
-                {priority.context && <p>{priority.context}</p>}
-                {priority.successMetrics && (
-                  <div>
-                    <div className="text-[10px] font-bold uppercase tracking-wide text-[var(--text-muted)]">
-                      Success metrics
-                    </div>
-                    <p className="whitespace-pre-line">{priority.successMetrics}</p>
-                  </div>
-                )}
-              </div>
-            )}
-          </>
-        )}
-      </div>
-
-      {/* Rama: raíl vertical con un nodo por proyecto */}
-      <div className="ml-4 flex flex-col gap-3 border-l-2 pb-1 pl-4 pt-3" style={{ borderColor: `color-mix(in srgb, ${accent} 45%, transparent)` }}>
-        {projects.length === 0 && (
-          <p className="text-xs text-[var(--text-muted)]">Ningún proyecto enlazado todavía.</p>
-        )}
-        {projects.map((p) => (
-          <ProjectNode
-            key={p.id}
-            project={p}
-            accent={accent}
-            others={p.priorityIds.filter((id) => id !== thisId).map((id) => byId.get(id)).filter(Boolean) as StrategicPriority[]}
-            onOpen={onOpen}
-            onToggleTask={onToggleTask}
-          />
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function ProjectNode({
-  project,
-  accent,
-  others,
-  onOpen,
-  onToggleTask,
-}: {
-  project: Project;
-  accent: string;
-  others: StrategicPriority[];
-  onOpen: (id: string) => void;
-  onToggleTask: (projectId: string, taskId: string, done: boolean) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const prog = taskProgress(project.tasks);
-
-  return (
-    <div className="relative">
-      {/* Conector horizontal hacia el raíl */}
-      <span
-        aria-hidden
-        className="absolute -left-4 top-5 h-0.5 w-4"
-        style={{ background: `color-mix(in srgb, ${accent} 45%, transparent)` }}
-      />
-      <div className="card flex flex-col gap-1.5 p-2.5">
-        <button type="button" onClick={() => onOpen(project.id)} className="flex flex-col gap-1.5 text-left">
-          <div className="flex items-center gap-1.5">
-            <span
-              aria-hidden
-              className="h-2 w-2 shrink-0 rounded-full"
-              style={{ background: HEALTH_COLOR[project.health] }}
-              title={HEALTH_LABEL[project.health]}
-            />
-            <span
-              className="text-[10px] font-bold uppercase tracking-wide"
-              style={{ color: PRIORITY_COLOR[project.priority] }}
-            >
-              {PRIORITY_LABEL[project.priority]}
-            </span>
-            {project.owner && (
-              <span className="ml-auto">
-                <OwnerAvatar owner={project.owner} size={18} />
-              </span>
-            )}
-          </div>
-          <span className="text-sm font-semibold leading-snug text-[var(--text-primary)]">{project.title}</span>
-        </button>
-
-        {others.length > 0 && (
-          <div className="flex flex-wrap items-center gap-1 text-[10px] font-semibold text-[var(--text-muted)]">
-            <span aria-hidden>⛓ también en</span>
-            {others.map((o) => {
-              const c = strategicAccent(o.position);
-              return (
-                <span key={o.id} className="rounded px-1 py-0.5" style={{ background: `color-mix(in srgb, ${c} 12%, transparent)`, color: c }}>
-                  {o.shortName || o.title}
-                </span>
-              );
-            })}
-          </div>
-        )}
-
-        {prog && (
-          <>
-            <button
-              type="button"
-              onClick={() => setOpen((v) => !v)}
-              className="flex items-center gap-1.5 text-[11px] font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-            >
-              <span aria-hidden>{open ? "▾" : "▸"}</span>
-              <span className="tabular-nums">
-                {prog.done}/{prog.total} tareas
-              </span>
-            </button>
-            {open && (
-              <ul className="flex flex-col gap-0.5 border-l border-[var(--border)] pl-2">
-                {project.tasks.map((t) => (
-                  <li key={t.id}>
-                    <label className="flex cursor-pointer items-start gap-1.5 text-xs">
-                      <input
-                        type="checkbox"
-                        checked={t.done}
-                        onChange={(e) => onToggleTask(project.id, t.id, e.target.checked)}
-                        className="mt-0.5"
-                      />
-                      <span className={t.done ? "text-[var(--text-muted)] line-through" : "text-[var(--text-secondary)]"}>
-                        {t.label}
-                      </span>
-                    </label>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </>
-        )}
-      </div>
+    <div>
+      <div className="text-[10px] font-bold uppercase tracking-wide text-[var(--text-muted)]">{label}</div>
+      <p className="whitespace-pre-line">{children}</p>
     </div>
   );
 }

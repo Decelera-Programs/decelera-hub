@@ -435,6 +435,7 @@ export function ProjectsBoard({
           projects={visible}
           onOpen={setOpenId}
           onToggleTask={toggleProjectTask}
+          onSetPriorities={(pid, priorityIds) => modalHandlers.patch(pid, { priorityIds })}
         />
       ) : view === "gantt" ? (
         <div className="card mt-4 flex min-h-0 flex-1 flex-col overflow-hidden">
