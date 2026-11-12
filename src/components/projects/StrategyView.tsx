@@ -26,7 +26,6 @@ import {
 import {
   HEALTH_COLOR,
   HEALTH_LABEL,
-  MAX_PROJECT_PRIORITIES,
   PRIORITY_COLOR,
   PRIORITY_LABEL,
   byProjectPriority,
@@ -361,7 +360,6 @@ function Graph({
     buildNodes(columns, projects, initialSaved, handlers),
   );
   const [selectedPriority, setSelectedPriority] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
 
   // Resincroniza los datos de los nodos con las props conservando posición y medidas.
   useEffect(() => {
@@ -378,12 +376,8 @@ function Graph({
     (projectId: string, priorityId: string) => {
       const p = projects.find((x) => x.id === projectId);
       if (!p || p.priorityIds.includes(priorityId)) return;
-      if (p.priorityIds.length >= MAX_PROJECT_PRIORITIES) {
-        setNotice(`Un proyecto solo puede colgar de ${MAX_PROJECT_PRIORITIES} prioridades. Quita antes un enlace.`);
-        setTimeout(() => setNotice(null), 3500);
-        return;
-      }
-      onSetPriorities(projectId, [...p.priorityIds, priorityId]);
+      // Un proyecto cuelga de una sola prioridad: enlazar a otra lo mueve.
+      onSetPriorities(projectId, [priorityId]);
     },
     [projects, onSetPriorities],
   );
@@ -492,13 +486,6 @@ function Graph({
                 )}
                 {sel.successMetrics && <Detail label="Success metrics">{sel.successMetrics}</Detail>}
                 {sel.relatedProblemSpace && <Detail label="Problem space">{sel.relatedProblemSpace}</Detail>}
-              </div>
-            </Panel>
-          )}
-          {notice && (
-            <Panel position="bottom-center">
-              <div className="rounded-lg bg-[var(--status-critical)] px-3 py-1.5 text-xs font-semibold text-white shadow">
-                {notice}
               </div>
             </Panel>
           )}

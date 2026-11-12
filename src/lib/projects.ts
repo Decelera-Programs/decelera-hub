@@ -52,7 +52,7 @@ export type StrategicPriority = {
 };
 
 /** Un proyecto puede colgar como máximo de 3 prioridades (regla de UI, no de BD). */
-export const MAX_PROJECT_PRIORITIES = 3;
+export const MAX_PROJECT_PRIORITIES = 1;
 
 /** Color por posición de la prioridad: solo paleta de marca (Sea, Sun, Water, Cloud). */
 const STRATEGIC_ACCENTS = ["var(--brand-sea)", "var(--brand-sun)", "var(--brand-water)", "var(--brand-cloud)"];

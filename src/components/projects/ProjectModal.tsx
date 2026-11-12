@@ -15,7 +15,7 @@ import {
   type ProjectPriority,
 } from "@/lib/projects";
 import { TEAMS, TEAM_ACCENT, TEAM_LABEL, type Team } from "@/lib/teams";
-import { MAX_PROJECT_PRIORITIES, strategicInk, type StrategicPriority } from "@/lib/projects";
+import { strategicInk, type StrategicPriority } from "@/lib/projects";
 import { useWorkspace } from "@/components/WorkspaceContext";
 import { OwnerAvatar } from "./ProjectCard";
 
@@ -302,30 +302,25 @@ export function ProjectModal({
               {priorities.some((p) => p.isActive) && (
                 <div className="flex flex-col gap-1">
                   <span className="text-xs text-[var(--text-secondary)]">
-                    Prioridad estratégica{" "}
-                    <span className="text-[var(--text-muted)]">(máx. {MAX_PROJECT_PRIORITIES})</span>
+                    Prioridad estratégica
                   </span>
                   <div className="flex flex-col gap-1">
                     {priorities
                       .filter((p) => p.isActive)
                       .map((p) => {
                         const on = project.priorityIds.includes(p.id);
-                        const full = !on && project.priorityIds.length >= MAX_PROJECT_PRIORITIES;
                         const color = strategicInk(p.position);
                         return (
                           <button
                             key={p.id}
                             type="button"
-                            disabled={full}
                             title={p.title}
                             onClick={() =>
                               handlers.patch(project.id, {
-                                priorityIds: on
-                                  ? project.priorityIds.filter((x) => x !== p.id)
-                                  : [...project.priorityIds, p.id],
+                                priorityIds: on ? [] : [p.id],
                               })
                             }
-                            className="flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-left text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+                            className="flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-left text-xs font-semibold transition-colors"
                             style={{
                               borderColor: on ? color : "var(--border)",
                               background: on ? `color-mix(in srgb, ${color} 12%, transparent)` : "transparent",
