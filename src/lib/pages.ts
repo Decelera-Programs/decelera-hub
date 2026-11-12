@@ -10,7 +10,6 @@ export const HUB_PAGES: HubPage[] = [
   { key: "bitacora", label: "Bitácora", href: "/bitacora" },
   { key: "calendario", label: "Calendario", href: "/calendario" },
   { key: "agentes", label: "Agentes", href: "/agentes" },
-  { key: "mapa", label: "Mapa", href: "/mapa" },
 ];
 
 /** Página activa a partir del pathname. */

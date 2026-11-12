@@ -1,15 +1,12 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import { redirect } from "next/navigation";
 import { AccountMenu } from "@/components/AccountMenu";
-import { ActivityFeed } from "@/components/agents/ActivityFeed";
-import { AgentPulseCard } from "@/components/agents/AgentPulseCard";
-import { FlowDiagram } from "@/components/agents/FlowDiagram";
-import { MetricsRow } from "@/components/agents/MetricsRow";
-import { PendingApprovalsPanel } from "@/components/agents/PendingApprovalsPanel";
+import { AgentTabs } from "@/components/agents/AgentTabs";
+import { SystemsMap } from "@/components/map/SystemsMap";
 import { PageSwitcher } from "@/components/PageSwitcher";
-import { daysAgoIso, KNOWN_AGENTS } from "@/lib/agents";
+import { daysAgoIso } from "@/lib/agents";
 import { requireMember } from "@/lib/hub";
-import { getAgentSummaries, getEventCountsSince, getPendingApprovals, getRecentEvents } from "@/lib/supabase/agents";
+import { getEventCountsSince, getEventsSourceCounts } from "@/lib/supabase/agents";
 
 export const metadata: Metadata = {
   title: "Agentes | Decelera Brain",
@@ -19,20 +16,17 @@ export const dynamic = "force-dynamic";
 
 export default async function AgentesPage({ searchParams }: { searchParams: Promise<{ agente?: string }> }) {
   const member = await requireMember();
+  // Enlaces antiguos a /agentes?agente=… apuntaban a la auditoría.
   const { agente } = await searchParams;
-  const selectedId = KNOWN_AGENTS.find((a) => a.id === agente)?.id ?? KNOWN_AGENTS[0].id;
-  const selected = KNOWN_AGENTS.find((a) => a.id === selectedId)!;
-  const sevenDaysAgo = daysAgoIso(7);
-
-  const [summaries, events, pendingLists, countsEntries] = await Promise.all([
-    getAgentSummaries(),
-    getRecentEvents(selectedId),
-    Promise.all(KNOWN_AGENTS.map((a) => getPendingApprovals(a.id))),
-    Promise.all(KNOWN_AGENTS.map(async (a) => [a.id, await getEventCountsSince(a.id, sevenDaysAgo)] as const)),
+  if (agente) redirect(`/agentes/auditoria?agente=${encodeURIComponent(agente)}`);
+  const since = daysAgoIso(7);
+  // Solo los agentes que registran su actividad en el Brain; Maru (main) sale sin cifras.
+  const [inbound, events, sources] = await Promise.all([
+    getEventCountsSince("inbound-follow-up", since),
+    getEventCountsSince("events", since),
+    getEventsSourceCounts(since),
   ]);
-
-  const pendingApprovals = pendingLists[KNOWN_AGENTS.findIndex((a) => a.id === selectedId)] ?? [];
-  const countsByAgent = Object.fromEntries(countsEntries);
+  const counts = { "inbound-follow-up": inbound, events: { ...events, ...sources } };
 
   const user = {
     name: member.full_name,
@@ -57,8 +51,7 @@ export default async function AgentesPage({ searchParams }: { searchParams: Prom
           </div>
         </div>
 
-        {/* Navegación en su propia columna de grid — ver proyectos/page.tsx por el mismo arreglo y
-            por qué (2026-11-03, operator: "el cartelito que dice agentes se oculta"). */}
+        {/* Navegación en su propia columna de grid — ver proyectos/page.tsx por el mismo arreglo. */}
         <div className="hidden sm:flex sm:justify-self-center">
           <PageSwitcher />
         </div>
@@ -68,51 +61,18 @@ export default async function AgentesPage({ searchParams }: { searchParams: Prom
         </div>
       </header>
 
-      <div className="mx-auto flex w-full max-w-[1180px] min-w-0 flex-1 flex-col gap-6 overflow-y-auto [&>*]:shrink-0 px-4 py-6 sm:px-6 lg:px-10">
+      <div className="mx-auto flex w-full max-w-[1280px] min-w-0 flex-1 flex-col gap-5 overflow-y-auto [&>*]:shrink-0 px-4 py-6 sm:px-6 lg:px-10">
         <div className="aurora-light hub-reveal flex flex-wrap items-end justify-between gap-4 rounded-[20px] px-5 py-3 sm:px-6">
           <div>
             <h1 className="page-title text-2xl tracking-tight text-[var(--text-primary)] sm:text-3xl">Agentes</h1>
-            <p className="max-w-xl text-xs text-[var(--text-secondary)]">
-              Qué están haciendo los agentes automáticos de Decelera, en vivo.
+            <p className="max-w-2xl text-xs text-[var(--text-secondary)]">
+              Dónde viven los datos y qué mueve cada agente entre ellos. Pincha un agente o un sistema para ver solo
+              sus flujos.
             </p>
           </div>
+          <AgentTabs active="mapa" />
         </div>
-
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {summaries.map((s) => {
-            const meta = KNOWN_AGENTS.find((a) => a.id === s.agentId);
-            return (
-              <Link
-                key={s.agentId}
-                href={`/agentes?agente=${s.agentId}`}
-                scroll={false}
-                aria-current={s.agentId === selectedId ? "true" : undefined}
-                className="block rounded-[20px] outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-water)]"
-              >
-              <AgentPulseCard
-                selected={s.agentId === selectedId}
-                emoji={meta?.emoji ?? "🤖"}
-                label={s.label}
-                description={meta?.description ?? ""}
-                vpsPath={meta?.vpsPath ?? ""}
-                health={s.health}
-                lastRunAt={s.lastRunAt}
-                lastRunStatus={s.lastRunStatus}
-                runsToday={s.runsToday}
-                eventsToday={s.eventsToday}
-              />
-              </Link>
-            );
-          })}
-        </div>
-
-        {pendingApprovals.length > 0 && <PendingApprovalsPanel items={pendingApprovals} />}
-
-        <MetricsRow agentId={selectedId} counts={countsByAgent[selectedId] ?? {}} />
-
-        <FlowDiagram key={selectedId} agentId={selectedId} label={selected.label} counts={countsByAgent[selectedId] ?? {}} />
-
-        <ActivityFeed events={events} label={selected.label} />
+        <SystemsMap counts={counts} />
       </div>
     </div>
   );
