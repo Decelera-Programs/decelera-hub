@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -459,8 +460,29 @@ function EntryCard({
   onDelete: (id: string) => void;
 }) {
   const [editing, setEditing] = useState(false);
-  const [menu, setMenu] = useState<"closed" | "main" | "pick">("closed");
+  const [menu, setMenu] = useState<MenuPos | null>(null);
   const [confirmDel, setConfirmDel] = useState(false);
+  const cardRef = useRef<HTMLElement>(null);
+
+  /** Abre el menú junto a la tarjeta, salvo que el clic caiga en un control propio de la tarjeta. */
+  function openMenu(target: EventTarget | null) {
+    if (target instanceof HTMLElement && target.closest("button, select, input, textarea, a, label")) return;
+    const r = cardRef.current?.getBoundingClientRect();
+    if (!r) return;
+    const W = 224;
+    const above = window.innerHeight - r.bottom < 280 && r.top > 280;
+    setConfirmDel(false);
+    setMenu({
+      x: Math.max(8, Math.min(r.right - W, window.innerWidth - W - 8)),
+      y: above ? r.top - 6 : r.bottom + 6,
+      above,
+      view: "main",
+    });
+  }
+  const closeMenu = useCallback(() => {
+    setMenu(null);
+    setConfirmDel(false);
+  }, []);
 
   const done = e.status === "done";
   const discarded = e.status === "discarded";
@@ -470,8 +492,22 @@ function EntryCard({
 
   return (
     <article
-      className="hub-reveal spotlight card group relative flex gap-3 p-3 transition-[opacity,transform,box-shadow,border-color] duration-200 hover:-translate-y-px"
-      style={{ animationDelay: `${Math.min(index, 8) * 40}ms`, opacity: discarded ? 0.55 : undefined }}
+      ref={cardRef}
+      role="button"
+      tabIndex={0}
+      onClick={(ev) => openMenu(ev.target)}
+      onKeyDown={(ev) => {
+        if ((ev.key === "Enter" || ev.key === " ") && ev.target === ev.currentTarget) {
+          ev.preventDefault();
+          openMenu(ev.target);
+        }
+      }}
+      className="hub-reveal spotlight card group relative flex cursor-pointer gap-3 p-3 transition-[opacity,transform,box-shadow,border-color] duration-200 hover:-translate-y-px"
+      style={{
+        animationDelay: `${Math.min(index, 8) * 40}ms`,
+        opacity: discarded ? 0.55 : undefined,
+        borderColor: menu ? "var(--brand-water)" : undefined,
+      }}
     >
       {/* Glifo / casilla */}
       <button
@@ -512,9 +548,7 @@ function EntryCard({
           />
         ) : (
           <p
-            onClick={() => setEditing(true)}
-            title="Pulsa para editar"
-            className="cursor-text whitespace-pre-wrap break-words text-sm leading-relaxed"
+            className="whitespace-pre-wrap break-words text-sm leading-relaxed"
             style={{
               color: done || discarded ? "var(--text-muted)" : "var(--text-primary)",
               textDecoration: done ? "line-through" : undefined,
@@ -592,102 +626,138 @@ function EntryCard({
         </div>
       </div>
 
-      {/* Menú */}
-      <div className="relative shrink-0">
-        <button
-          type="button"
-          onClick={() => {
-            setMenu((m) => (m === "closed" ? "main" : "closed"));
-            setConfirmDel(false);
-          }}
-          aria-label="Opciones"
-          className="grid h-7 w-7 place-items-center rounded-lg text-[var(--text-muted)] opacity-60 transition-opacity hover:bg-[var(--row-hover)] hover:text-[var(--text-primary)] group-hover:opacity-100"
-        >
-          ⋯
-        </button>
-        {menu !== "closed" && (
-          <div
-            className="absolute right-0 top-8 z-30 w-56 overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface-1)] py-1 shadow-lg"
-            onMouseLeave={() => {
-              setMenu("closed");
-              setConfirmDel(false);
-            }}
-          >
-            {menu === "main" ? (
+      {menu &&
+        createPortal(
+          <EntryMenu
+            pos={menu}
+            entry={e}
+            projects={projects}
+            confirmDel={confirmDel}
+            onView={(view) => setMenu((m) => (m ? { ...m, view } : m))}
+            onConfirmDel={() => setConfirmDel(true)}
+            onClose={closeMenu}
+            onEdit={() => setEditing(true)}
+            onPatch={onPatch}
+            onPromote={onPromote}
+            onToProject={onToProject}
+            onDelete={onDelete}
+          />,
+          document.body,
+        )}
+    </article>
+  );
+}
+
+/* ---------- Menú flotante (portal: no lo tapan ni lo recortan las demás tarjetas) ---------- */
+
+type MenuPos = { x: number; y: number; above: boolean; view: "main" | "pick" };
+
+function EntryMenu({
+  pos,
+  entry: e,
+  projects,
+  confirmDel,
+  onView,
+  onConfirmDel,
+  onClose,
+  onEdit,
+  onPatch,
+  onPromote,
+  onToProject,
+  onDelete,
+}: {
+  pos: MenuPos;
+  entry: LogEntry;
+  projects: ProjectOption[];
+  confirmDel: boolean;
+  onView: (v: "main" | "pick") => void;
+  onConfirmDel: () => void;
+  onClose: () => void;
+  onEdit: () => void;
+  onPatch: (id: string, local: Partial<LogEntry>, remote?: Parameters<typeof updateEntry>[1]) => void;
+  onPromote: (id: string) => void;
+  onToProject: (id: string, projectId: string) => void;
+  onDelete: (id: string) => void;
+}) {
+  useEffect(() => {
+    const onKey = (ev: KeyboardEvent) => ev.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const promoted = e.status === "promoted";
+  const discarded = e.status === "discarded";
+  const act = (fn: () => void) => () => {
+    onClose();
+    fn();
+  };
+
+  return (
+    <div className="pj fixed inset-0 z-[60]" onClick={onClose} onWheel={onClose} onContextMenu={(ev) => ev.preventDefault()}>
+      <div
+        role="menu"
+        onClick={(ev) => ev.stopPropagation()}
+        className="hub-reveal absolute w-56 overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface-1)] py-1 shadow-[0_18px_44px_-12px_rgba(45,56,82,0.45)]"
+        style={{
+          left: pos.x,
+          top: pos.y,
+          transform: pos.above ? "translateY(-100%)" : undefined,
+          animationDuration: "0.25s",
+        }}
+      >
+        {pos.view === "main" ? (
+          <>
+            <MenuItem onClick={act(onEdit)}>Editar texto</MenuItem>
+            {!promoted && (
               <>
-                {!promoted && (
-                  <>
-                    <MenuItem
-                      onClick={() => {
-                        setMenu("closed");
-                        onPromote(e.id);
-                      }}
-                    >
-                      Convertir en proyecto
-                    </MenuItem>
-                    <MenuItem onClick={() => setMenu("pick")}>Añadir a un proyecto…</MenuItem>
-                  </>
-                )}
-                {discarded ? (
-                  <MenuItem
-                    onClick={() => {
-                      setMenu("closed");
-                      onPatch(e.id, { status: "open" }, { status: "open" });
-                    }}
-                  >
-                    Restaurar
-                  </MenuItem>
-                ) : (
-                  !promoted && (
-                    <MenuItem
-                      onClick={() => {
-                        setMenu("closed");
-                        onPatch(e.id, { status: "discarded" }, { status: "discarded" });
-                      }}
-                    >
-                      Descartar
-                    </MenuItem>
-                  )
-                )}
-                <MenuItem
-                  danger
-                  onClick={() => {
-                    if (confirmDel) onDelete(e.id);
-                    else setConfirmDel(true);
-                  }}
-                >
-                  {confirmDel ? "¿Seguro? Pulsa otra vez" : "Eliminar"}
-                </MenuItem>
+                <MenuItem onClick={act(() => onPromote(e.id))}>Convertir en proyecto</MenuItem>
+                <MenuItem onClick={() => onView("pick")}>Añadir a un proyecto…</MenuItem>
               </>
-            ) : (
-              <div className="flex max-h-60 flex-col overflow-y-auto">
-                <button
-                  type="button"
-                  onClick={() => setMenu("main")}
-                  className="px-3 py-1.5 text-left text-[11px] font-semibold text-[var(--text-muted)] hover:text-[var(--text-primary)]"
-                >
-                  ← Elige proyecto
-                </button>
-                {projects.length === 0 && (
-                  <span className="px-3 py-1.5 text-xs text-[var(--text-muted)]">No hay proyectos.</span>
-                )}
-                {projects.map((p) => (
-                  <MenuItem
-                    key={p.id}
-                    onClick={() => {
-                      setMenu("closed");
-                      onToProject(e.id, p.id);
-                    }}
-                  >
-                    <span className="block truncate">{p.title}</span>
-                  </MenuItem>
-                ))}
-              </div>
             )}
+            {discarded ? (
+              <MenuItem onClick={act(() => onPatch(e.id, { status: "open" }, { status: "open" }))}>
+                Restaurar
+              </MenuItem>
+            ) : (
+              !promoted && (
+                <MenuItem onClick={act(() => onPatch(e.id, { status: "discarded" }, { status: "discarded" }))}>
+                  Descartar
+                </MenuItem>
+              )
+            )}
+            <MenuItem
+              danger
+              onClick={() => {
+                if (confirmDel) {
+                  onClose();
+                  onDelete(e.id);
+                } else onConfirmDel();
+              }}
+            >
+              {confirmDel ? "¿Seguro? Pulsa otra vez" : "Eliminar"}
+            </MenuItem>
+          </>
+        ) : (
+          <div className="flex max-h-64 flex-col overflow-y-auto">
+            <button
+              type="button"
+              onClick={() => onView("main")}
+              className="px-3 py-1.5 text-left text-[11px] font-semibold text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+            >
+              ← Elige proyecto
+            </button>
+            {projects.length === 0 && (
+              <span className="px-3 py-1.5 text-xs text-[var(--text-muted)]">No hay proyectos.</span>
+            )}
+            {projects.map((p) => (
+              <MenuItem key={p.id} onClick={act(() => onToProject(e.id, p.id))}>
+                <span className="block truncate">{p.title}</span>
+              </MenuItem>
+            ))}
           </div>
         )}
       </div>
-    </article>
+    </div>
   );
 }
 
