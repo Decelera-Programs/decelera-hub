@@ -693,7 +693,21 @@ function EntryMenu({
   };
 
   return (
-    <div className="pj fixed inset-0 z-[60]" onClick={onClose} onWheel={onClose} onContextMenu={(ev) => ev.preventDefault()}>
+    <div
+      className="pj fixed inset-0 z-[60]"
+      onClick={(ev) => {
+        // El portal propaga los eventos al árbol de React: sin esto, el clic de cierre llegaría a la
+        // tarjeta y la volvería a abrir.
+        ev.stopPropagation();
+        onClose();
+      }}
+      onWheel={onClose}
+      onContextMenu={(ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        onClose();
+      }}
+    >
       <div
         role="menu"
         onClick={(ev) => ev.stopPropagation()}
