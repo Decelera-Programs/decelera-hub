@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { CATEGORY_TINT, type HubApp, type Section } from "@/lib/apps";
 import type { CategoryFilter, TreeSection, TreeSubfolder } from "@/lib/useHub";
 import { type DragItem, DndProvider, dndClass, useDndItem, useDragging } from "./dnd";
@@ -133,6 +133,22 @@ export function DriveView({
 
   const atRoot = !here.sectionId;
   const showResults = filtering;
+
+  // Al escribir la 1ª letra se cambia del buscador del Hero al de la barra superior (otro <input>):
+  // el foco se perdía y solo entraba un carácter. Si tras el cambio el foco quedó en <body>, lo devolvemos.
+  const firstRun = useRef(true);
+  useLayoutEffect(() => {
+    if (firstRun.current) {
+      firstRun.current = false;
+      return;
+    }
+    const a = document.activeElement;
+    if (a && a !== document.body) return;
+    const el = document.getElementById("hub-search") as HTMLInputElement | null;
+    if (!el) return;
+    el.focus();
+    el.setSelectionRange(el.value.length, el.value.length);
+  }, [showResults]);
 
   return (
     <DndProvider enabled={canEdit} onDrop={handlers.onDrop}>
