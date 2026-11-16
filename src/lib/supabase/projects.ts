@@ -40,7 +40,7 @@ type ProjectRow = {
   owner: OwnerRow | null;
   project_tasks: TaskRow[] | null;
   project_docs: DocRow[] | null;
-  project_priorities: { priority_id: string }[] | null;
+  project_priorities: { priority_id: string }[] | { priority_id: string } | null;
 };
 
 type PriorityRow = {
@@ -132,7 +132,13 @@ export const getProjects = cache(async (): Promise<Project[]> => {
     team: p.team,
     startDate: p.start_date,
     endDate: p.end_date,
-    priorityIds: (p.project_priorities ?? []).map((x) => x.priority_id),
+    // Con `unique` en project_id, PostgREST devuelve un objeto (1:1) en vez de un array.
+    priorityIds: (Array.isArray(p.project_priorities)
+      ? p.project_priorities
+      : p.project_priorities
+        ? [p.project_priorities]
+        : []
+    ).map((x) => x.priority_id),
     tasks: ((p.project_tasks ?? []) as TaskRow[])
       .slice()
       .sort(byPos)
