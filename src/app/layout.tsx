@@ -17,6 +17,7 @@ const taviraj = Taviraj({
 export const metadata: Metadata = {
   title: "Decelera Brain",
   description: "Brain: herramientas internas de Decelera",
+  icons: { apple: "/icons/apple-touch-icon.png" },
 };
 
 export default function RootLayout({
