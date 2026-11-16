@@ -26,6 +26,7 @@ import {
   deleteTask as deleteTaskAction,
   moveProjects,
   renameColumn,
+  reorderColumns,
   reorderTasks as reorderTasksAction,
   toggleTask as toggleTaskAction,
   updateProject,
@@ -92,6 +93,9 @@ export function ProjectsBoard({
   const [dragId, setDragId] = useState<string | null>(null);
   const [dropCol, setDropCol] = useState<string | null>(null);
   const dragRef = useRef<string | null>(null);
+  // Arrastre de columnas (independiente del de tarjetas): columna arrastrada y dónde caería.
+  const [colDragId, setColDragId] = useState<string | null>(null);
+  const [colHover, setColHover] = useState<{ id: string; after: boolean } | null>(null);
   // Vista recordada entre recargas.
   const [viewHydrated, setViewHydrated] = useState(false);
   if (!viewHydrated) {
@@ -238,6 +242,36 @@ export function ProjectsBoard({
     const clean = label.trim() || "Sin nombre";
     setColumns((cs) => cs.map((c) => (c.id === id ? { ...c, label: clean } : c)));
     fire(renameColumn(id, clean));
+  }
+  /** Aplica un orden nuevo de columnas (optimista) y lo persiste. */
+  function applyColumnOrder(next: ProjectColumn[]) {
+    setColumns(next.map((c, i) => ({ ...c, position: i })));
+    fire(reorderColumns(next.map((c) => c.id)));
+  }
+  /** Mueve `id` antes/después de la columna `targetId`. */
+  function moveColumn(id: string, targetId: string, after: boolean) {
+    if (id === targetId) return;
+    const moving = columns.find((c) => c.id === id);
+    const rest = columns.filter((c) => c.id !== id);
+    let at = rest.findIndex((c) => c.id === targetId);
+    if (!moving || at < 0) return;
+    if (after) at += 1;
+    const next = [...rest];
+    next.splice(at, 0, moving);
+    applyColumnOrder(next);
+  }
+  /** Mueve `id` una posición a la izquierda (-1) o a la derecha (+1). */
+  function shiftColumn(id: string, dir: -1 | 1) {
+    const i = columns.findIndex((c) => c.id === id);
+    const j = i + dir;
+    if (i < 0 || j < 0 || j >= columns.length) return;
+    const next = [...columns];
+    [next[i], next[j]] = [next[j], next[i]];
+    applyColumnOrder(next);
+  }
+  function endColDrag() {
+    setColDragId(null);
+    setColHover(null);
   }
   function removeColumn(id: string) {
     setColumns((cs) => cs.filter((c) => c.id !== id));
@@ -462,10 +496,22 @@ export function ProjectsBoard({
         </div>
       ) : (
         <div className="flex min-h-0 flex-1 gap-4 overflow-x-auto pb-2 pt-4">
-        {columns.map((col) => (
+        {columns.map((col, idx) => (
           <Column
             key={col.id}
             col={col}
+            colDragging={colDragId === col.id}
+            colDragActive={colDragId !== null}
+            colDropSide={colHover?.id === col.id && colDragId !== col.id ? (colHover.after ? "after" : "before") : null}
+            onColDragStart={() => setColDragId(col.id)}
+            onColDragEnd={endColDrag}
+            onColReorderOver={(after) => setColHover({ id: col.id, after })}
+            onColReorderDrop={(after) => {
+              if (colDragId) moveColumn(colDragId, col.id, after);
+              endColDrag();
+            }}
+            onMoveLeft={idx > 0 ? () => shiftColumn(col.id, -1) : undefined}
+            onMoveRight={idx < columns.length - 1 ? () => shiftColumn(col.id, 1) : undefined}
             projects={byColumn.get(col.id) ?? []}
             priorityById={priorityById}
             dragId={dragId}
@@ -535,7 +581,25 @@ function Column({
   onAdd,
   onRename,
   onDelete,
+  colDragging = false,
+  colDragActive = false,
+  colDropSide = null,
+  onColDragStart,
+  onColDragEnd,
+  onColReorderOver,
+  onColReorderDrop,
+  onMoveLeft,
+  onMoveRight,
 }: {
+  colDragging?: boolean;
+  colDragActive?: boolean;
+  colDropSide?: "before" | "after" | null;
+  onColDragStart?: () => void;
+  onColDragEnd?: () => void;
+  onColReorderOver?: (after: boolean) => void;
+  onColReorderDrop?: (after: boolean) => void;
+  onMoveLeft?: () => void;
+  onMoveRight?: () => void;
   col: ProjectColumn;
   projects: Project[];
   priorityById: Map<string, StrategicPriority>;
@@ -558,21 +622,53 @@ function Column({
   return (
     <section
       className="flex w-[272px] shrink-0 flex-col rounded-[18px] border border-[var(--border)] bg-[color-mix(in_srgb,var(--surface-1)_55%,transparent)] shadow-[0_10px_34px_-22px_rgba(45,56,82,0.45)] backdrop-blur-md transition-colors"
-      style={isDropTarget ? { borderColor: "var(--brand-water)" } : undefined}
+      style={{
+        ...(isDropTarget ? { borderColor: "var(--brand-water)" } : null),
+        ...(colDragging ? { opacity: 0.45 } : null),
+        ...(colDropSide === "before" ? { boxShadow: "-4px 0 0 0 var(--brand-water)" } : null),
+        ...(colDropSide === "after" ? { boxShadow: "4px 0 0 0 var(--brand-water)" } : null),
+      }}
       onDragOver={(e) => {
+        if (colDragActive) {
+          // Reordenando columnas: solo las columnas reales (con handler) son destino.
+          if (onColReorderOver) {
+            e.preventDefault();
+            const r = e.currentTarget.getBoundingClientRect();
+            onColReorderOver(e.clientX > r.left + r.width / 2);
+          }
+          return;
+        }
         if (dragId) {
           e.preventDefault();
           onColDragOver();
         }
       }}
       onDrop={(e) => {
+        if (colDragActive) {
+          if (onColReorderDrop) {
+            e.preventDefault();
+            const r = e.currentTarget.getBoundingClientRect();
+            onColReorderDrop(e.clientX > r.left + r.width / 2);
+          }
+          return;
+        }
         if (dragId) {
           e.preventDefault();
           onColDrop();
         }
       }}
     >
-      <header className="flex items-center gap-2 px-3 py-2">
+      <header
+        className={`flex items-center gap-2 px-3 py-2 ${onColDragStart && !renaming ? "cursor-grab active:cursor-grabbing" : ""}`}
+        draggable={!!onColDragStart && !renaming}
+        onDragStart={(e) => {
+          if (!onColDragStart) return;
+          e.dataTransfer.effectAllowed = "move";
+          e.dataTransfer.setData("text/plain", col.id); // Firefox exige datos para iniciar el arrastre
+          onColDragStart();
+        }}
+        onDragEnd={() => onColDragEnd?.()}
+      >
         <span
           aria-hidden
           className="h-2 w-2 shrink-0 rounded-full"
@@ -612,9 +708,33 @@ function Column({
             </button>
             {menu && (
               <div
-                className="absolute right-0 top-7 z-20 w-36 overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface-1)] py-1 shadow-md"
+                className="absolute right-0 top-7 z-20 w-48 overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface-1)] py-1 shadow-md"
                 onMouseLeave={() => setMenu(false)}
               >
+                {onMoveLeft && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onMoveLeft();
+                      setMenu(false);
+                    }}
+                    className="block w-full px-3 py-1.5 text-left text-sm text-[var(--text-secondary)] hover:bg-[var(--row-hover)] hover:text-[var(--text-primary)]"
+                  >
+                    ← Mover a la izquierda
+                  </button>
+                )}
+                {onMoveRight && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onMoveRight();
+                      setMenu(false);
+                    }}
+                    className="block w-full px-3 py-1.5 text-left text-sm text-[var(--text-secondary)] hover:bg-[var(--row-hover)] hover:text-[var(--text-primary)]"
+                  >
+                    Mover a la derecha →
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => {
