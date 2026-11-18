@@ -339,13 +339,17 @@ export async function* streamAnswer(
     ];
 
     // Las consultas con campos "solo si se pregunta" quedan marcadas en el registro.
-    await hubDb.from("brain_queries").insert({
-      member_id: memberId,
-      question,
-      answer,
-      sources: usedSensitive ? [...sources, { ref: "sensibles", kind: "Aviso", snippet: "Se consultaron campos sensibles" }] : sources,
-    });
-    yield { type: "done", sources, consulted: all.length };
+    const { data: saved } = await hubDb
+      .from("brain_queries")
+      .insert({
+        member_id: memberId,
+        question,
+        answer,
+        sources: usedSensitive ? [...sources, { ref: "sensibles", kind: "Aviso", snippet: "Se consultaron campos sensibles" }] : sources,
+      })
+      .select("id")
+      .single();
+    yield { type: "done", sources, consulted: all.length, queryId: (saved?.id as string | undefined) ?? null };
   } catch (e) {
     if (signal?.aborted) return; // el usuario cerró o cambió de página: no hay a quién contestar
     if (e instanceof RateLimited) {

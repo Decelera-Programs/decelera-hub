@@ -24,7 +24,7 @@ export type BrainSource = {
  */
 export type BrainEvent =
   | { type: "delta"; text: string }
-  | { type: "done"; sources: BrainSource[]; consulted: number }
+  | { type: "done"; sources: BrainSource[]; consulted: number; queryId: string | null }
   | { type: "error"; error: string };
 
 /** historico.<tabla> → etiqueta de ficha */

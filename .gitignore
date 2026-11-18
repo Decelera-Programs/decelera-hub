@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# informes del Brain eval
+/scripts/brain-eval/reports/

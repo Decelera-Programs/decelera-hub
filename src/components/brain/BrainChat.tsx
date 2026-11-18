@@ -9,6 +9,7 @@ type Turn = {
   answer: string;
   sources: BrainSource[];
   consulted: number;
+  queryId: string | null;
   error: string | null;
   done: boolean;
 };
@@ -115,6 +116,73 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
+/** 👍/👎 de una respuesta. Con 👎 se ofrece contar qué falló (opcional); todo va a hub.brain_queries. */
+function Feedback({ queryId }: { queryId: string }) {
+  const [value, setValue] = useState<1 | -1 | null>(null);
+  const [note, setNote] = useState("");
+  const [sent, setSent] = useState(false);
+
+  async function send(v: 1 | -1, n?: string) {
+    try {
+      await fetch("/api/brain/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ queryId, value: v, note: n }),
+      });
+    } catch {
+      /* la valoración es opcional: si falla, no se molesta a nadie */
+    }
+  }
+
+  const btn = (v: 1 | -1, label: string, d: string) => (
+    <button
+      type="button"
+      aria-label={label}
+      aria-pressed={value === v}
+      onClick={() => {
+        setValue(v);
+        setSent(v === 1);
+        send(v);
+      }}
+      className={`rounded-lg p-1.5 transition-colors hover:bg-[var(--row-hover)] ${
+        value === v ? "text-[var(--brand-sea)]" : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+      }`}
+    >
+      <Icon d={d} className="h-3.5 w-3.5" />
+    </button>
+  );
+
+  return (
+    <div className="flex flex-wrap items-center gap-1">
+      {btn(1, "Respuesta útil", "M7 11v9H4v-9zM7 11l4-8a2 2 0 0 1 2 2v4h6a2 2 0 0 1 2 2l-1 6a2 2 0 0 1-2 2H7")}
+      {btn(-1, "Respuesta mejorable", "M17 13V4h3v9zM17 13l-4 8a2 2 0 0 1-2-2v-4H5a2 2 0 0 1-2-2l1-6a2 2 0 0 1 2-2h11")}
+      {value === -1 && !sent && (
+        <form
+          className="ml-1 flex items-center gap-1.5"
+          onSubmit={(e) => {
+            e.preventDefault();
+            send(-1, note);
+            setSent(true);
+          }}
+        >
+          <input
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            maxLength={500}
+            placeholder="¿Qué falló? (opcional)"
+            aria-label="¿Qué falló?"
+            className="w-56 rounded-lg border border-[var(--border)] bg-[var(--surface-1)] px-2.5 py-1 text-xs text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--brand-sea)]"
+          />
+          <button type="submit" className="rounded-lg px-2 py-1 text-xs font-semibold text-[var(--brand-sea)] hover:bg-[var(--row-hover)]">
+            Enviar
+          </button>
+        </form>
+      )}
+      {sent && <span className="ml-1 text-xs text-[var(--text-muted)]">Gracias por avisar.</span>}
+    </div>
+  );
+}
+
 function Mark({ pulse = false }: { pulse?: boolean }) {
   return (
     // eslint-disable-next-line @next/next/no-img-element
@@ -154,7 +222,8 @@ export function BrainChat() {
 
   function handleEvent(ev: BrainEvent) {
     if (ev.type === "delta") patchLast((t) => ({ ...t, answer: t.answer + ev.text }));
-    else if (ev.type === "done") patchLast((t) => ({ ...t, sources: ev.sources, consulted: ev.consulted }));
+    else if (ev.type === "done")
+      patchLast((t) => ({ ...t, sources: ev.sources, consulted: ev.consulted, queryId: ev.queryId }));
     else patchLast((t) => ({ ...t, error: ev.error }));
   }
 
@@ -163,7 +232,7 @@ export function BrainChat() {
     if (!text || busy) return;
     setQuestion("");
     setBusy(true);
-    setTurns((ts) => [...ts, { question: text, answer: "", sources: [], consulted: 0, error: null, done: false }]);
+    setTurns((ts) => [...ts, { question: text, answer: "", sources: [], consulted: 0, queryId: null, error: null, done: false }]);
 
     const ctrl = new AbortController();
     abortRef.current = ctrl;
@@ -311,8 +380,9 @@ export function BrainChat() {
                   )}
 
                   {t.done && t.answer && (
-                    <div className="mt-3 -ml-2">
+                    <div className="-ml-2 mt-3 flex flex-wrap items-center gap-1">
                       <CopyButton text={t.answer} />
+                      {t.queryId && <Feedback queryId={t.queryId} />}
                     </div>
                   )}
                 </div>
