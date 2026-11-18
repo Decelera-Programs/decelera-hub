@@ -13,13 +13,6 @@ type Turn = {
   done: boolean;
 };
 
-const EXAMPLES = [
-  "¿Qué startups están levantando ronda o buscan subvenciones tipo ENISA o CDTI?",
-  "¿Qué impresión tuvimos de las startups de ciberseguridad con las que hablamos?",
-  "¿Cuántos deals hay por stage en Mexico 2026?",
-  "¿Qué dudas o riesgos hemos anotado sobre startups en fase pre-seed?",
-];
-
 const MAX_CHARS = 600;
 
 /** Convierte [1], [D1]… del texto de la respuesta en marcas pequeñas, sin tocar el resto. */
@@ -266,39 +259,19 @@ export function BrainChat() {
     </form>
   );
 
-  // Estado inicial: saludo y cuadro de texto en el centro, como en Claude.ai.
-  if (turns.length === 0) {
-    return (
-      <div className="flex min-h-0 flex-1 flex-col items-center overflow-y-auto px-4">
-        <div className="my-auto w-full max-w-2xl py-10">
-          <div className="mb-8 flex items-center justify-center gap-3">
-            <Mark />
-            <h1 className="page-title text-3xl text-[var(--text-primary)] sm:text-4xl">¿Qué quieres saber?</h1>
-          </div>
-          {composer}
-          <p className="mx-auto mt-4 max-w-md text-center text-[13px] leading-relaxed text-[var(--text-muted)]">
-            Respondo con lo que Decelera ya ha anotado en el CRM, y cada respuesta cita sus fuentes.
-          </p>
-          <div className="mt-6 flex flex-wrap justify-center gap-2">
-            {EXAMPLES.map((ex) => (
-              <button
-                key={ex}
-                type="button"
-                onClick={() => submit(ex)}
-                className="max-w-full rounded-full border border-[var(--border)] bg-[var(--surface-1)]/70 px-3.5 py-2 text-left text-[13px] leading-snug text-[var(--text-secondary)] transition-colors hover:bg-[var(--row-hover)] hover:text-[var(--text-primary)]"
-              >
-                {ex}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-6 pt-8">
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pb-6 pt-8">
+        {turns.length === 0 && (
+          // Estado inicial: saludo centrado en el espacio libre; el cuadro de texto queda abajo, como en Claude.ai.
+          <div className="my-auto flex flex-col items-center gap-3 text-center">
+            <Mark />
+            <h1 className="page-title text-3xl text-[var(--text-primary)] sm:text-4xl">¿Qué quieres saber?</h1>
+            <p className="max-w-md text-[13px] leading-relaxed text-[var(--text-muted)]">
+              Respondo con lo que Decelera ya ha anotado en el CRM, y cada respuesta cita sus fuentes.
+            </p>
+          </div>
+        )}
         <div className="mx-auto flex w-full max-w-3xl flex-col gap-10" aria-live="polite">
           {turns.map((t, i) => (
             <section key={i} className="flex flex-col gap-6">
