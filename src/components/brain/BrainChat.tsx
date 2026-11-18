@@ -260,18 +260,19 @@ export function BrainChat() {
   );
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pb-6 pt-8">
-        {turns.length === 0 && (
-          // Estado inicial: saludo centrado en el espacio libre; el cuadro de texto queda abajo, como en Claude.ai.
-          <div className="my-auto flex flex-col items-center gap-3 text-center">
-            <Mark />
-            <h1 className="page-title text-3xl text-[var(--text-primary)] sm:text-4xl">¿Qué quieres saber?</h1>
-            <p className="max-w-md text-[13px] leading-relaxed text-[var(--text-muted)]">
-              Respondo con lo que Decelera ya ha anotado en el CRM, y cada respuesta cita sus fuentes.
-            </p>
-          </div>
-        )}
+    // Como en Claude.ai: al empezar, saludo y cuadro de texto centrados en la pantalla; al enviar la primera
+    // pregunta el cuadro baja al fondo. El cuadro es siempre el mismo elemento (mantiene el foco al bajar).
+    <div className={`flex min-h-0 flex-1 flex-col ${turns.length === 0 ? "justify-center" : ""}`}>
+      {turns.length === 0 ? (
+        <div className="flex flex-col items-center gap-3 px-4 pb-8 text-center">
+          <Mark />
+          <h1 className="page-title text-3xl text-[var(--text-primary)] sm:text-4xl">¿Qué quieres saber?</h1>
+          <p className="max-w-md text-[13px] leading-relaxed text-[var(--text-muted)]">
+            Respondo con lo que Decelera ya ha anotado en el CRM, y cada respuesta cita sus fuentes.
+          </p>
+        </div>
+      ) : (
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-6 pt-8">
         <div className="mx-auto flex w-full max-w-3xl flex-col gap-10" aria-live="polite">
           {turns.map((t, i) => (
             <section key={i} className="flex flex-col gap-6">
@@ -321,6 +322,7 @@ export function BrainChat() {
           <div ref={endRef} />
         </div>
       </div>
+      )}
 
       <div className="shrink-0 px-4 pb-4 pt-2">
         <div className="mx-auto w-full max-w-3xl">
