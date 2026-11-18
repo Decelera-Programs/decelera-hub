@@ -1,16 +1,20 @@
 import "server-only";
+import Anthropic from "@anthropic-ai/sdk";
 import { hubDb } from "@/lib/supabase/hub";
-import { KIND_LABEL, TYPE_LABEL, type BrainAnswer, type BrainSource } from "@/lib/brain-shared";
+import { KIND_LABEL, TYPE_LABEL, type BrainEvent, type BrainSource } from "@/lib/brain-shared";
 
 /**
  * "Pregunta al Brain": búsqueda semántica sobre hub.brain_chunks (notas, comentarios y descripciones de
- * historico, indexados por attio-postgres-sync/index.py) + respuesta redactada por Claude con citas.
+ * historico, indexados por attio-postgres-sync/index.py) + respuesta redactada por Claude con citas, en streaming.
  * Solo lectura: no escribe en Attio ni en Slack. Todo corre en el servidor (las claves no llegan al navegador).
  */
 
 // Debe coincidir con el modelo con el que se indexó (index.py): si cambia, hay que reindexar.
 const VOYAGE_MODEL = "voyage-4";
 const ANSWER_MODEL = "claude-sonnet-5-5";
+// Medido con preguntas reales: `medium` no gasta tokens en razonar y responde en ~7 s con el mismo contenido que
+// `high` (~13 s, 700+ tokens de razonamiento). Es lo que hace que el streaming empiece casi al instante.
+const ANSWER_EFFORT = "medium" as const;
 const MATCH_COUNT = 12;
 const MAX_QUESTION_CHARS = 600;
 /** Tope por persona para controlar el gasto en la API de Anthropic. */
@@ -38,6 +42,8 @@ type Match = {
   autor: string | null;
 };
 
+class RateLimited extends Error {}
+
 async function embedQuestion(question: string): Promise<number[]> {
   const key = process.env.VOYAGE_API_KEY;
   if (!key) throw new Error("falta VOYAGE_API_KEY");
@@ -59,8 +65,6 @@ async function embedQuestion(question: string): Promise<number[]> {
   }
   throw new RateLimited();
 }
-
-class RateLimited extends Error {}
 
 async function findMatches(embedding: number[]): Promise<Match[]> {
   const { data, error } = await hubDb.rpc("brain_match", {
@@ -94,34 +98,22 @@ async function recordNames(matches: Match[]): Promise<Map<string, string>> {
   return names;
 }
 
-async function generateAnswer(question: string, context: string): Promise<string> {
-  const key = process.env.ANTHROPIC_API_KEY;
-  if (!key) throw new Error("falta ANTHROPIC_API_KEY");
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-    body: JSON.stringify({
-      model: ANSWER_MODEL,
-      // El modelo razona antes de responder y ese razonamiento cuenta como salida: con 1200 la respuesta salía cortada.
-      max_tokens: 4096,
-      system: SYSTEM_PROMPT,
-      messages: [{ role: "user", content: `Fragmentos:\n\n${context}\n\nPregunta: ${question}` }],
-    }),
-    signal: AbortSignal.timeout(90_000),
-  });
-  if (!res.ok) throw new Error(`Anthropic ${res.status}`);
-  const json = (await res.json()) as { content: { type: string; text?: string }[]; stop_reason?: string };
-  const text = json.content.filter((b) => b.type === "text").map((b) => b.text ?? "").join("").trim();
-  return json.stop_reason === "max_tokens"
-    ? `${text}\n\n(La respuesta se ha cortado por longitud. Prueba con una pregunta más concreta.)`
-    : text;
-}
-
-export async function answerQuestion(memberId: string, rawQuestion: string): Promise<BrainAnswer> {
+/**
+ * Responde una pregunta emitiendo eventos: `delta` con cada trozo de texto según Claude lo escribe, y al final
+ * `done` con las fuentes citadas (o `error`). Cualquier miembro activo puede preguntar; el límite por hora se
+ * aplica aquí. Los errores se devuelven como evento, no se lanzan (en producción se enmascaran).
+ */
+export async function* streamAnswer(
+  memberId: string,
+  rawQuestion: string,
+  signal?: AbortSignal,
+): AsyncGenerator<BrainEvent> {
   const question = rawQuestion.trim().slice(0, MAX_QUESTION_CHARS);
-  if (question.length < 3) return { ok: false, error: "Escribe una pregunta un poco más completa." };
+  if (question.length < 3) {
+    yield { type: "error", error: "Escribe una pregunta un poco más completa." };
+    return;
+  }
 
-  // Límite por persona y hora.
   const since = new Date(Date.now() - 3_600_000).toISOString();
   const { count } = await hubDb
     .from("brain_queries")
@@ -129,13 +121,22 @@ export async function answerQuestion(memberId: string, rawQuestion: string): Pro
     .eq("member_id", memberId)
     .gte("created_at", since);
   if ((count ?? 0) >= HOURLY_LIMIT) {
-    return { ok: false, error: `Has llegado al límite de ${HOURLY_LIMIT} preguntas por hora. Vuelve a intentarlo en un rato.` };
+    yield { type: "error", error: `Has llegado al límite de ${HOURLY_LIMIT} preguntas por hora. Vuelve a intentarlo en un rato.` };
+    return;
+  }
+
+  const anthropicKey = process.env.ANTHROPIC_API_KEY;
+  if (!anthropicKey) {
+    console.error("[brain] falta ANTHROPIC_API_KEY");
+    yield { type: "error", error: "No he podido responder. Prueba de nuevo en un momento." };
+    return;
   }
 
   try {
     const matches = await findMatches(await embedQuestion(question));
     if (!matches.length) {
-      return { ok: false, error: "Todavía no hay nada indexado para responder. Prueba más tarde." };
+      yield { type: "error", error: "Todavía no hay nada indexado para responder. Prueba más tarde." };
+      return;
     }
     const names = await recordNames(matches);
 
@@ -158,18 +159,50 @@ export async function answerQuestion(memberId: string, rawQuestion: string): Pro
       })
       .join("\n\n---\n\n");
 
-    const answer = await generateAnswer(question, context);
+    const client = new Anthropic({ apiKey: anthropicKey });
+    const stream = client.messages.stream(
+      {
+        model: ANSWER_MODEL,
+        max_tokens: 4096,
+        system: SYSTEM_PROMPT,
+        output_config: { effort: ANSWER_EFFORT },
+        messages: [{ role: "user", content: `Fragmentos:\n\n${context}\n\nPregunta: ${question}` }],
+      },
+      { signal },
+    );
+
+    let answer = "";
+    for await (const event of stream) {
+      if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
+        answer += event.delta.text;
+        yield { type: "delta", text: event.delta.text };
+      }
+    }
+    const final = await stream.finalMessage();
+
+    if (final.stop_reason === "refusal") {
+      yield { type: "error", error: "No puedo responder a esta pregunta. Prueba a reformularla." };
+      return;
+    }
+    if (final.stop_reason === "max_tokens") {
+      const note = "\n\n(La respuesta se ha cortado por longitud. Prueba con una pregunta más concreta.)";
+      answer += note;
+      yield { type: "delta", text: note };
+    }
+
     // Solo se muestran las fuentes que la respuesta cita; el resto se resume como "consultados".
     const cited = new Set([...answer.matchAll(/\[(\d+)\]/g)].map((x) => Number(x[1])));
     const sources = all.filter((s) => cited.has(s.n));
 
     await hubDb.from("brain_queries").insert({ member_id: memberId, question, answer, sources });
-    return { ok: true, answer, sources, consulted: all.length };
+    yield { type: "done", sources, consulted: all.length };
   } catch (e) {
+    if (signal?.aborted) return; // el usuario cerró o cambió de página: no hay a quién contestar
     if (e instanceof RateLimited) {
-      return { ok: false, error: "El servicio de búsqueda está saturado ahora mismo. Prueba de nuevo en un minuto." };
+      yield { type: "error", error: "El servicio de búsqueda está saturado ahora mismo. Prueba de nuevo en un minuto." };
+      return;
     }
     console.error("[brain] error", e);
-    return { ok: false, error: "No he podido responder. Prueba de nuevo en un momento." };
+    yield { type: "error", error: "No he podido responder. Prueba de nuevo en un momento." };
   }
 }

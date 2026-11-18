@@ -16,9 +16,14 @@ export type BrainSource = {
   snippet: string;
 };
 
-export type BrainAnswer =
-  | { ok: true; answer: string; sources: BrainSource[]; consulted: number }
-  | { ok: false; error: string };
+/**
+ * Eventos que el servidor envía al navegador (una línea JSON por evento, NDJSON):
+ * `delta` va llegando mientras Claude escribe; `done` cierra con las fuentes citadas; `error` corta.
+ */
+export type BrainEvent =
+  | { type: "delta"; text: string }
+  | { type: "done"; sources: BrainSource[]; consulted: number }
+  | { type: "error"; error: string };
 
 /** historico.<tabla> → etiqueta de ficha */
 export const KIND_LABEL: Record<string, string> = {
