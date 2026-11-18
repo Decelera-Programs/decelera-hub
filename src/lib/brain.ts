@@ -19,7 +19,7 @@ const ANSWER_EFFORT = "medium" as const;
 const MATCH_COUNT = 12;
 const MAX_QUESTION_CHARS = 600;
 /** Tope por persona para controlar el gasto en la API de Anthropic. */
-const HOURLY_LIMIT = 30;
+const HOURLY_LIMIT = Number(process.env.BRAIN_HOURLY_LIMIT) || 30; // la variable solo la sube el servidor de pruebas (brain-eval)
 
 const MAX_TOOL_ROUNDS = 4;
 const MAX_TOOL_RESULT_CHARS = 12_000;
@@ -83,6 +83,7 @@ let schemaCache: { at: number; text: string } | null = null;
 /** Catálogo de columnas para el prompt, leído de la base de datos (no se queda desfasado). Se cachea 10 min. */
 async function schemaPrompt(): Promise<string> {
   if (schemaCache && Date.now() - schemaCache.at < 600_000) return schemaCache.text;
+  await hubDb.rpc("brain_refresh_grants"); // que catálogo y permisos coincidan aunque el sync haya cambiado las vistas
   const { data, error } = await hubDb.rpc("brain_schema");
   if (error) throw new Error(`brain_schema: ${error.message}`);
   const rows = (data ?? []) as { tabla: string; columna: string; tipo: string; sensible: boolean }[];
@@ -104,8 +105,18 @@ async function schemaPrompt(): Promise<string> {
 
 /** Ejecuta la consulta con el rol de solo lectura; el error vuelve al modelo para que la corrija. */
 async function runQuery(sql: string, sensitive: boolean): Promise<{ ok: boolean; content: string; rows: number }> {
-  const { data, error } = await hubDb.rpc("brain_sql", { q: sql, allow_sensitive: sensitive });
-  if (error) return { ok: false, content: `Error: ${error.message}`, rows: 0 };
+  let { data, error } = await hubDb.rpc("brain_sql", { q: sql, allow_sensitive: sensitive });
+  if (error && /permission denied/i.test(error.message)) {
+    // El sync regenera las vistas y puede quitar permisos: se reaplican y se reintenta una vez.
+    await hubDb.rpc("brain_refresh_grants");
+    ({ data, error } = await hubDb.rpc("brain_sql", { q: sql, allow_sensitive: sensitive }));
+  }
+  if (error) {
+    const hint = /permission denied/i.test(error.message)
+      ? " Has pedido una columna de la lista SOLO SI SE PREGUNTA (o has usado SELECT *). Reintenta nombrando solo las columnas que necesitas, sin esas, y sin incluir_sensibles."
+      : "";
+    return { ok: false, content: `Error: ${error.message}.${hint}`, rows: 0 };
+  }
   const rows = (data ?? []) as unknown[];
   let content = JSON.stringify(rows);
   if (content.length > MAX_TOOL_RESULT_CHARS) content = content.slice(0, MAX_TOOL_RESULT_CHARS) + " …(resultado recortado)";
@@ -256,6 +267,8 @@ export async function* streamAnswer(
 
     let answer = "";
     const dataSources: DataSource[] = [];
+    // Consultas que dieron error: no se muestran, pero quedan en el registro para depurar.
+    const failed: { ref: string; kind: string; snippet: string }[] = [];
     let usedSensitive = false;
 
     for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
@@ -313,6 +326,7 @@ export async function* streamAnswer(
             content: `[D${dataSources.length}] ${r.content}`,
           });
         } else {
+          failed.push({ ref: "fallida", kind: "Consulta fallida", snippet: `${sql}\n→ ${r.content}` });
           results.push({ type: "tool_result", tool_use_id: block.id, content: r.content, is_error: true });
         }
       }
@@ -345,7 +359,11 @@ export async function* streamAnswer(
         member_id: memberId,
         question,
         answer,
-        sources: usedSensitive ? [...sources, { ref: "sensibles", kind: "Aviso", snippet: "Se consultaron campos sensibles" }] : sources,
+        sources: [
+          ...sources,
+          ...(usedSensitive ? [{ ref: "sensibles", kind: "Aviso", snippet: "Se consultaron campos sensibles" }] : []),
+          ...failed,
+        ],
       })
       .select("id")
       .single();
