@@ -21,8 +21,8 @@ const EXAMPLES = [
 
 /** Convierte [1], [2][3]… del texto de la respuesta en marcas pequeñas, sin tocar el resto. */
 function renderAnswer(text: string) {
-  return text.split(/(\[\d+\])/g).map((part, i) =>
-    /^\[\d+\]$/.test(part) ? (
+  return text.split(/(\[D?\d+\])/g).map((part, i) =>
+    /^\[D?\d+\]$/.test(part) ? (
       <sup key={i} className="mx-0.5 font-semibold text-[var(--brand-sea)]">
         {part.slice(1, -1)}
       </sup>
@@ -37,14 +37,20 @@ function SourceCard({ s }: { s: BrainSource }) {
   return (
     <li className="rounded-xl border border-[var(--border)] bg-[var(--surface-1)]/70 px-3 py-2.5">
       <div className="flex items-baseline gap-2">
-        <span className="text-xs font-semibold text-[var(--brand-sea)]">[{s.n}]</span>
+        <span className="text-xs font-semibold text-[var(--brand-sea)]">[{s.ref}]</span>
         <span className="min-w-0 truncate text-sm font-semibold text-[var(--text-primary)]">{s.name}</span>
         <span className="shrink-0 rounded-full bg-[var(--pill-neutral-bg)] px-2 py-0.5 text-[11px] text-[var(--text-secondary)]">
           {s.kind}
         </span>
       </div>
       {meta && <div className="mt-0.5 text-xs text-[var(--text-muted)]">{meta}</div>}
-      <p className="mt-1 text-[13px] leading-relaxed text-[var(--text-secondary)]">{s.snippet}…</p>
+      {s.isQuery ? (
+        <pre className="mt-1 overflow-x-auto whitespace-pre-wrap break-words text-xs leading-relaxed text-[var(--text-secondary)]">
+          {s.snippet}
+        </pre>
+      ) : (
+        <p className="mt-1 text-[13px] leading-relaxed text-[var(--text-secondary)]">{s.snippet}…</p>
+      )}
     </li>
   );
 }
@@ -176,7 +182,7 @@ export function BrainChat() {
                     </div>
                     <ul className="flex flex-col gap-2">
                       {t.sources.map((s) => (
-                        <SourceCard key={s.n} s={s} />
+                        <SourceCard key={s.ref} s={s} />
                       ))}
                     </ul>
                   </div>

@@ -1,8 +1,8 @@
 /** Tipos y etiquetas compartidos entre la lógica de servidor del Brain y su interfaz. Sin dependencias de servidor. */
 
 export type BrainSource = {
-  /** Número con el que la respuesta cita el fragmento: [1], [2]… */
-  n: number;
+  /** Marca con la que la respuesta cita la fuente: "1", "2"… (fragmentos de notas) o "D1", "D2"… (consultas de datos). */
+  ref: string;
   /** Ficha de origen: "Deal", "Empresa", "Persona" o "EM". */
   kind: string;
   /** Nombre de la ficha (startup, persona…). */
@@ -12,8 +12,10 @@ export type BrainSource = {
   fecha: string | null;
   autor: string | null;
   titulo: string | null;
-  /** Arranque del fragmento, para que se vea de dónde sale la cita. */
+  /** Arranque del fragmento, para que se vea de dónde sale la cita (o la consulta SQL, si es de datos). */
   snippet: string;
+  /** true si la fuente es una consulta de datos (se muestra el SQL tal cual). */
+  isQuery?: boolean;
 };
 
 /**
