@@ -2,6 +2,7 @@ import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
 import { hubDb } from "@/lib/supabase/hub";
 import { KIND_LABEL, TYPE_LABEL, type BrainEvent, type BrainSource } from "@/lib/brain-shared";
+import { CRM_CONTEXT } from "@/lib/brain-context";
 
 /**
  * "Pregunta al Brain": búsqueda semántica sobre hub.brain_chunks (notas, comentarios y descripciones de
@@ -245,7 +246,7 @@ export async function* streamAnswer(
       { type: "text" as const, text: SYSTEM_PROMPT },
       {
         type: "text" as const,
-        text: `Campos disponibles en consultar_datos:\n\n${await schemaPrompt()}`,
+        text: `${CRM_CONTEXT}\n\nCampos disponibles en consultar_datos:\n\n${await schemaPrompt()}`,
         cache_control: { type: "ephemeral" as const },
       },
     ];
