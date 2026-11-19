@@ -1,7 +1,8 @@
 import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
 import { hubDb } from "@/lib/supabase/hub";
-import { KIND_LABEL, TYPE_LABEL, type BrainEvent, type BrainSource } from "@/lib/brain-shared";
+import { KIND_LABEL, TYPE_LABEL, type BrainCard, type BrainEvent, type BrainSource } from "@/lib/brain-shared";
+import { getCards, getSections, getSubfolders, type Member } from "@/lib/hub";
 import { CRM_CONTEXT } from "@/lib/brain-context";
 
 /**
@@ -27,9 +28,10 @@ const MAX_TOOL_RESULT_CHARS = 12_000;
 
 const SYSTEM_PROMPT = `Eres el Brain de Decelera: respondes preguntas del equipo con lo que Decelera ya sabe de sus startups, personas y programas.
 
-Tienes dos fuentes:
+Tienes tres fuentes:
 1. Fragmentos numerados de notas y comentarios del CRM (te llegan con la pregunta). Cítalos así: [1] o [2][3].
 2. La herramienta consultar_datos, que ejecuta un SELECT sobre los campos estructurados del CRM (stage, sector, ronda, cifras, fechas, scores…). Úsala para recuentos, listados, filtros y comparaciones; nunca cuentes ni sumes a mano a partir de fragmentos. Cita cada consulta con su marca: [D1], [D2]…
+3. La herramienta listar_tarjetas, que devuelve el catálogo del hub: los dashboards, herramientas, documentos y datos que esta persona puede abrir, con su descripción y dónde están. Úsala cuando pregunten dónde ver o encontrar un dashboard, herramienta o documento, o cómo acceder a algo.
 
 Reglas:
 - Responde SOLO con esas fuentes. No uses conocimiento externo ni inventes datos.
@@ -42,7 +44,14 @@ Sobre consultar_datos:
 - Una sola sentencia SELECT en PostgreSQL, sobre las vistas historico.deals_live, historico.companies_live, historico.people_live y historico.ems_live. Máximo 50 filas: usa agregados (count, group by) y LIMIT.
 - No uses SELECT *: nombra las columnas. Si no conoces los valores de un campo (p. ej. los stage), míralos primero con un select distinct.
 - Los campos de la lista "SOLO SI SE PREGUNTA" son datos de contacto y personales. Consúltalos, con incluir_sensibles=true, únicamente cuando la pregunta pida expresamente ese dato (p. ej. "¿cuál es el email de X?"). Si la pregunta no va de eso, no los consultes ni los menciones.
-- Si una consulta da error, corrígela y reinténtala.`;
+- Si una consulta da error, corrígela y reinténtala.
+
+Sobre listar_tarjetas:
+- Para recomendar una tarjeta, cítala con su marca ([C1], [C2]…) en la frase donde la mencionas. La tarjeta se muestra sola debajo de tu respuesta, con su botón para abrirla: no pegues enlaces ni la describas con detalle; di en una frase qué es y dónde está en el hub (sección y carpeta).
+- Cada tarjeta trae su descripción: léela y decide por lo que dice (qué muestra, para qué sirve, de qué programa o fondo es), no solo por el título.
+- Recomienda solo tarjetas que devuelva la herramienta. Lo que cites con marca ([C1]…) se muestra como tarjeta, así que cita únicamente las que recomiendas como respuesta.
+- Si una tarjeta encaja claramente, cita solo esa: no añadas otras "por si acaso" ni como alternativa. Cita dos solo cuando la pregunta sea de verdad ambigua entre ellas.
+- Si ninguna encaja, di que no hay una tarjeta para eso. No cites con marca algo que solo se parece de lejos (si quieres, menciónalo por su nombre, sin marca).`;
 
 type DataSource = { ref: string; sql: string; rows: number };
 
@@ -63,6 +72,47 @@ const CONSULTAR_DATOS: Anthropic.Tool = {
     required: ["sql"],
   },
 };
+
+const LISTAR_TARJETAS: Anthropic.Tool = {
+  name: "listar_tarjetas",
+  description:
+    "Devuelve el catálogo de tarjetas del hub (dashboards, herramientas, documentos y datos) que esta persona puede ver, con título, categoría, descripción y su ubicación (sección › carpeta). Sin parámetros.",
+  input_schema: { type: "object", properties: {} },
+};
+
+const MAX_CARDS = 80;
+
+/** Catálogo del hub visible para esta persona (respeta tarjetas restringidas), numerado C1, C2… */
+async function loadCards(member: Pick<Member, "id" | "role">): Promise<BrainCard[]> {
+  const [cards, sections, subfolders] = await Promise.all([
+    getCards(member.id, member.role === "admin"),
+    getSections(),
+    getSubfolders(),
+  ]);
+  const sectionName = new Map(sections.map((s) => [s.id, s.label]));
+  const subById = new Map(subfolders.map((s) => [s.id, s]));
+  const folderPath = (subId: string | null): string[] => {
+    const out: string[] = [];
+    for (let id = subId, guard = 0; id && guard < 6; guard++) {
+      const s = subById.get(id);
+      if (!s) break;
+      out.unshift(s.label);
+      id = s.parentId;
+    }
+    return out;
+  };
+  return cards.slice(0, MAX_CARDS).map((c, i) => ({
+    ref: `C${i + 1}`,
+    slug: c.slug,
+    title: c.title,
+    category: c.category,
+    path: [c.sectionId ? sectionName.get(c.sectionId) : null, ...folderPath(c.subfolderId)].filter(Boolean).join(" › "),
+    description: c.description,
+    href: c.href,
+    external: c.external,
+    embeddable: c.embeddable,
+  }));
+}
 
 const TYPE_SHORT: Record<string, string> = {
   text: "",
@@ -204,10 +254,11 @@ async function recordNames(matches: Match[]): Promise<Map<string, string>> {
  * aplica aquí. Los errores se devuelven como evento, no se lanzan (en producción se enmascaran).
  */
 export async function* streamAnswer(
-  memberId: string,
+  member: Pick<Member, "id" | "role">,
   rawQuestion: string,
   signal?: AbortSignal,
 ): AsyncGenerator<BrainEvent> {
+  const memberId = member.id;
   const question = rawQuestion.trim().slice(0, MAX_QUESTION_CHARS);
   if (question.length < 3) {
     yield { type: "error", error: "Escribe una pregunta un poco más completa." };
@@ -277,6 +328,8 @@ export async function* streamAnswer(
     // Consultas que dieron error: no se muestran, pero quedan en el registro para depurar.
     const failed: { ref: string; kind: string; snippet: string }[] = [];
     let usedSensitive = false;
+    // Catálogo de tarjetas del hub: se carga solo si el modelo lo pide.
+    let catalog: BrainCard[] | null = null;
 
     for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
       const stream = client.messages.stream(
@@ -284,7 +337,7 @@ export async function* streamAnswer(
           model: ANSWER_MODEL,
           max_tokens: 4096,
           system,
-          tools: [CONSULTAR_DATOS],
+          tools: [CONSULTAR_DATOS, LISTAR_TARJETAS],
           output_config: { effort: ANSWER_EFFORT },
           messages,
         },
@@ -320,6 +373,19 @@ export async function* streamAnswer(
       const results: Anthropic.ToolResultBlockParam[] = [];
       for (const block of final.content) {
         if (block.type !== "tool_use") continue;
+        if (block.name === "listar_tarjetas") {
+          catalog ??= await loadCards(member);
+          const text = catalog.length
+            ? catalog
+                .map(
+                  (c) =>
+                    `[${c.ref}] ${c.title} · ${c.category} · ${c.path || "sin carpeta"}${c.description ? ` · ${c.description}` : ""}`,
+                )
+                .join("\n")
+            : "No hay tarjetas visibles para esta persona.";
+          results.push({ type: "tool_result", tool_use_id: block.id, content: text });
+          continue;
+        }
         const input = block.input as { sql?: unknown; incluir_sensibles?: unknown };
         const sql = typeof input.sql === "string" ? input.sql : "";
         const sensitive = input.incluir_sensibles === true;
@@ -341,7 +407,8 @@ export async function* streamAnswer(
     }
 
     // Solo se muestran las fuentes que la respuesta cita; el resto se resume como "consultados".
-    const cited = new Set([...answer.matchAll(/\[(D?\d+)\]/g)].map((x) => x[1]));
+    const cited = new Set([...answer.matchAll(/\[([DC]?\d+)\]/g)].map((x) => x[1]));
+    const cards = (catalog ?? []).filter((c) => cited.has(c.ref));
     const sources: BrainSource[] = [
       ...all.filter((s) => cited.has(s.ref)),
       ...dataSources
@@ -368,13 +435,14 @@ export async function* streamAnswer(
         answer,
         sources: [
           ...sources,
+          ...cards.map((c) => ({ ref: c.ref, kind: "Tarjeta", snippet: `${c.title} (${c.slug})` })),
           ...(usedSensitive ? [{ ref: "sensibles", kind: "Aviso", snippet: "Se consultaron campos sensibles" }] : []),
           ...failed,
         ],
       })
       .select("id")
       .single();
-    yield { type: "done", sources, consulted: all.length, queryId: (saved?.id as string | undefined) ?? null };
+    yield { type: "done", sources, consulted: all.length, queryId: (saved?.id as string | undefined) ?? null, cards };
   } catch (e) {
     if (signal?.aborted) return; // el usuario cerró o cambió de página: no hay a quién contestar
     if (e instanceof RateLimited) {

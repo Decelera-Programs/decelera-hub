@@ -38,6 +38,7 @@ async function ask(question) {
   let answer = "";
   let error = null;
   let sources = [];
+  let cards = [];
   let buf = "";
   const decoder = new TextDecoder();
   for await (const chunk of res.body) {
@@ -49,11 +50,13 @@ async function ask(question) {
       if (!line) continue;
       const ev = JSON.parse(line);
       if (ev.type === "delta") answer += ev.text;
-      else if (ev.type === "done") sources = ev.sources;
-      else if (ev.type === "error") error = ev.error;
+      else if (ev.type === "done") {
+        sources = ev.sources;
+        cards = ev.cards ?? [];
+      } else if (ev.type === "error") error = ev.error;
     }
   }
-  return { answer, error, sources, seconds: (Date.now() - t0) / 1000 };
+  return { answer, error, sources, cards, seconds: (Date.now() - t0) / 1000 };
 }
 
 async function askWithRetry(question) {
@@ -75,6 +78,11 @@ function grade(q, r) {
   for (const e of q.expect ?? []) if (!text.includes(norm(e))) issues.push(`falta "${e}"`);
   for (const f of q.forbid ?? []) if (text.includes(norm(f))) issues.push(`no debería aparecer "${f}"`);
   if (["data", "notes", "mixed"].includes(q.type) && !r.error && r.sources.length === 0) issues.push("no cita fuentes");
+  // Tarjetas del hub: expect_cards (slugs que deben salir) y forbid_cards (slugs que no deben salir).
+  const slugs = (r.cards ?? []).map((c) => c.slug);
+  for (const s of q.expect_cards ?? []) if (!slugs.includes(s)) issues.push(`falta la tarjeta "${s}"`);
+  for (const s of q.forbid_cards ?? []) if (slugs.includes(s)) issues.push(`no debería salir la tarjeta "${s}"`);
+  if (q.type === "cards" && q.max_cards && slugs.length > q.max_cards) issues.push(`demasiadas tarjetas (${slugs.length})`);
   return issues;
 }
 
@@ -90,7 +98,7 @@ for (const [i, q] of selected.entries()) {
   } catch (e) {
     r = { answer: "", error: String(e), sources: [], seconds: 0 };
   }
-  const auto = !q.manual && (q.expect || q.forbid || ["data", "notes", "mixed"].includes(q.type));
+  const auto = !q.manual && (q.expect || q.forbid || q.expect_cards || ["data", "notes", "mixed"].includes(q.type));
   const issues = grade(q, r);
   const status = q.manual ? "REVISAR" : issues.length ? "FALLA" : "OK";
   console.log(`${status}${issues.length ? " — " + issues.join("; ") : ""} (${r.seconds.toFixed(1)}s)`);
@@ -112,6 +120,7 @@ const md = [
     q.expect ? `**Debe contener:** ${q.expect.join(", ")}` : "",
     issues.length ? `**Problemas:** ${issues.join("; ")}` : "",
     `**Fuentes citadas:** ${r.sources.map((s) => s.ref).join(", ") || "ninguna"} · ${r.seconds.toFixed(1)}s`,
+    (r.cards ?? []).length ? `**Tarjetas mostradas:** ${r.cards.map((c) => c.slug).join(", ")}` : "",
     "",
     "```",
     r.answer.trim() || "(sin respuesta)",

@@ -23,7 +23,7 @@ export async function POST(req: Request) {
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       try {
-        for await (const ev of streamAnswer(member.id, question, req.signal)) send(controller, ev);
+        for await (const ev of streamAnswer(member, question, req.signal)) send(controller, ev);
       } catch (e) {
         console.error("[brain] stream", e);
         send(controller, { type: "error", error: "No he podido responder. Prueba de nuevo en un momento." });

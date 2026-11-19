@@ -1,13 +1,16 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { BrainEvent, BrainSource } from "@/lib/brain-shared";
+import type { BrainCard, BrainEvent, BrainSource } from "@/lib/brain-shared";
+import { toEmbedSrc } from "@/lib/embed";
 
 type Turn = {
   question: string;
   /** Texto de la respuesta; va creciendo mientras Claude escribe. */
   answer: string;
   sources: BrainSource[];
+  /** Tarjetas del hub que la respuesta recomienda. */
+  cards: BrainCard[];
   consulted: number;
   queryId: string | null;
   error: string | null;
@@ -18,8 +21,8 @@ const MAX_CHARS = 600;
 
 /** Convierte [1], [D1]… del texto de la respuesta en marcas pequeñas, sin tocar el resto. */
 function renderAnswer(text: string) {
-  return text.split(/(\[D?\d+\])/g).map((part, i) =>
-    /^\[D?\d+\]$/.test(part) ? (
+  return text.split(/(\[[DC]?\d+\])/g).map((part, i) =>
+    /^\[[DC]?\d+\]$/.test(part) ? (
       <sup key={i} className="mx-0.5 text-[11px] font-semibold text-[var(--brand-sea)]">
         {part.slice(1, -1)}
       </sup>
@@ -57,6 +60,64 @@ function SourceCard({ s }: { s: BrainSource }) {
         <p className="mt-1 text-[13px] leading-relaxed text-[var(--text-secondary)]">{s.snippet}…</p>
       )}
     </li>
+  );
+}
+
+/** Tarjeta del hub dentro del chat: abre en pestaña nueva o, si se puede, se previsualiza aquí mismo. */
+function HubCardView({ card }: { card: BrainCard }) {
+  const [preview, setPreview] = useState(false);
+  return (
+    <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface-1)] shadow-[0_2px_12px_rgba(45,56,82,0.06)]">
+      <div className="flex flex-wrap items-start justify-between gap-3 px-4 py-3.5">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full bg-[var(--pill-info-bg)] px-2 py-0.5 text-[11px] font-semibold text-[var(--info-fg)]">
+              {card.category}
+            </span>
+            {card.path && <span className="text-xs text-[var(--text-muted)]">{card.path}</span>}
+          </div>
+          <div className="mt-1.5 text-[15px] font-semibold text-[var(--text-primary)]">{card.title}</div>
+          {card.description && (
+            <p className="mt-0.5 text-[13px] leading-relaxed text-[var(--text-secondary)]">{card.description}</p>
+          )}
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          {card.embeddable && (
+            <button
+              type="button"
+              onClick={() => setPreview((p) => !p)}
+              aria-expanded={preview}
+              className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs font-semibold text-[var(--text-primary)] transition-colors hover:bg-[var(--row-hover)]"
+            >
+              {preview ? "Ocultar" : "Ver aquí"}
+            </button>
+          )}
+          <a
+            href={card.href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rounded-lg bg-[var(--brand-sea)] px-3 py-1.5 text-xs font-semibold text-[var(--brand-sky)] transition-opacity hover:opacity-90"
+          >
+            Abrir{card.external ? " ↗" : ""}
+          </a>
+        </div>
+      </div>
+      {preview && (
+        <div className="border-t border-[var(--border)]">
+          <iframe
+            src={toEmbedSrc(card.href)}
+            title={card.title}
+            loading="lazy"
+            className="h-[460px] w-full border-0"
+            allow="clipboard-write; fullscreen"
+            referrerPolicy="no-referrer-when-downgrade"
+          />
+          <div className="px-4 py-2 text-[11px] text-[var(--text-muted)]">
+            Vista previa. Si no carga, usa «Abrir» para verla en una pestaña nueva.
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -216,6 +277,15 @@ export function BrainChat() {
     ta.style.height = `${Math.min(ta.scrollHeight, 200)}px`;
   }, [question]);
 
+  /** Empieza una conversación nueva: corta lo que estuviera respondiéndose y limpia la pantalla. */
+  function newConversation() {
+    abortRef.current?.abort();
+    setTurns([]);
+    setQuestion("");
+    setBusy(false);
+    taRef.current?.focus();
+  }
+
   function patchLast(fn: (t: Turn) => Turn) {
     setTurns((ts) => ts.map((t, i) => (i === ts.length - 1 ? fn(t) : t)));
   }
@@ -223,7 +293,7 @@ export function BrainChat() {
   function handleEvent(ev: BrainEvent) {
     if (ev.type === "delta") patchLast((t) => ({ ...t, answer: t.answer + ev.text }));
     else if (ev.type === "done")
-      patchLast((t) => ({ ...t, sources: ev.sources, consulted: ev.consulted, queryId: ev.queryId }));
+      patchLast((t) => ({ ...t, sources: ev.sources, consulted: ev.consulted, queryId: ev.queryId, cards: ev.cards ?? [] }));
     else patchLast((t) => ({ ...t, error: ev.error }));
   }
 
@@ -232,7 +302,7 @@ export function BrainChat() {
     if (!text || busy) return;
     setQuestion("");
     setBusy(true);
-    setTurns((ts) => [...ts, { question: text, answer: "", sources: [], consulted: 0, queryId: null, error: null, done: false }]);
+    setTurns((ts) => [...ts, { question: text, answer: "", sources: [], cards: [], consulted: 0, queryId: null, error: null, done: false }]);
 
     const ctrl = new AbortController();
     abortRef.current = ctrl;
@@ -341,7 +411,20 @@ export function BrainChat() {
           </p>
         </div>
       ) : (
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-6 pt-8">
+      <>
+      <div className="shrink-0 px-4 pt-3">
+        <div className="mx-auto flex w-full max-w-3xl justify-end">
+          <button
+            type="button"
+            onClick={newConversation}
+            className="flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface-1)]/70 px-3 py-1.5 text-xs font-semibold text-[var(--text-secondary)] transition-colors hover:bg-[var(--row-hover)] hover:text-[var(--text-primary)]"
+          >
+            <Icon d="M12 5v14M5 12h14" className="h-3.5 w-3.5" />
+            Nueva conversación
+          </button>
+        </div>
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-6 pt-4">
         <div className="mx-auto flex w-full max-w-3xl flex-col gap-10" aria-live="polite">
           {turns.map((t, i) => (
             <section key={i} className="flex flex-col gap-6">
@@ -371,6 +454,14 @@ export function BrainChat() {
                     )
                   )}
 
+                  {t.cards.length > 0 && (
+                    <div className="mt-4 flex flex-col gap-3">
+                      {t.cards.map((c) => (
+                        <HubCardView key={c.slug} card={c} />
+                      ))}
+                    </div>
+                  )}
+
                   {t.sources.length > 0 && <Sources sources={t.sources} consulted={t.consulted} />}
 
                   {t.error && (
@@ -392,6 +483,7 @@ export function BrainChat() {
           <div ref={endRef} />
         </div>
       </div>
+      </>
       )}
 
       <div className="shrink-0 px-4 pb-4 pt-2">

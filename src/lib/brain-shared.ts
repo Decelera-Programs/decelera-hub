@@ -18,13 +18,31 @@ export type BrainSource = {
   isQuery?: boolean;
 };
 
+/** Tarjeta del hub (dashboard, herramienta, documento) que la respuesta recomienda; se pinta bajo el texto. */
+export type BrainCard = {
+  /** Marca con la que la respuesta la cita: "C1", "C2"… */
+  ref: string;
+  slug: string;
+  title: string;
+  /** "Dashboard", "Herramienta", "Datos"… */
+  category: string;
+  /** Dónde está en el hub: "Investment › Portfolio". */
+  path: string;
+  description: string;
+  href: string;
+  /** true si abre fuera del hub. */
+  external: boolean;
+  /** true si se puede previsualizar dentro del chat (iframe). */
+  embeddable: boolean;
+};
+
 /**
  * Eventos que el servidor envía al navegador (una línea JSON por evento, NDJSON):
  * `delta` va llegando mientras Claude escribe; `done` cierra con las fuentes citadas; `error` corta.
  */
 export type BrainEvent =
   | { type: "delta"; text: string }
-  | { type: "done"; sources: BrainSource[]; consulted: number; queryId: string | null }
+  | { type: "done"; sources: BrainSource[]; consulted: number; queryId: string | null; cards: BrainCard[] }
   | { type: "error"; error: string };
 
 /** historico.<tabla> → etiqueta de ficha */

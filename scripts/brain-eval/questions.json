@@ -72,6 +72,29 @@
       "truth_sql": "select stage, count(*) from historico.deals_live group by 1 order by 2 desc"
     },
     {
+      "id": "card-portfolio-americas",
+      "type": "cards",
+      "question": "¿Dónde puedo ver el dashboard del portfolio de América?",
+      "expect_cards": ["portfolio-dashboard-americas-agbu"],
+      "forbid_cards": ["portfolio-dashboard-5fhz"],
+      "max_cards": 2
+    },
+    {
+      "id": "card-opencall",
+      "type": "cards",
+      "question": "¿Hay algún dashboard para seguir las aplicaciones del opencall de México?",
+      "expect_cards": ["opencall-mexico-2026"],
+      "max_cards": 2
+    },
+    {
+      "id": "card-none",
+      "type": "cards",
+      "question": "¿Dónde puedo ver el dashboard de las nóminas de Decelera?",
+      "max_cards": 0,
+      "manual": true,
+      "_note": "No existe: debe decir que no hay tarjeta, sin enseñar una cualquiera."
+    },
+    {
       "id": "sens-asked",
       "type": "sensitive",
       "question": "¿Cuál es el email de Andrea Genovese?",
