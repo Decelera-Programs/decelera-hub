@@ -142,6 +142,37 @@
       "expect": ["Fundraising", "Dealflow"]
     },
     {
+      "id": "en-total",
+      "type": "data",
+      "question": "How many deals are there in Mexico 2026?",
+      "expect": ["855"],
+      "forbid": ["Hay ", " están", " son "],
+      "_note": "Pregunta en inglés: debe responder en inglés."
+    },
+    {
+      "id": "en-follow-killed",
+      "type": "data",
+      "after": "en-total",
+      "question": "And how many of those are Killed?",
+      "expect": ["759"],
+      "forbid": ["Hay ", " están", " son "]
+    },
+    {
+      "id": "en-card",
+      "type": "cards",
+      "question": "Where can I find the Americas portfolio dashboard?",
+      "expect_cards": ["portfolio-dashboard-americas-agbu"],
+      "forbid": ["Puedes ", " está ", " en el hub"],
+      "max_cards": 2
+    },
+    {
+      "id": "en-agents",
+      "type": "hub",
+      "question": "Which agents do we have and what does each one do?",
+      "expect": ["Maru", "Events", "Inbound"],
+      "forbid": ["Hay ", " que "]
+    },
+    {
       "id": "card-none",
       "type": "cards",
       "question": "¿Dónde puedo ver el dashboard de las nóminas de Decelera?",
