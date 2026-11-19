@@ -180,6 +180,20 @@
       "_note": "Debe usar buscar_mis_conversaciones y recordar la pregunta sobre los deals de Menorca 2026 (1.496) con su fecha. Depende de que antes se haya preguntado (men26-total / follow-total-menorca); no vale en una base vacía."
     },
     {
+      "id": "doc-deck-galo",
+      "type": "docs",
+      "question": "¿Qué dice el deck de Galo sobre su tracción y su modelo de negocio?",
+      "manual": true,
+      "_note": "Debe leer el deck (PDF público de Drive), citar [F1] y la página, sin inventar. Avisar si hay páginas sin texto."
+    },
+    {
+      "id": "doc-restricted-galo",
+      "type": "docs",
+      "question": "¿Qué dice el Tech DD de Galo?",
+      "manual": true,
+      "_note": "El documento es restringido (401): debe decir que no puede abrirlo, dar el enlace y NO inventar su contenido."
+    },
+    {
       "id": "card-none",
       "type": "cards",
       "question": "¿Dónde puedo ver el dashboard de las nóminas de Decelera?",
