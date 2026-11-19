@@ -132,7 +132,8 @@ function Sources({ sources, consulted }: { sources: BrainSource[]; consulted: nu
         className="group flex flex-wrap items-center gap-1.5 text-left"
       >
         <span className="mr-1 text-xs text-[var(--text-muted)]">
-          {sources.length} {sources.length === 1 ? "fuente" : "fuentes"} · {consulted} fragmentos consultados
+          {sources.length} {sources.length === 1 ? "fuente" : "fuentes"}
+          {consulted > 0 ? ` · ${consulted} fragmentos consultados` : ""}
         </span>
         {sources.map((s) => (
           <span
@@ -290,6 +291,7 @@ export function BrainChat() {
   async function toggleMemory() {
     const next = !memOpen;
     setMemOpen(next);
+    setHistOpen(false);
     if (!next) return;
     setMemories(null);
     try {
@@ -305,6 +307,111 @@ export function BrainChat() {
     setMemories((ms) => (ms ?? []).filter((m) => m.id !== id));
     await fetch(`/api/brain/memory?id=${id}`, { method: "DELETE" }).catch(() => undefined);
   }
+
+  // Historial: lista de conversaciones anteriores de esta persona (se pueden reabrir, seguir y borrar).
+  const [histOpen, setHistOpen] = useState(false);
+  const [convs, setConvs] = useState<{ id: string; title: string; lastAt: string; turns: number }[] | null>(null);
+  const [loadingConv, setLoadingConv] = useState<string | null>(null);
+
+  async function toggleHistory() {
+    const next = !histOpen;
+    setHistOpen(next);
+    setMemOpen(false);
+    if (!next) return;
+    setConvs(null);
+    try {
+      const res = await fetch("/api/brain/conversations");
+      setConvs(res.ok ? ((await res.json()) as { conversations: typeof convs & object }).conversations : []);
+    } catch {
+      setConvs([]);
+    }
+  }
+
+  async function openConversation(id: string) {
+    if (loadingConv) return;
+    setLoadingConv(id);
+    try {
+      const res = await fetch(`/api/brain/conversations/${id}`);
+      if (!res.ok) return;
+      const { turns: stored } = (await res.json()) as {
+        turns: { question: string; answer: string; sources: BrainSource[]; cards: BrainCard[]; queryId: string }[];
+      };
+      if (!stored.length) return;
+      abortRef.current?.abort();
+      closeConversation(); // la conversación que se deja también pasa por el agente de memoria
+      conversationRef.current = id;
+      setTurns(stored.map((t) => ({ ...t, consulted: 0, error: null, done: true })));
+      setQuestion("");
+      setBusy(false);
+      setHistOpen(false);
+      taRef.current?.focus();
+    } finally {
+      setLoadingConv(null);
+    }
+  }
+
+  async function removeConversation(id: string) {
+    setConvs((cs) => (cs ?? []).filter((c) => c.id !== id));
+    await fetch(`/api/brain/conversations/${id}`, { method: "DELETE" }).catch(() => undefined);
+    if (conversationRef.current === id) {
+      abortRef.current?.abort();
+      conversationRef.current = null;
+      setTurns([]);
+      setBusy(false);
+    }
+  }
+
+  const historyButton = (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={toggleHistory}
+        className="flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface-1)]/70 px-3 py-1.5 text-xs font-semibold text-[var(--text-secondary)] transition-colors hover:bg-[var(--row-hover)] hover:text-[var(--text-primary)]"
+      >
+        Historial
+      </button>
+      {histOpen && (
+        <div className="absolute right-0 top-full z-20 mt-2 w-96 max-w-[calc(100vw-2rem)] rounded-2xl border border-[var(--border)] bg-[var(--surface-1)] p-3 text-left shadow-[0_8px_32px_rgba(45,56,82,0.16)]">
+          <p className="px-1 pb-2 pt-1 text-[12px] leading-relaxed text-[var(--text-muted)]">
+            Tus conversaciones de los últimos 90 días. Solo las ves tú.
+          </p>
+          <div className="flex max-h-80 flex-col gap-1 overflow-y-auto">
+            {convs === null ? (
+              <p className="px-2 py-2 text-[12px] text-[var(--text-muted)]">Cargando…</p>
+            ) : convs.length === 0 ? (
+              <p className="px-2 py-2 text-[12px] text-[var(--text-muted)]">Todavía no tienes conversaciones guardadas.</p>
+            ) : (
+              convs.map((c) => (
+                <div
+                  key={c.id}
+                  className={`flex items-center gap-1 rounded-lg px-2 py-1.5 hover:bg-[var(--row-hover)] ${
+                    conversationRef.current === c.id ? "bg-[var(--pill-neutral-bg)]" : ""
+                  }`}
+                >
+                  <button type="button" onClick={() => openConversation(c.id)} className="min-w-0 flex-1 text-left">
+                    <span className="block truncate text-[13px] text-[var(--text-primary)]">{c.title}</span>
+                    <span className="block text-[11px] text-[var(--text-muted)]">
+                      {loadingConv === c.id
+                        ? "Abriendo…"
+                        : `${new Date(c.lastAt).toLocaleDateString("es-ES", { day: "numeric", month: "short" })} · ${c.turns} ${c.turns === 1 ? "pregunta" : "preguntas"}`}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => removeConversation(c.id)}
+                    aria-label="Borrar conversación"
+                    className="shrink-0 px-1 text-[12px] text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+                  >
+                    Borrar
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 
   const memoryButton = (
     <div className="relative">
@@ -495,7 +602,10 @@ export function BrainChat() {
     <div className={`relative flex min-h-0 flex-1 flex-col ${turns.length === 0 ? "justify-center" : ""}`}>
       {turns.length === 0 ? (
         <div className="flex flex-col items-center gap-3 px-4 pb-8 text-center">
-          <div className="absolute right-4 top-3">{memoryButton}</div>
+          <div className="absolute right-4 top-3 flex items-center gap-2">
+            {historyButton}
+            {memoryButton}
+          </div>
           <Mark />
           <h1 className="page-title text-3xl text-[var(--text-primary)] sm:text-4xl">¿Qué quieres saber?</h1>
           <p className="max-w-md text-[13px] leading-relaxed text-[var(--text-muted)]">
@@ -506,6 +616,7 @@ export function BrainChat() {
       <>
       <div className="shrink-0 px-4 pt-3">
         <div className="mx-auto flex w-full max-w-3xl items-center justify-end gap-2">
+          {historyButton}
           {memoryButton}
           <button
             type="button"

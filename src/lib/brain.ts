@@ -30,12 +30,13 @@ const MAX_TOOL_RESULT_CHARS = 12_000;
 
 const SYSTEM_PROMPT = `Eres el Brain de Decelera: respondes preguntas del equipo con lo que Decelera ya sabe de sus startups, personas y programas.
 
-Tienes cinco fuentes:
+Tienes seis fuentes:
 1. Fragmentos numerados de notas y comentarios del CRM (te llegan con la pregunta). Cítalos así: [1] o [2][3].
 2. La herramienta consultar_datos, que ejecuta un SELECT sobre los campos estructurados del CRM (stage, sector, ronda, cifras, fechas, scores…). Úsala para recuentos, listados, filtros y comparaciones; nunca cuentes ni sumes a mano a partir de fragmentos. Cita cada consulta con su marca: [D1], [D2]…
 3. La herramienta listar_tarjetas, que devuelve el catálogo del hub: los dashboards, herramientas, documentos y datos que esta persona puede abrir, con su descripción y dónde están. Úsala cuando pregunten dónde ver o encontrar un dashboard, herramienta o documento, o cómo acceder a algo. También cuando pregunten qué es o para qué sirve una herramienta o dashboard concreto del hub: explícalo con su descripción y cita su tarjeta.
 4. La herramienta consultar_agentes, que describe los agentes automáticos de Decelera (Maru, Inbound Follow-Up, Events…): qué hace cada uno, qué datos mueve de un sistema a otro, cuándo corre y su actividad reciente. Úsala cuando pregunten por agentes, automatizaciones o bots. Cita cada agente con su marca: [H1], [H2]…
 5. La herramienta consultar_proyectos, que devuelve los proyectos del hub (tablero Now/Next/Done) con responsable, equipo, fechas, criterio de éxito, tareas y su prioridad estratégica, y las prioridades estratégicas activas. Úsala cuando pregunten por proyectos, tareas, quién lleva qué, en qué se está trabajando, qué va retrasado o cuáles son las prioridades. Cita cada proyecto con [P1], [P2]… y cada prioridad con [S1], [S2]…
+6. La herramienta buscar_mis_conversaciones, que busca en las conversaciones anteriores de ESTA persona con el Brain (se conservan 90 días). Úsala cuando pregunte por algo que habló o le respondiste antes ("¿qué me dijiste de…?", "¿qué te pregunté la semana pasada?", "retoma lo de ayer"). No las cites con marca: menciona la fecha ("el 12 de noviembre me preguntaste…"). Son respuestas pasadas y pueden estar desactualizadas: si necesitas una cifra o un dato actual, vuelve a consultarlo con las otras fuentes.
 
 Reglas:
 - Responde SOLO con esas fuentes. No uses conocimiento externo ni inventes datos.
@@ -100,10 +101,52 @@ const CONSULTAR_PROYECTOS: Anthropic.Tool = {
   input_schema: { type: "object", properties: {} },
 };
 
+const BUSCAR_CONVERSACIONES: Anthropic.Tool = {
+  name: "buscar_mis_conversaciones",
+  description:
+    "Busca en las conversaciones anteriores de esta persona con el Brain (últimos 90 días) las preguntas y respuestas que contienen unas palabras clave. Devuelve hasta 5, con su fecha.",
+  input_schema: {
+    type: "object",
+    properties: {
+      palabras: {
+        type: "string",
+        description: "Palabras clave del tema (nombres propios, empresas, conceptos), separadas por espacios. Sin frases enteras.",
+      },
+    },
+    required: ["palabras"],
+  },
+};
+
+/** Palabras sueltas (letras y números) de la búsqueda: sin comodines ni signos, como mucho 6. */
+function searchTerms(raw: string): string[] {
+  const words = raw.toLowerCase().match(/[\p{L}\p{N}]{3,}/gu) ?? [];
+  return [...new Set(words)].slice(0, 6);
+}
+
+async function searchPastConversations(memberId: string, raw: string, currentConversation: string | null): Promise<string> {
+  const terms = searchTerms(raw);
+  if (!terms.length) return "Indica alguna palabra clave para buscar.";
+  const { data, error } = await hubDb.rpc("brain_search_conversations", {
+    p_member: memberId,
+    p_terms: terms,
+    p_exclude: currentConversation,
+    p_limit: 5,
+  });
+  if (error) return "No he podido buscar en las conversaciones ahora mismo.";
+  const rows = (data ?? []) as { created_at: string; question: string; answer: string | null }[];
+  if (!rows.length) return "No hay conversaciones tuyas (de los últimos 90 días) que mencionen eso.";
+  return rows
+    .map(
+      (r) =>
+        `[${r.created_at.slice(0, 10)}] Pregunta: ${r.question}\nRespuesta: ${(r.answer ?? "").replace(/\s*\[[A-Z]?\d+\]/g, "").slice(0, 700)}`,
+    )
+    .join("\n\n---\n\n");
+}
+
 const MAX_CARDS = 80;
 
 /** Catálogo del hub visible para esta persona (respeta tarjetas restringidas), numerado C1, C2… */
-async function loadCards(member: Pick<Member, "id" | "role">): Promise<BrainCard[]> {
+export async function loadCards(member: Pick<Member, "id" | "role">): Promise<BrainCard[]> {
   const [cards, sections, subfolders] = await Promise.all([
     getCards(member.id, member.role === "admin"),
     getSections(),
@@ -433,7 +476,7 @@ export async function* streamAnswer(
           model: ANSWER_MODEL,
           max_tokens: 4096,
           system,
-          tools: [CONSULTAR_DATOS, LISTAR_TARJETAS, CONSULTAR_AGENTES, CONSULTAR_PROYECTOS],
+          tools: [CONSULTAR_DATOS, LISTAR_TARJETAS, CONSULTAR_AGENTES, CONSULTAR_PROYECTOS, BUSCAR_CONVERSACIONES],
           output_config: { effort: ANSWER_EFFORT },
           messages,
         },
@@ -493,6 +536,15 @@ export async function* streamAnswer(
             text = "No he podido leer la información de los agentes ahora mismo.";
           }
           results.push({ type: "tool_result", tool_use_id: block.id, content: text });
+          continue;
+        }
+        if (block.name === "buscar_mis_conversaciones") {
+          const palabras = typeof (block.input as { palabras?: unknown }).palabras === "string" ? (block.input as { palabras: string }).palabras : "";
+          results.push({
+            type: "tool_result",
+            tool_use_id: block.id,
+            content: await searchPastConversations(memberId, palabras, conversationId),
+          });
           continue;
         }
         if (block.name === "consultar_proyectos") {
