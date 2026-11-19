@@ -15,6 +15,8 @@ type Turn = {
   queryId: string | null;
   error: string | null;
   done: boolean;
+  /** Falta el permiso de Drive para responder: se muestra el botón "Conectar Drive". */
+  authRequired?: "drive";
 };
 
 const MAX_CHARS = 600;
@@ -312,11 +314,49 @@ export function BrainChat() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Conexión opcional del Drive de la persona (permiso de solo lectura, pedido cuando hace falta).
+  const [drive, setDrive] = useState<{ enabled: boolean; connected: boolean } | null>(null);
+  const driveRetryRef = useRef<string | null>(null);
+  const submitRef = useRef<(q: string) => void>(() => undefined);
+  submitRef.current = (q: string) => void submit(q);
+
+  function connectDrive(questionToRetry: string) {
+    driveRetryRef.current = questionToRetry;
+    window.open("/api/google/drive/connect", "drive-connect", "width=520,height=700");
+  }
+
+  useEffect(() => {
+    function onMessage(e: MessageEvent) {
+      if (e.origin !== window.location.origin) return;
+      const d = e.data as { type?: string; ok?: boolean } | null;
+      if (d?.type !== "drive-connect") return;
+      if (!d.ok) return;
+      setDrive((s) => (s ? { ...s, connected: true } : s));
+      const q = driveRetryRef.current;
+      driveRetryRef.current = null;
+      if (q) {
+        setTurns((ts) => ts.map((t) => (t.authRequired ? { ...t, authRequired: undefined } : t)));
+        submitRef.current(q); // se repite la pregunta que necesitaba el permiso
+      }
+    }
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, []);
+
+  async function disconnectDrive() {
+    setDrive((s) => (s ? { ...s, connected: false } : s));
+    await fetch("/api/google/drive", { method: "DELETE" }).catch(() => undefined);
+  }
+
   async function toggleMemory() {
     const next = !memOpen;
     setMemOpen(next);
     setHistOpen(false);
     if (!next) return;
+    fetch("/api/google/drive")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => setDrive(j as { enabled: boolean; connected: boolean } | null))
+      .catch(() => undefined);
     setMemories(null);
     try {
       const res = await fetch("/api/brain/memory");
@@ -473,6 +513,25 @@ export function BrainChat() {
               ))
             )}
           </div>
+          {drive?.enabled && (
+            <div className="mt-4 border-t border-[var(--border)] pt-3">
+              <p className="text-[13px] font-semibold text-[var(--text-primary)]">Tu Drive</p>
+              <p className="mt-1 text-[12px] leading-relaxed text-[var(--text-muted)]">
+                {drive.connected
+                  ? "Conectado (solo lectura). El Brain abre los documentos con tus propios permisos."
+                  : "No conectado. Si preguntas por un documento restringido, te lo pediré en ese momento."}
+              </p>
+              {drive.connected && (
+                <button
+                  type="button"
+                  onClick={disconnectDrive}
+                  className="mt-2 rounded-lg border border-[var(--border)] px-3 py-1 text-[12px] font-semibold text-[var(--text-secondary)] hover:bg-[var(--row-hover)]"
+                >
+                  Desconectar Drive
+                </button>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -514,7 +573,7 @@ export function BrainChat() {
   function handleEvent(ev: BrainEvent) {
     if (ev.type === "delta") patchLast((t) => ({ ...t, answer: t.answer + ev.text }));
     else if (ev.type === "done")
-      patchLast((t) => ({ ...t, sources: ev.sources, consulted: ev.consulted, queryId: ev.queryId, cards: ev.cards ?? [] }));
+      patchLast((t) => ({ ...t, sources: ev.sources, consulted: ev.consulted, queryId: ev.queryId, cards: ev.cards ?? [], authRequired: ev.authRequired }));
     else patchLast((t) => ({ ...t, error: ev.error }));
   }
 
@@ -691,6 +750,21 @@ export function BrainChat() {
                   )}
 
                   {t.sources.length > 0 && <Sources sources={t.sources} consulted={t.consulted} />}
+
+                  {t.done && t.authRequired === "drive" && (
+                    <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-1)] px-4 py-3">
+                      <p className="max-w-md text-[13px] leading-relaxed text-[var(--text-secondary)]">
+                        Para abrir este documento necesito leer tu Drive (solo lectura, con tus propios permisos). Se abre una ventana de Google y, al aceptar, repito la pregunta.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => connectDrive(t.question)}
+                        className="shrink-0 rounded-xl bg-[var(--brand-sea)] px-4 py-2 text-[13px] font-semibold text-[var(--brand-sky)] transition-opacity hover:opacity-90"
+                      >
+                        Conectar Drive
+                      </button>
+                    </div>
+                  )}
 
                   {t.error && (
                     <p className="mt-3 rounded-xl border border-[var(--warning-border)] bg-[var(--warning-bg)] px-4 py-3 text-sm text-[var(--warning-fg)]">

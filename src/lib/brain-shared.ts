@@ -42,7 +42,15 @@ export type BrainCard = {
  */
 export type BrainEvent =
   | { type: "delta"; text: string }
-  | { type: "done"; sources: BrainSource[]; consulted: number; queryId: string | null; cards: BrainCard[] }
+  | {
+      type: "done";
+      sources: BrainSource[];
+      consulted: number;
+      queryId: string | null;
+      cards: BrainCard[];
+      /** La respuesta necesita que la persona conecte su Drive (el chat muestra el botón y repite la pregunta). */
+      authRequired?: "drive";
+    }
   | { type: "error"; error: string };
 
 /** historico.<tabla> → etiqueta de ficha */

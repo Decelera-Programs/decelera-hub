@@ -149,7 +149,7 @@ async function searchPastConversations(memberId: string, raw: string, currentCon
 const LEER_DOCUMENTO: Anthropic.Tool = {
   name: "leer_documento",
   description:
-    "Abre un documento adjunto a un deal del CRM (deck, data room, business DD, tech DD, 2 pagers, memo de inversión) y devuelve su texto, con marcas de página. Solo lee documentos accesibles sin sesión; los restringidos devuelven su enlace.",
+    "Abre un documento adjunto a un deal del CRM (deck, data room, business DD, tech DD, 2 pagers, memo de inversión) y devuelve su texto, con marcas de página. Abre los documentos públicos y, si la persona ha conectado su Drive, también los restringidos a los que ella tenga acceso; si no, pide el permiso o devuelve el enlace.",
   input_schema: {
     type: "object",
     properties: {
@@ -488,6 +488,8 @@ export async function* streamAnswer(
     let hubProjects: HubItem[] = [];
     // Documentos de deals abiertos con leer_documento.
     const docSources: { ref: string; name: string; url: string; snippet: string }[] = [];
+    // Un documento restringido pide que la persona conecte su Drive: el chat muestra el botón.
+    let needsDriveAuth = false;
 
     for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
       const stream = client.messages.stream(
@@ -568,7 +570,8 @@ export async function* streamAnswer(
             continue;
           }
           const inp = block.input as { deal?: unknown; documento?: unknown };
-          const doc = await readDealDocument(typeof inp.deal === "string" ? inp.deal : "", typeof inp.documento === "string" ? inp.documento : "");
+          const doc = await readDealDocument(memberId, typeof inp.deal === "string" ? inp.deal : "", typeof inp.documento === "string" ? inp.documento : "");
+          if (!doc.ok && doc.needsAuth) needsDriveAuth = true;
           if (doc.ok) {
             const ref = `F${docSources.length + 1}`;
             docSources.push({ ref, name: `${doc.dealName} · ${doc.label}`, url: doc.url, snippet: doc.text.replace(/\s+/g, " ").slice(0, 280) });
@@ -702,7 +705,14 @@ export async function* streamAnswer(
       })
       .select("id")
       .single();
-    yield { type: "done", sources, consulted: all.length, queryId: (saved?.id as string | undefined) ?? null, cards };
+    yield {
+      type: "done",
+      sources,
+      consulted: all.length,
+      queryId: (saved?.id as string | undefined) ?? null,
+      cards,
+      ...(needsDriveAuth ? { authRequired: "drive" as const } : {}),
+    };
     // Limpieza de conversaciones antiguas: de vez en cuando, sin esperar a que termine.
     if (Math.random() < 0.02) void hubDb.rpc("brain_purge_old").then(() => undefined, () => undefined);
   } catch (e) {

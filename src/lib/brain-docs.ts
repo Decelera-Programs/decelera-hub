@@ -1,6 +1,7 @@
 import "server-only";
 import { extractText, getDocumentProxy } from "unpdf";
 import { hubDb } from "@/lib/supabase/hub";
+import { driveConnectEnabled, getDriveAccessToken } from "@/lib/google-drive";
 
 /**
  * Lectura de documentos adjuntos a un deal (deck, data room, DD, memo…) para el Brain.
@@ -64,11 +65,45 @@ function toDownloadUrl(raw: string): URL | null {
   return u;
 }
 
-async function download(start: URL): Promise<{ ok: true; bytes: Uint8Array; type: string } | { ok: false; reason: "restricted" | "unsupported" | "error" }> {
+/** Enlace de Google → qué es y su id (para pedirlo por la API de Drive con el token de la persona). */
+function parseGoogle(raw: string): { type: "file" | "document" | "spreadsheets" | "presentation"; id: string } | null {
+  try {
+    const u = new URL(raw.trim());
+    if (u.hostname === "drive.google.com") {
+      if (/^\/(drive\/)?folders/.test(u.pathname)) return null;
+      const id = u.pathname.match(/\/file\/d\/([\w-]+)/)?.[1] ?? u.searchParams.get("id");
+      return id ? { type: "file", id } : null;
+    }
+    if (u.hostname === "docs.google.com") {
+      const m = u.pathname.match(/^\/(document|spreadsheets|presentation)\/d\/([\w-]+)/);
+      return m ? { type: m[1] as "document" | "spreadsheets" | "presentation", id: m[2] } : null;
+    }
+  } catch {
+    /* enlace no válido */
+  }
+  return null;
+}
+
+/** Petición a la API de Drive con el token de la persona (solo lectura). Solo este host recibe el token. */
+function driveApiUrl(g: { type: string; id: string }): URL {
+  const base = `https://www.googleapis.com/drive/v3/files/${g.id}`;
+  if (g.type === "file") return new URL(`${base}?alt=media&supportsAllDrives=true`);
+  return new URL(`${base}/export?mimeType=${g.type === "spreadsheets" ? "text%2Fcsv" : "text%2Fplain"}`);
+}
+
+async function download(
+  start: URL,
+  token?: string,
+): Promise<{ ok: true; bytes: Uint8Array; type: string } | { ok: false; reason: "restricted" | "unsupported" | "error" }> {
   let url = start;
   for (let hop = 0; hop < 5; hop++) {
-    if (!allowed(url)) return { ok: false, reason: "unsupported" };
-    const res = await fetch(url, { redirect: "manual", signal: AbortSignal.timeout(FETCH_TIMEOUT_MS), headers: { "User-Agent": "Mozilla/5.0 (compatible; DeceleraBrain)" } });
+    const isApi = token !== undefined && url.protocol === "https:" && url.hostname === "www.googleapis.com";
+    if (!allowed(url) && !isApi) return { ok: false, reason: "unsupported" };
+    const res = await fetch(url, {
+      redirect: "manual",
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; DeceleraBrain)", ...(isApi ? { Authorization: `Bearer ${token}` } : {}) },
+    });
     if (res.status >= 300 && res.status < 400) {
       const loc = res.headers.get("location");
       if (!loc) return { ok: false, reason: "error" };
@@ -100,11 +135,11 @@ async function download(start: URL): Promise<{ ok: true; bytes: Uint8Array; type
 
 export type DealDoc =
   | { ok: true; dealName: string; label: string; url: string; text: string; pages: number | null; emptyPages: number; truncated: boolean }
-  | { ok: false; message: string; url?: string };
+  | { ok: false; message: string; url?: string; /** Hace falta que la persona conecte su Drive (el chat le muestra el botón). */ needsAuth?: boolean };
 
 const startsWith = (b: Uint8Array, s: string) => s.split("").every((ch, i) => b[i] === ch.charCodeAt(0));
 
-export async function readDealDocument(nombre: string, documento: string): Promise<DealDoc> {
+export async function readDealDocument(memberId: string, nombre: string, documento: string): Promise<DealDoc> {
   const kind = DOC_TYPE_KEYS.find((k) => k === documento);
   if (!kind) return { ok: false, message: `Tipo de documento no válido. Opciones: ${DOC_TYPE_KEYS.join(", ")}.` };
   const wanted = nombre.trim();
@@ -142,6 +177,34 @@ export async function readDealDocument(nombre: string, documento: string): Promi
   } catch {
     return { ok: false, url: link, message: `No he podido descargar el ${label} de ${dealName} ahora mismo. Enlace: ${link}` };
   }
+  // Restringido: se intenta con el Drive de quien pregunta (si lo ha conectado); si no, se le pide el permiso.
+  if (!got.ok && got.reason === "restricted") {
+    const g = parseGoogle(link);
+    if (g) {
+      const token = await getDriveAccessToken(memberId);
+      if (token) {
+        try {
+          const authed = await download(driveApiUrl(g), token);
+          if (authed.ok) got = authed;
+          else
+            return {
+              ok: false,
+              url: link,
+              message: `Tu cuenta de Google no tiene acceso al ${label} de ${dealName} (o no se puede leer). Quien tenga acceso puede abrirlo desde este enlace: ${link}`,
+            };
+        } catch {
+          return { ok: false, url: link, message: `No he podido abrir el ${label} de ${dealName} con tu Drive ahora mismo. Enlace: ${link}` };
+        }
+      } else if (driveConnectEnabled()) {
+        return {
+          ok: false,
+          needsAuth: true,
+          url: link,
+          message: `El ${label} de ${dealName} es un documento restringido de Google. Para abrirlo hace falta que esta persona conecte su Drive (permiso de solo lectura, con su propia cuenta): en pantalla verá un botón "Conectar Drive". Dile en una frase que necesitas ese permiso y que, al conectarlo, se repetirá la pregunta sola. No inventes el contenido.`,
+        };
+      }
+    }
+  }
   if (!got.ok) {
     const why =
       got.reason === "restricted"
@@ -152,6 +215,7 @@ export async function readDealDocument(nombre: string, documento: string): Promi
     return { ok: false, url: link, message: `El ${label} de ${dealName} ${why}. Quien tenga acceso puede abrirlo desde este enlace: ${link}` };
   }
 
+  if (!got.ok) return { ok: false, url: link, message: `No he podido abrir el ${label} de ${dealName}. Enlace: ${link}` };
   const { bytes, type } = got;
   let text = "";
   let pages: number | null = null;
