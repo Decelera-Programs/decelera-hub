@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "Decelera Brain",
     short_name: "Brain",
     description: "Brain: herramientas internas de Decelera",
-    start_url: "/",
+    start_url: "/brain",
     scope: "/",
     display: "standalone",
     background_color: "#ffffff",
