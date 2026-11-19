@@ -123,6 +123,25 @@
       "max_cards": 1
     },
     {
+      "id": "hub-projects-now",
+      "type": "hub",
+      "question": "¿En qué proyectos estamos trabajando ahora mismo y quién lleva cada uno?",
+      "expect": ["Carlos", "Luiza", "Carmen"],
+      "_note": "Debe listar los de la columna Now (Brain/Bitácora, Limpieza de CRM, Maru, Comunidad EM networks) con su responsable."
+    },
+    {
+      "id": "hub-projects-blocked",
+      "type": "hub",
+      "question": "¿Hay algún proyecto bloqueado?",
+      "expect": ["Mcwin"]
+    },
+    {
+      "id": "hub-priorities",
+      "type": "hub",
+      "question": "¿Cuáles son las prioridades estratégicas de 2026?",
+      "expect": ["Fundraising", "Dealflow"]
+    },
+    {
       "id": "card-none",
       "type": "cards",
       "question": "¿Dónde puedo ver el dashboard de las nóminas de Decelera?",

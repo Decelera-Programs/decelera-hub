@@ -21,8 +21,8 @@ const MAX_CHARS = 600;
 
 /** Convierte [1], [D1]… del texto de la respuesta en marcas pequeñas, sin tocar el resto. */
 function renderAnswer(text: string) {
-  return text.split(/(\[[DCH]?\d+\])/g).map((part, i) =>
-    /^\[[DCH]?\d+\]$/.test(part) ? (
+  return text.split(/(\[[A-Z]?\d+\])/g).map((part, i) =>
+    /^\[[A-Z]?\d+\]$/.test(part) ? (
       <sup key={i} className="mx-0.5 text-[11px] font-semibold text-[var(--brand-sea)]">
         {part.slice(1, -1)}
       </sup>
