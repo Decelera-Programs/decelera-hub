@@ -19,7 +19,31 @@ type Turn = {
 
 const MAX_CHARS = 600;
 
-/** Convierte [1], [D1]… del texto de la respuesta en marcas pequeñas, sin tocar el resto. */
+/** Enlaces http(s) del texto: se hacen clicables (pestaña nueva, sin pasar el origen). Nada más: sin javascript: ni otros esquemas. */
+function linkify(text: string, keyBase: number) {
+  return text.split(/(https?:\/\/[^\s<>"]+)/g).map((part, j) => {
+    if (!/^https?:\/\//.test(part)) return <span key={`${keyBase}-${j}`}>{part}</span>;
+    // La puntuación que cierra la frase no forma parte del enlace.
+    const m = part.match(/^(.*?)([.,;:!?)\]]*)$/);
+    const url = m?.[1] || part;
+    const tail = m?.[2] ?? "";
+    return (
+      <span key={`${keyBase}-${j}`}>
+        <a
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="break-all text-[var(--brand-sea)] underline decoration-[var(--brand-sea)]/40 underline-offset-2 hover:decoration-[var(--brand-sea)]"
+        >
+          {url}
+        </a>
+        {tail}
+      </span>
+    );
+  });
+}
+
+/** Convierte [1], [D1]… del texto de la respuesta en marcas pequeñas y los enlaces en clicables. */
 function renderAnswer(text: string) {
   return text.split(/(\[[A-Z]?\d+\])/g).map((part, i) =>
     /^\[[A-Z]?\d+\]$/.test(part) ? (
@@ -27,7 +51,7 @@ function renderAnswer(text: string) {
         {part.slice(1, -1)}
       </sup>
     ) : (
-      <span key={i}>{part}</span>
+      <span key={i}>{linkify(part, i)}</span>
     ),
   );
 }
