@@ -13,8 +13,9 @@ export async function POST(req: Request) {
   const member = await getMember();
   if (!member) return new Response("No autorizado", { status: 401 });
 
-  const body = (await req.json().catch(() => ({}))) as { question?: unknown };
+  const body = (await req.json().catch(() => ({}))) as { question?: unknown; conversationId?: unknown };
   const question = typeof body.question === "string" ? body.question : "";
+  const conversationId = typeof body.conversationId === "string" ? body.conversationId : null;
 
   const encoder = new TextEncoder();
   const send = (controller: ReadableStreamDefaultController<Uint8Array>, ev: BrainEvent) =>
@@ -23,7 +24,7 @@ export async function POST(req: Request) {
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       try {
-        for await (const ev of streamAnswer(member, question, req.signal)) send(controller, ev);
+        for await (const ev of streamAnswer(member, question, req.signal, conversationId)) send(controller, ev);
       } catch (e) {
         console.error("[brain] stream", e);
         send(controller, { type: "error", error: "No he podido responder. Prueba de nuevo en un momento." });

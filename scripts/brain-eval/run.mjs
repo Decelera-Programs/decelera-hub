@@ -12,6 +12,7 @@
 import { readFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { randomUUID } from "node:crypto";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
@@ -27,12 +28,12 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 /** "1.496" / "1,496" / "1 496" → "1496", para comparar cifras sin depender del formato. */
 const norm = (s) => s.replace(/(\d)[.,\s](?=\d{3}(\D|$))/g, "$1").toLowerCase();
 
-async function ask(question) {
+async function ask(question, conversationId) {
   const t0 = Date.now();
   const res = await fetch(`${BASE}/api/brain/ask`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ question }),
+    body: JSON.stringify({ question, conversationId }),
   });
   if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
   let answer = "";
@@ -59,17 +60,20 @@ async function ask(question) {
   return { answer, error, sources, cards, seconds: (Date.now() - t0) / 1000 };
 }
 
-async function askWithRetry(question) {
+async function askWithRetry(question, conversationId) {
   for (let attempt = 0; attempt < 4; attempt++) {
-    const r = await ask(question);
+    const r = await ask(question, conversationId);
     if (r.error && /saturado/i.test(r.error)) {
       await sleep(25_000);
       continue;
     }
     return r;
   }
-  return await ask(question);
+  return await ask(question, conversationId);
 }
+
+// Conversaciones: cada pregunta abre una nueva, salvo las que llevan "after": continúan la de la pregunta indicada.
+const conversations = new Map();
 
 function grade(q, r) {
   const issues = [];
@@ -94,7 +98,9 @@ for (const [i, q] of selected.entries()) {
   process.stdout.write(`[${i + 1}/${selected.length}] ${q.id} … `);
   let r;
   try {
-    r = await askWithRetry(q.question);
+    const convId = q.after ? conversations.get(q.after) : randomUUID();
+    conversations.set(q.id, convId);
+    r = await askWithRetry(q.question, convId);
   } catch (e) {
     r = { answer: "", error: String(e), sources: [], seconds: 0 };
   }

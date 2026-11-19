@@ -258,6 +258,8 @@ export function BrainChat() {
   const endRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
+  // Identificador de la conversación en curso: lo crea el navegador y lo reenvía en cada pregunta.
+  const conversationRef = useRef<string | null>(null);
 
   // Al empezar una pregunta y al terminarla (aparecen las fuentes) se baja al final. Mientras se escribe la
   // respuesta no se fuerza el scroll, para no pelearse con quien está leyendo.
@@ -280,6 +282,7 @@ export function BrainChat() {
   /** Empieza una conversación nueva: corta lo que estuviera respondiéndose y limpia la pantalla. */
   function newConversation() {
     abortRef.current?.abort();
+    conversationRef.current = null;
     setTurns([]);
     setQuestion("");
     setBusy(false);
@@ -306,11 +309,12 @@ export function BrainChat() {
 
     const ctrl = new AbortController();
     abortRef.current = ctrl;
+    conversationRef.current ??= crypto.randomUUID();
     try {
       const res = await fetch("/api/brain/ask", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question: text }),
+        body: JSON.stringify({ question: text, conversationId: conversationRef.current }),
         signal: ctrl.signal,
       });
       if (res.status === 401) throw new Error("session");

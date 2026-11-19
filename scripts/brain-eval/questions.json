@@ -37,6 +37,22 @@
       "truth_sql": "select count(*) from historico.deals_live where stage ilike '%Mexico 2026%' and status='Invested'"
     },
     {
+      "id": "follow-inplay",
+      "type": "data",
+      "after": "mex26-killed",
+      "question": "¿Y cuántos están In play?",
+      "expect": ["33"],
+      "_note": "Seguimiento de la pregunta anterior (México 2026): debe entender que sigue hablando de México 2026."
+    },
+    {
+      "id": "follow-total-menorca",
+      "type": "data",
+      "after": "mex26-total",
+      "question": "¿Y en Menorca 2026?",
+      "expect": ["1496"],
+      "_note": "Seguimiento: la pregunta anterior era el total de deals de México 2026."
+    },
+    {
       "id": "mex26-precom-reached",
       "type": "data",
       "question": "¿Cuántos deals de México 2026 han llegado a precomité?",
