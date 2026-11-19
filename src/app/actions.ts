@@ -284,7 +284,7 @@ export async function createSection(): Promise<Section> {
     .select(SECTION_COLS)
     .single();
   if (error || !data) throw new Error(error?.message ?? "create section failed");
-  revalidatePath("/");
+  revalidatePath("/herramientas");
   return toSection(data);
 }
 
@@ -299,13 +299,13 @@ export async function updateSection(
   if (typeof patch.accent === "string") clean.accent = patch.accent;
   if (Object.keys(clean).length === 0) return;
   await hubDb.from("sections").update(clean).eq("id", id);
-  revalidatePath("/");
+  revalidatePath("/herramientas");
 }
 
 export async function deleteSection(id: string): Promise<void> {
   await requireAdmin();
   await hubDb.from("sections").delete().eq("id", id); // las tarjetas caen en cascada
-  revalidatePath("/");
+  revalidatePath("/herramientas");
 }
 
 export async function reorderSections(ids: string[]): Promise<void> {
@@ -313,7 +313,7 @@ export async function reorderSections(ids: string[]): Promise<void> {
   await Promise.all(
     ids.map((id, i) => hubDb.from("sections").update({ position: i }).eq("id", id)),
   );
-  revalidatePath("/");
+  revalidatePath("/herramientas");
 }
 
 // --- Subcarpetas (nivel intermedio, solo admin) ---
@@ -343,7 +343,7 @@ export async function createSubfolder(sectionId: string, parentId: string | null
     .select(SUBFOLDER_COLS)
     .single();
   if (error || !data) throw new Error(error?.message ?? "create subfolder failed");
-  revalidatePath("/");
+  revalidatePath("/herramientas");
   return toSubfolder(data);
 }
 
@@ -353,14 +353,14 @@ export async function updateSubfolder(id: string, patch: { label?: string }): Pr
   if (typeof patch.label === "string") clean.label = patch.label.trim().slice(0, 60) || "Sin nombre";
   if (Object.keys(clean).length === 0) return;
   await hubDb.from("subfolders").update(clean).eq("id", id);
-  revalidatePath("/");
+  revalidatePath("/herramientas");
 }
 
 export async function deleteSubfolder(id: string): Promise<void> {
   await requireAdmin();
   // FK on delete set null: las tarjetas de la subcarpeta vuelven al nivel de la sección.
   await hubDb.from("subfolders").delete().eq("id", id);
-  revalidatePath("/");
+  revalidatePath("/herramientas");
 }
 
 export async function reorderSubfolders(
@@ -377,7 +377,7 @@ export async function reorderSubfolders(
         .eq("id", id),
     ),
   );
-  revalidatePath("/");
+  revalidatePath("/herramientas");
 }
 
 /**
@@ -415,7 +415,7 @@ export async function moveSubfolderToSection(
         .eq("id", id),
     ),
   );
-  revalidatePath("/");
+  revalidatePath("/herramientas");
 }
 
 // --- Tarjetas (solo admin) ---
@@ -442,7 +442,7 @@ export async function createCard(
     .select(CARD_COLS)
     .single();
   if (error || !data) throw new Error(error?.message ?? "create card failed");
-  revalidatePath("/");
+  revalidatePath("/herramientas");
   return toCard(data);
 }
 
@@ -466,13 +466,13 @@ export async function updateCard(
   if ("subfolderId" in patch) clean.subfolder_id = patch.subfolderId ?? null;
   if (Object.keys(clean).length === 0) return;
   await hubDb.from("cards").update(clean).eq("id", id);
-  revalidatePath("/");
+  revalidatePath("/herramientas");
 }
 
 export async function deleteCard(id: string): Promise<void> {
   await requireAdmin();
   await hubDb.from("cards").delete().eq("id", id);
-  revalidatePath("/");
+  revalidatePath("/herramientas");
 }
 
 export async function reorderCards(
@@ -489,7 +489,7 @@ export async function reorderCards(
         .eq("id", id),
     ),
   );
-  revalidatePath("/");
+  revalidatePath("/herramientas");
 }
 
 // --- Acceso restringido a tarjetas (hub.member_apps: member_id, app_slug) ---
@@ -525,5 +525,5 @@ export async function setCardAccess(slug: string, memberIds: string[]): Promise<
   if (memberIds.length > 0) {
     await hubDb.from("member_apps").insert(memberIds.map((member_id) => ({ member_id, app_slug: slug })));
   }
-  revalidatePath("/");
+  revalidatePath("/herramientas");
 }

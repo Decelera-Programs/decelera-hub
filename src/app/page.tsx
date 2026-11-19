@@ -1,36 +1,24 @@
-import { Suspense } from "react";
-import { HubHome } from "@/components/HubHome";
-import {
-  getCards,
-  getSections,
-  getSubfolders,
-  requireMember,
-} from "@/lib/hub";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
-export default async function Page() {
-  const member = await requireMember();
-  const [sections, subfolders, cards] = await Promise.all([
-    getSections(),
-    getSubfolders(),
-    getCards(member.id, member.role === "admin"),
-  ]);
-
-  return (
-    <Suspense>
-      <HubHome
-        sections={sections}
-        subfolders={subfolders}
-        apps={cards}
-        member={{
-          name: member.full_name,
-          email: member.email,
-          avatarUrl: member.avatar_url,
-          isAdmin: member.role === "admin",
-          teams: member.teams,
-        }}
-      />
-    </Suspense>
-  );
+/**
+ * La raíz del hub es "Preguntar" (/brain). Las Herramientas viven en /herramientas; los enlaces antiguos a la
+ * raíz con parámetros (?abre=… / ?url=…) se reenvían allí para que sigan funcionando.
+ */
+export default async function Page({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const sp = await searchParams;
+  if (sp.abre || sp.url) {
+    const qs = new URLSearchParams();
+    for (const [k, v] of Object.entries(sp)) {
+      const val = Array.isArray(v) ? v[0] : v;
+      if (val) qs.set(k, val);
+    }
+    redirect(`/herramientas?${qs.toString()}`);
+  }
+  redirect("/brain");
 }

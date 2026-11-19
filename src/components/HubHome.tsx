@@ -143,10 +143,10 @@ export function HubHome({
     } catch {
       // sin persistencia
     }
-    let url = "/";
-    if (activeTab?.target.slug) url = `/?abre=${encodeURIComponent(activeTab.target.slug)}`;
+    let url = "/herramientas";
+    if (activeTab?.target.slug) url = `/herramientas?abre=${encodeURIComponent(activeTab.target.slug)}`;
     else if (activeTab)
-      url = `/?url=${encodeURIComponent(activeTab.target.href)}&t=${encodeURIComponent(activeTab.target.title)}`;
+      url = `/herramientas?url=${encodeURIComponent(activeTab.target.href)}&t=${encodeURIComponent(activeTab.target.title)}`;
     try {
       window.history.replaceState(window.history.state, "", url);
     } catch {

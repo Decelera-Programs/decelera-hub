@@ -24,7 +24,7 @@ export function Header({ active = "dashboard" }: { active?: "dashboard" | "maru"
       <div className="flex flex-wrap items-center gap-2">
         {active === "maru" ? (
           <Link
-            href="/"
+            href="/opencall-mexico-2026"
             className={`${NAV_LINK_CLASS} border-[var(--border)] bg-[var(--surface-1)] text-[var(--text-primary)] hover:bg-[var(--row-hover)]`}
           >
             ← Dashboard
