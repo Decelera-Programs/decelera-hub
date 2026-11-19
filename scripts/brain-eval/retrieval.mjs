@@ -146,11 +146,14 @@ async function embedQuery(text) {
   throw new Error("Voyage saturado");
 }
 
+/** Un solo vector de pregunta para las dos búsquedas, así se comparan en igualdad de condiciones. */
 async function search(text) {
-  const emb = await embedQuery(text);
-  const { data, error } = await db.rpc("brain_match", { query_embedding: `[${emb.join(",")}]`, match_count: K });
-  if (error) throw error;
-  return data ?? [];
+  const emb = `[${(await embedQuery(text)).join(",")}]`;
+  const base = await db.rpc("brain_match", { query_embedding: emb, match_count: K });
+  if (base.error) throw base.error;
+  const hybrid = await db.rpc("brain_match_hybrid", { query_embedding: emb, query_text: text, match_count: 12, name_count: 6 });
+  if (hybrid.error) throw hybrid.error;
+  return { base: base.data ?? [], hybrid: hybrid.data ?? [] };
 }
 
 const pct = (x, n) => (n ? `${((100 * x) / n).toFixed(0)}%` : "–");
@@ -166,68 +169,86 @@ async function measure() {
     for (const kind of ["con_nombre", "sin_nombre"]) {
       const q = it.questions[kind];
       let rank = null;
+      let hybridRank = null;
       let top = null;
       try {
-        const hits = await search(q);
-        const idx = hits.findIndex((h) => h.id === it.chunk_id);
+        const { base, hybrid } = await search(q);
+        const idx = base.findIndex((h) => h.id === it.chunk_id);
         rank = idx >= 0 ? idx + 1 : null;
-        if (hits[0]) top = `${hits[0].source_table}.${hits[0].source_column} · ${await recordName(hits[0].source_table, hits[0].record_id)}`;
+        const hidx = hybrid.findIndex((h) => h.id === it.chunk_id);
+        hybridRank = hidx >= 0 ? hidx + 1 : null;
+        if (base[0]) top = `${base[0].source_table}.${base[0].source_column} · ${await recordName(base[0].source_table, base[0].record_id)}`;
       } catch (e) {
         console.log(`  error: ${e.message}`);
       }
-      results.push({ it, kind, q, rank, top });
+      results.push({ it, kind, q, rank, hybridRank, top });
       process.stdout.write(`\r  ${++done}/${items.length * 2}`);
       if (DELAY) await sleep(DELAY);
     }
   }
   console.log("");
 
-  const stat = (rs) => {
+  // Dos búsquedas con el mismo vector de pregunta: "significado" (la de antes: 12 trozos) e "híbrida" (12 por
+  // significado + hasta 6 por nombre de ficha = hasta 18). Lo que ve el Brain es @12 en la primera y @18 en la segunda.
+  const stat = (rs, key) => {
     const n = rs.length;
-    const at = (m) => rs.filter((r) => r.rank && r.rank <= m).length;
-    const mrr = rs.reduce((s, r) => s + (r.rank ? 1 / r.rank : 0), 0) / (n || 1);
-    return { n, a5: pct(at(5), n), a12: pct(at(12), n), aK: pct(at(K), n), mrr: mrr.toFixed(2) };
+    const at = (m) => rs.filter((r) => r[key] && r[key] <= m).length;
+    const mrr = rs.reduce((s, r) => s + (r[key] ? 1 / r[key] : 0), 0) / (n || 1);
+    return { n, a5: pct(at(5), n), a12: pct(at(12), n), a18: pct(at(18), n), mrr: mrr.toFixed(2) };
   };
-  const line = (label, s) => `| ${label} | ${s.n} | ${s.a5} | ${s.a12} | ${s.aK} | ${s.mrr} |`;
-  const head = `| | preguntas | acierto@5 | acierto@12 | acierto@${K} | MRR |\n|---|---|---|---|---|---|`;
+  const line = (label, rs) => {
+    const a = stat(rs, "rank");
+    const b = stat(rs, "hybridRank");
+    return `| ${label} | ${a.n} | ${a.a5} / ${b.a5} | ${a.a12} / ${b.a12} | ${a.a18} / ${b.a18} | ${a.mrr} / ${b.mrr} |`;
+  };
+  const head = `| (significado / híbrida) | preguntas | acierto@5 | acierto@12 | acierto@18 | MRR |\n|---|---|---|---|---|---|`;
+  const brainSees = (rs) => `${stat(rs, "rank").a12} → ${stat(rs, "hybridRank").a18}`;
 
   const sources = [...new Set(results.map((r) => r.it.source))].sort();
   const md = [
     `# Búsqueda del Brain · ${new Date().toISOString().slice(0, 19)}`,
     "",
-    `Conjunto: ${items.length} trozos, ${results.length} preguntas. @12 = lo que ve hoy el Brain.`,
+    `Conjunto: ${items.length} trozos, ${results.length} preguntas. Cada celda: significado / híbrida.`,
+    `**Lo que ve el Brain** (significado @12 → híbrida @18): todas ${brainSees(results)} · con nombre ${brainSees(results.filter((r) => r.kind === "con_nombre"))} · sin nombre ${brainSees(results.filter((r) => r.kind === "sin_nombre"))}`,
     "",
     head,
-    line("**todas**", stat(results)),
-    line("con nombre", stat(results.filter((r) => r.kind === "con_nombre"))),
-    line("sin nombre", stat(results.filter((r) => r.kind === "sin_nombre"))),
+    line("**todas**", results),
+    line("con nombre", results.filter((r) => r.kind === "con_nombre")),
+    line("sin nombre", results.filter((r) => r.kind === "sin_nombre")),
     "",
     "## Por fuente",
     "",
     head,
-    ...sources.map((s) => line(s, stat(results.filter((r) => r.it.source === s)))),
+    ...sources.map((s) => line(s, results.filter((r) => r.it.source === s))),
     "",
-    `## Fallos (el trozo no está en los ${K} primeros)`,
+    "## Fallos de la búsqueda híbrida (el trozo no está entre los devueltos)",
     "",
     ...results
-      .filter((r) => !r.rank)
+      .filter((r) => !r.hybridRank)
       .flatMap((r) => [
         `- **${r.kind}** · ${r.it.source} · ${r.it.name}`,
         `  - Pregunta: ${r.q}`,
         `  - Trozo esperado: ${r.it.excerpt}…`,
-        `  - Primer resultado: ${r.top ?? "(ninguno)"}`,
+        `  - Primer resultado (significado): ${r.top ?? "(ninguno)"}`,
       ]),
     "",
-    "## Aciertos tardíos (fuera del top 12)",
+    "## Preguntas que la híbrida arregla (fallaban con solo significado)",
     "",
-    ...results.filter((r) => r.rank && r.rank > 12).map((r) => `- puesto ${r.rank} · ${r.kind} · ${r.it.name}: ${r.q}`),
+    ...results
+      .filter((r) => (!r.rank || r.rank > 12) && r.hybridRank)
+      .map((r) => `- ${r.kind} · ${r.it.name}: ${r.q}`),
+    "",
+    "## Preguntas que la híbrida empeora",
+    "",
+    ...results.filter((r) => r.rank && r.rank <= 12 && !r.hybridRank).map((r) => `- ${r.kind} · ${r.it.name}: ${r.q}`),
   ].join("\n");
 
   mkdirSync(REPORTS, { recursive: true });
   const file = join(REPORTS, `retrieval-${new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19)}.md`);
   writeFileSync(file, md + "\n");
-  const all = stat(results);
-  console.log(`Acierto@5 ${all.a5} · @12 ${all.a12} · @${K} ${all.aK} · MRR ${all.mrr}\nInforme: ${file}`);
+  console.log(
+    `Lo que ve el Brain (significado @12 → híbrida @18): todas ${brainSees(results)} · con nombre ${brainSees(results.filter((r) => r.kind === "con_nombre"))} · sin nombre ${brainSees(results.filter((r) => r.kind === "sin_nombre"))}\nInforme: ${file}`,
+  );
 }
 
 if (BUILD) await build(Number(BUILD));

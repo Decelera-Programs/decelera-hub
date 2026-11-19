@@ -17,6 +17,7 @@ const ANSWER_MODEL = "claude-sonnet-5-5";
 // `high` (~13 s, 700+ tokens de razonamiento). Es lo que hace que el streaming empiece casi al instante.
 const ANSWER_EFFORT = "medium" as const;
 const MATCH_COUNT = 12;
+const NAME_COUNT = 6;
 const MAX_QUESTION_CHARS = 600;
 /** Tope por persona para controlar el gasto en la API de Anthropic. */
 const HOURLY_LIMIT = Number(process.env.BRAIN_HOURLY_LIMIT) || 30; // la variable solo la sube el servidor de pruebas (brain-eval)
@@ -159,12 +160,18 @@ async function embedQuestion(question: string): Promise<number[]> {
   throw new RateLimited();
 }
 
-async function findMatches(embedding: number[]): Promise<Match[]> {
-  const { data, error } = await hubDb.rpc("brain_match", {
+/**
+ * Búsqueda híbrida: los MATCH_COUNT trozos más cercanos por significado más hasta NAME_COUNT de las fichas cuyo
+ * nombre aparece en la pregunta (el significado por sí solo pesa poco los nombres propios).
+ */
+async function findMatches(embedding: number[], question: string): Promise<Match[]> {
+  const { data, error } = await hubDb.rpc("brain_match_hybrid", {
     query_embedding: `[${embedding.join(",")}]`,
+    query_text: question,
     match_count: MATCH_COUNT,
+    name_count: NAME_COUNT,
   });
-  if (error) throw new Error(`brain_match: ${error.message}`);
+  if (error) throw new Error(`brain_match_hybrid: ${error.message}`);
   const rows = (data ?? []) as Omit<Match, "autor">[];
   if (!rows.length) return [];
 
@@ -226,7 +233,7 @@ export async function* streamAnswer(
   }
 
   try {
-    const matches = await findMatches(await embedQuestion(question));
+    const matches = await findMatches(await embedQuestion(question), question);
     if (!matches.length) {
       yield { type: "error", error: "Todavía no hay nada indexado para responder. Prueba más tarde." };
       return;
