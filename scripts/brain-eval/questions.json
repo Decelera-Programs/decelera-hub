@@ -103,6 +103,26 @@
       "max_cards": 2
     },
     {
+      "id": "hub-agents",
+      "type": "hub",
+      "question": "¿Qué agentes tenemos y qué hace cada uno?",
+      "expect": ["Maru", "Events", "Inbound"]
+    },
+    {
+      "id": "hub-agent-events",
+      "type": "hub",
+      "question": "¿Cómo funciona el agente de eventos? ¿Qué pasa cuando le reenvío un correo?",
+      "expect": ["events@"],
+      "_note": "Debe explicar: evalúa el evento, lo guarda en el hub, publica en #events con botones Voy / No voy y Calendar."
+    },
+    {
+      "id": "hub-tool-trello",
+      "type": "cards",
+      "question": "¿Para qué usamos Trello?",
+      "expect_cards": ["trello-aqz2"],
+      "max_cards": 1
+    },
+    {
       "id": "card-none",
       "type": "cards",
       "question": "¿Dónde puedo ver el dashboard de las nóminas de Decelera?",

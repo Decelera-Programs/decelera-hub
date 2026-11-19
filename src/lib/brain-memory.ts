@@ -73,7 +73,7 @@ export async function memorizeConversation(memberId: string, conversationId: str
 
     const existing = await listMemories(memberId);
     const convo = turns
-      .map((t) => `Persona: ${t.question}\nBrain: ${(t.answer ?? "").replace(/\s*\[[DC]?\d+\]/g, "").slice(0, 250)}`)
+      .map((t) => `Persona: ${t.question}\nBrain: ${(t.answer ?? "").replace(/\s*\[[DCH]?\d+\]/g, "").slice(0, 250)}`)
       .join("\n\n");
     const known = existing.length ? existing.map((m) => `[${m.id}] ${m.text}`).join("\n") : "(ninguna)";
 
