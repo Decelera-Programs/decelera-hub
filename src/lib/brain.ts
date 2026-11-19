@@ -4,6 +4,7 @@ import { hubDb } from "@/lib/supabase/hub";
 import { KIND_LABEL, TYPE_LABEL, type BrainCard, type BrainEvent, type BrainSource } from "@/lib/brain-shared";
 import { getCards, getSections, getSubfolders, type Member } from "@/lib/hub";
 import { CRM_CONTEXT } from "@/lib/brain-context";
+import { listMemories, memoryPrompt } from "@/lib/brain-memory";
 
 /**
  * "Pregunta al Brain": búsqueda semántica sobre hub.brain_chunks (notas, comentarios y descripciones de
@@ -382,6 +383,8 @@ export async function* streamAnswer(
         cache_control: { type: "ephemeral" as const },
       },
     ];
+    const memo = memoryPrompt(await listMemories(memberId));
+    if (memo) system.push({ type: "text" as const, text: memo } as (typeof system)[number]);
     const messages: Anthropic.MessageParam[] = [
       ...history.flatMap((t): Anthropic.MessageParam[] => [
         { role: "user", content: `Pregunta: ${t.question}` },

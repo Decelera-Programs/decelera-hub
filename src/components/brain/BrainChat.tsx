@@ -260,6 +260,92 @@ export function BrainChat() {
   const taRef = useRef<HTMLTextAreaElement>(null);
   // Identificador de la conversación en curso: lo crea el navegador y lo reenvía en cada pregunta.
   const conversationRef = useRef<string | null>(null);
+  const turnCountRef = useRef(0);
+  turnCountRef.current = turns.length;
+  const [memOpen, setMemOpen] = useState(false);
+  const [memories, setMemories] = useState<{ id: string; text: string }[] | null>(null);
+
+  /** Avisa al agente de memoria de que la conversación se ha cerrado (no espera respuesta; se repite sin coste). */
+  function closeConversation() {
+    const id = conversationRef.current;
+    if (!id || turnCountRef.current < 2) return;
+    try {
+      navigator.sendBeacon("/api/brain/memory", new Blob([JSON.stringify({ conversationId: id })], { type: "application/json" }));
+    } catch {
+      /* la memoria es un extra */
+    }
+  }
+
+  // Al cerrar o recargar la página también se cierra la conversación.
+  useEffect(() => {
+    const onHide = () => closeConversation();
+    window.addEventListener("pagehide", onHide);
+    return () => {
+      window.removeEventListener("pagehide", onHide);
+      onHide();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function toggleMemory() {
+    const next = !memOpen;
+    setMemOpen(next);
+    if (!next) return;
+    setMemories(null);
+    try {
+      const res = await fetch("/api/brain/memory");
+      if (res.ok) setMemories(((await res.json()) as { memories: { id: string; text: string }[] }).memories);
+      else setMemories([]);
+    } catch {
+      setMemories([]);
+    }
+  }
+
+  async function forget(id: string) {
+    setMemories((ms) => (ms ?? []).filter((m) => m.id !== id));
+    await fetch(`/api/brain/memory?id=${id}`, { method: "DELETE" }).catch(() => undefined);
+  }
+
+  const memoryButton = (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={toggleMemory}
+        className="flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface-1)]/70 px-3 py-1.5 text-xs font-semibold text-[var(--text-secondary)] transition-colors hover:bg-[var(--row-hover)] hover:text-[var(--text-primary)]"
+      >
+        Memoria
+      </button>
+      {memOpen && (
+        <div className="absolute right-0 top-full z-20 mt-2 w-80 max-w-[calc(100vw-2rem)] rounded-2xl border border-[var(--border)] bg-[var(--surface-1)] p-4 text-left shadow-[0_8px_32px_rgba(45,56,82,0.16)]">
+          <p className="text-[13px] font-semibold text-[var(--text-primary)]">Lo que recuerdo de ti</p>
+          <p className="mt-1 text-[12px] leading-relaxed text-[var(--text-muted)]">
+            Tras cada conversación apunto preferencias y contexto de tu trabajo para ayudarte mejor. Solo las ves tú y puedes borrarlas.
+          </p>
+          <div className="mt-3 flex flex-col gap-2">
+            {memories === null ? (
+              <p className="text-[12px] text-[var(--text-muted)]">Cargando…</p>
+            ) : memories.length === 0 ? (
+              <p className="text-[12px] text-[var(--text-muted)]">Todavía no recuerdo nada de ti.</p>
+            ) : (
+              memories.map((m) => (
+                <div key={m.id} className="flex items-start justify-between gap-2 rounded-lg bg-[var(--pill-neutral-bg)] px-3 py-2">
+                  <span className="text-[13px] leading-snug text-[var(--text-primary)]">{m.text}</span>
+                  <button
+                    type="button"
+                    onClick={() => forget(m.id)}
+                    aria-label="Olvidar"
+                    className="shrink-0 text-[12px] text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+                  >
+                    Olvidar
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 
   // Al empezar una pregunta y al terminarla (aparecen las fuentes) se baja al final. Mientras se escribe la
   // respuesta no se fuerza el scroll, para no pelearse con quien está leyendo.
@@ -282,6 +368,7 @@ export function BrainChat() {
   /** Empieza una conversación nueva: corta lo que estuviera respondiéndose y limpia la pantalla. */
   function newConversation() {
     abortRef.current?.abort();
+    closeConversation();
     conversationRef.current = null;
     setTurns([]);
     setQuestion("");
@@ -405,9 +492,10 @@ export function BrainChat() {
   return (
     // Como en Claude.ai: al empezar, saludo y cuadro de texto centrados en la pantalla; al enviar la primera
     // pregunta el cuadro baja al fondo. El cuadro es siempre el mismo elemento (mantiene el foco al bajar).
-    <div className={`flex min-h-0 flex-1 flex-col ${turns.length === 0 ? "justify-center" : ""}`}>
+    <div className={`relative flex min-h-0 flex-1 flex-col ${turns.length === 0 ? "justify-center" : ""}`}>
       {turns.length === 0 ? (
         <div className="flex flex-col items-center gap-3 px-4 pb-8 text-center">
+          <div className="absolute right-4 top-3">{memoryButton}</div>
           <Mark />
           <h1 className="page-title text-3xl text-[var(--text-primary)] sm:text-4xl">¿Qué quieres saber?</h1>
           <p className="max-w-md text-[13px] leading-relaxed text-[var(--text-muted)]">
@@ -417,7 +505,8 @@ export function BrainChat() {
       ) : (
       <>
       <div className="shrink-0 px-4 pt-3">
-        <div className="mx-auto flex w-full max-w-3xl justify-end">
+        <div className="mx-auto flex w-full max-w-3xl items-center justify-end gap-2">
+          {memoryButton}
           <button
             type="button"
             onClick={newConversation}
