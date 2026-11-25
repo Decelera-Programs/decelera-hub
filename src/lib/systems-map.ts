@@ -9,7 +9,7 @@
  * Brain, así que sus flechas salen sin cifra.
  */
 
-export type MapAgentId = "main" | "inbound-follow-up" | "events";
+export type MapAgentId = "main" | "inbound-follow-up" | "events" | "invoices";
 
 export const MAP_AGENTS: { id: MapAgentId; label: string; emoji: string; color: string; what: string }[] = [
   {
@@ -33,6 +33,13 @@ export const MAP_AGENTS: { id: MapAgentId; label: string; emoji: string; color: 
     color: "#0b9bb0",
     what: "Eventos de VC y tecnología (events@ y Exa) al Brain, a #events y a Google Calendar.",
   },
+  {
+    id: "invoices",
+    label: "Facturas",
+    emoji: "🧾",
+    color: "#7a4fd6",
+    what: "Facturas mensuales de SaaS (Gmail + PDFs en #facturas) enviadas a Carmen a fin de mes.",
+  },
 ];
 
 export type MapSystem = {
@@ -51,7 +58,7 @@ export const NODE_H = 66;
 
 // Izquierda: de dónde entran los datos · centro: dónde se guardan · derecha: dónde se avisa / se actúa.
 export const MAP_SYSTEMS: MapSystem[] = [
-  { id: "gmail", label: "Gmail", sub: "startups@ · events@", icon: "✉️", logo: "/logos/gmail.svg", x: 30, y: 100 },
+  { id: "gmail", label: "Gmail", sub: "startups@ · events@ · facturas", icon: "✉️", logo: "/logos/gmail.svg", x: 30, y: 100 },
   { id: "exa", label: "Exa", sub: "búsqueda web", icon: "🔎", logo: "/logos/exa.png", x: 30, y: 255 },
   { id: "linkedin", label: "LinkedIn", sub: "Sales Navigator", icon: "💼", logo: "/logos/linkedin.svg", x: 30, y: 420 },
   { id: "calendly", label: "Calendly", sub: "calls reservadas", icon: "🗓️", logo: "/logos/calendly.svg", x: 30, y: 545 },
@@ -59,7 +66,7 @@ export const MAP_SYSTEMS: MapSystem[] = [
   { id: "attio", label: "Attio", sub: "CRM · deal flow", icon: "🏢", logo: "/logos/attio.ico", x: 492, y: 480 },
   { id: "gcal", label: "Google Calendar", sub: "invitaciones", icon: "📆", logo: "/logos/gcal.svg", x: 954, y: 30 },
   { id: "slack", label: "Slack", sub: "canales", icon: "💬", logo: "/logos/slack.svg", x: 954, y: 250 },
-  { id: "gmail-out", label: "Gmail", sub: "respuestas a founders", icon: "📤", logo: "/logos/gmail.svg", x: 954, y: 470 },
+  { id: "gmail-out", label: "Gmail", sub: "founders · facturas a Carmen", icon: "📤", logo: "/logos/gmail.svg", x: 954, y: 470 },
 ];
 
 export type MapFlow = {
@@ -91,6 +98,12 @@ export const MAP_FLOWS: MapFlow[] = [
     eventTypes: ["event_slack_posted"] },
   { id: "e-rsvp", agent: "events", from: "slack", to: "gcal", label: "Voy → invitación", when: "cada minuto",
     eventTypes: ["event_rsvp_voy", "event_rsvp_no_voy"] },
+  // Facturas
+  { id: "f-mail", agent: "invoices", from: "gmail", to: "gmail-out", label: "Facturas a Carmen", when: "último día 19:00",
+    eventTypes: ["factura_enviada", "factura_borrador"] },
+  { id: "f-upload", agent: "invoices", from: "slack", to: "gmail-out", label: "PDFs de #facturas", when: "último día 19:00" },
+  { id: "f-remind", agent: "invoices", from: "gmail", to: "slack", label: "Aviso / recordatorio", when: "día 25 y fin de mes",
+    eventTypes: ["factura_recordatorio", "factura_falta"] },
   // Maru
   { id: "m-inmail", agent: "main", from: "linkedin", to: "linkedin", label: "InMails a founders", when: "L–V" },
   { id: "m-leads", agent: "main", from: "linkedin", to: "attio", label: "Leads · enriquece stealth", when: "con cada envío" },

@@ -1,10 +1,10 @@
 /** Tipos y catálogos compartidos para el dashboard de auditoría de agentes (`/agentes`). Los datos
  * viven en `hub.agent_audit_runs` / `hub.agent_audit_events` (ver src/lib/supabase/agents.ts) — ambos
- * escritos por los propios agentes (`inbound-follow-up` y `events`) a través de un script compartido en
+ * escritos por los propios agentes (`inbound-follow-up`, `events` e `invoices`) a través de un script compartido en
  * el VPS, no por esta app. */
 
 export type AgentRunStatus = "running" | "success" | "error" | "no_op";
-export type AgentPass = "fast" | "slow" | "email" | "exa" | null;
+export type AgentPass = "fast" | "slow" | "email" | "exa" | "recordatorio" | null;
 
 export type AgentRun = {
   id: string;
@@ -78,6 +78,16 @@ export const KNOWN_AGENTS: { id: string; label: string; emoji: string; descripti
       "botones Voy / No voy que gestionan la invitación en Google Calendar.",
     vpsPath: "/home/maru/.openclaw/agents/events",
   },
+  {
+    id: "invoices",
+    label: "Facturas",
+    emoji: "🧾",
+    description:
+      "El último día de cada mes junta las facturas mensuales de SaaS (Railway, Anthropic y Supabase del " +
+      "Gmail de Carlos; Hostinger, Fillout y Squarespace subidas a #facturas), las renombra y se las envía a " +
+      "Carmen desde maru@. El día 25 recuerda en #facturas qué hay que bajar a mano. Sin LLM.",
+    vpsPath: "/home/maru/.openclaw/agents/invoices",
+  },
 ];
 
 export const EVENT_LABEL: Record<string, string> = {
@@ -100,6 +110,11 @@ export const EVENT_LABEL: Record<string, string> = {
   event_slack_posted: "Publicado en #events y Calendar",
   event_rsvp_voy: "Alguien va (invitación enviada)",
   event_rsvp_no_voy: "Alguien no va",
+  factura_enviada: "Factura enviada a Carmen",
+  factura_borrador: "Factura en borrador para Carmen",
+  factura_falta: "Factura que aún no ha llegado",
+  factura_patron_aprendido: "Formato de nombre nuevo aprendido",
+  factura_recordatorio: "Recordatorio del día 25 en #facturas",
 };
 
 export const EVENT_ICON: Record<string, string> = {
@@ -122,6 +137,11 @@ export const EVENT_ICON: Record<string, string> = {
   event_slack_posted: "💬",
   event_rsvp_voy: "✅",
   event_rsvp_no_voy: "👋",
+  factura_enviada: "📤",
+  factura_borrador: "📝",
+  factura_falta: "⏳",
+  factura_patron_aprendido: "🧠",
+  factura_recordatorio: "🔔",
 };
 
 export function eventLabel(eventType: string): string {
@@ -209,6 +229,25 @@ export const AGENT_FLOWS: Record<string, { nodes: FlowNode[]; edges: FlowEdge[] 
       { from: "published", to: "posted" },
       { from: "posted", to: "voy" },
       { from: "posted", to: "no_voy" },
+    ],
+  },
+  invoices: {
+    nodes: [
+      { id: "remind", label: "Día 25: recordatorio en #facturas", icon: "🔔", tone: "neutral", eventTypes: ["factura_recordatorio"], col: 0, row: 0 },
+      { id: "gmail", label: "Facturas por email (Gmail de Carlos)", icon: "📧", tone: "neutral", eventTypes: [], col: 1, row: 2 },
+      { id: "upload", label: "PDFs subidos a #facturas", icon: "📎", tone: "neutral", eventTypes: [], col: 1, row: 0 },
+      { id: "learned", label: "Formato de nombre nuevo", icon: "🧠", tone: "info", eventTypes: ["factura_patron_aprendido"], col: 2, row: 0 },
+      { id: "collect", label: "Último día: junta y renombra", icon: "🧾", tone: "info", eventTypes: [], col: 2, row: 1 },
+      { id: "sent", label: "Enviadas a Carmen", icon: "📤", tone: "success", eventTypes: ["factura_enviada", "factura_borrador"], col: 3, row: 1 },
+      { id: "missing", label: "Faltan → siguiente envío", icon: "⏳", tone: "warning", eventTypes: ["factura_falta"], col: 3, row: 2 },
+    ],
+    edges: [
+      { from: "remind", to: "upload" },
+      { from: "upload", to: "learned" },
+      { from: "upload", to: "collect" },
+      { from: "gmail", to: "collect" },
+      { from: "collect", to: "sent" },
+      { from: "collect", to: "missing" },
     ],
   },
 };
