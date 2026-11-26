@@ -1,8 +1,7 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element */
-import type { Project, StrategicPriority } from "@/lib/projects";
-import { strategicInk } from "@/lib/projects";
+import type { Project } from "@/lib/projects";
 import { HEALTH_COLOR, HEALTH_LABEL, PRIORITY_COLOR, PRIORITY_LABEL, taskProgress } from "@/lib/projects";
 import { TEAM_ACCENT, TEAM_LABEL } from "@/lib/teams";
 
@@ -23,15 +22,12 @@ function fmtDate(iso: string): string {
 
 export function ProjectCard({
   project,
-  priorities = [],
   dragging,
   onOpen,
   onDragStart,
   onDragEnd,
 }: {
   project: Project;
-  /** Prioridades estratégicas del proyecto (ya resueltas), para los chips. */
-  priorities?: StrategicPriority[];
   dragging: boolean;
   onOpen: () => void;
   onDragStart: (e: React.DragEvent) => void;
@@ -90,24 +86,6 @@ export function ProjectCard({
       </div>
 
       <span className="text-sm font-semibold leading-snug text-[var(--text-primary)]">{project.title}</span>
-
-      {priorities.length > 0 && (
-        <div className="flex flex-wrap gap-1">
-          {priorities.map((sp) => {
-            const c = strategicInk(sp.position);
-            return (
-              <span
-                key={sp.id}
-                title={sp.title}
-                className="max-w-full truncate rounded-md px-1.5 py-0.5 text-[10px] font-bold"
-                style={{ background: `color-mix(in srgb, ${c} 12%, transparent)`, color: c }}
-              >
-                {sp.shortName || sp.title}
-              </span>
-            );
-          })}
-        </div>
-      )}
 
       {project.info && (
         <p className="line-clamp-2 text-xs leading-relaxed text-[var(--text-muted)]">{project.info}</p>

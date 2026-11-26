@@ -2,23 +2,13 @@ import { AccountMenu } from "@/components/AccountMenu";
 import { PageSwitcher } from "@/components/PageSwitcher";
 import { ProjectsBoard } from "@/components/projects/ProjectsBoard";
 import { requireMember } from "@/lib/hub";
-import {
-  getMemberOptions,
-  getProjectColumns,
-  getProjects,
-  getStrategicPriorities,
-} from "@/lib/supabase/projects";
+import { getMemberOptions, getProjectColumns, getProjects } from "@/lib/supabase/projects";
 
 export const dynamic = "force-dynamic";
 
 export default async function ProyectosPage() {
   const member = await requireMember();
-  const [columns, projects, members, priorities] = await Promise.all([
-    getProjectColumns(),
-    getProjects(),
-    getMemberOptions(),
-    getStrategicPriorities(),
-  ]);
+  const [columns, projects, members] = await Promise.all([getProjectColumns(), getProjects(), getMemberOptions()]);
 
   const user = {
     name: member.full_name,
@@ -61,7 +51,6 @@ export default async function ProyectosPage() {
         columns={columns}
         projects={projects}
         members={members}
-        priorities={priorities}
         currentMemberId={member.id}
       />
     </div>

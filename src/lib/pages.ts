@@ -8,6 +8,7 @@ export const HUB_PAGES: HubPage[] = [
   // "Preguntar" es la página de inicio: la raíz (/) redirige aquí; también es el destino tras entrar y al abrir la app.
   { key: "brain", label: "Preguntar", href: "/brain" },
   { key: "workspace", label: "Herramientas", href: "/herramientas" },
+  { key: "estrategia", label: "Estrategia", href: "/estrategia" },
   { key: "proyectos", label: "Proyectos", href: "/proyectos" },
   // Bitácora oculta por ahora (la página /bitacora y sus datos siguen ahí). Para volver a mostrarla:
   // { key: "bitacora", label: "Bitácora", href: "/bitacora" },

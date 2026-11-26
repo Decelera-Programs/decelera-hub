@@ -7,7 +7,6 @@ import type {
   ProjectHealth,
   ProjectOwner,
   ProjectPriority,
-  StrategicPriority,
 } from "@/lib/projects";
 import type { Team } from "@/lib/teams";
 import { hubDb } from "@/lib/supabase/hub";
@@ -40,44 +39,7 @@ type ProjectRow = {
   owner: OwnerRow | null;
   project_tasks: TaskRow[] | null;
   project_docs: DocRow[] | null;
-  project_priorities: { priority_id: string }[] | { priority_id: string } | null;
 };
-
-type PriorityRow = {
-  id: string;
-  year: number;
-  position: number;
-  title: string;
-  short_name: string;
-  context: string;
-  why_it_matters: string;
-  success_metrics: string;
-  related_problem_space: string;
-  is_active: boolean;
-};
-
-export const getStrategicPriorities = cache(async (): Promise<StrategicPriority[]> => {
-  const { data, error } = await hubDb
-    .from("strategic_priorities")
-    .select(
-      "id, year, position, title, short_name, context, why_it_matters, success_metrics, related_problem_space, is_active",
-    )
-    .order("year", { ascending: false })
-    .order("position");
-  if (error) throw new Error(`getStrategicPriorities: ${error.message}`);
-  return ((data ?? []) as PriorityRow[]).map((r) => ({
-    id: r.id,
-    year: r.year,
-    position: r.position,
-    title: r.title,
-    shortName: r.short_name,
-    context: r.context,
-    whyItMatters: r.why_it_matters,
-    successMetrics: r.success_metrics,
-    relatedProblemSpace: r.related_problem_space,
-    isActive: r.is_active,
-  }));
-});
 
 const byPos = <T extends { position: number }>(a: T, b: T) => a.position - b.position;
 
@@ -108,8 +70,7 @@ export const getProjects = cache(async (): Promise<Project[]> => {
        owner:members!projects_owner_id_fkey(id, full_name, email, avatar_url),
        project_tasks(id, label, done, position, owner_id, due_date,
          owner:members!project_tasks_owner_id_fkey(id, full_name, email, avatar_url)),
-       project_docs(id, label, url, position),
-       project_priorities(priority_id)`,
+       project_docs(id, label, url, position)`,
     )
     .order("position");
 
@@ -132,13 +93,6 @@ export const getProjects = cache(async (): Promise<Project[]> => {
     team: p.team,
     startDate: p.start_date,
     endDate: p.end_date,
-    // Con `unique` en project_id, PostgREST devuelve un objeto (1:1) en vez de un array.
-    priorityIds: (Array.isArray(p.project_priorities)
-      ? p.project_priorities
-      : p.project_priorities
-        ? [p.project_priorities]
-        : []
-    ).map((x) => x.priority_id),
     tasks: ((p.project_tasks ?? []) as TaskRow[])
       .slice()
       .sort(byPos)

@@ -11,8 +11,6 @@ import {
   type ProjectDoc,
   type ProjectOwner,
   type ProjectTask,
-  type StrategicPriority,
-  strategicInk,
 } from "@/lib/projects";
 import { TEAMS, TEAM_LABEL, type Team } from "@/lib/teams";
 import {
@@ -37,12 +35,11 @@ import {
 import { GanttView } from "./GanttView";
 import { ProjectCard } from "./ProjectCard";
 import { ProjectModal, type ModalHandlers } from "./ProjectModal";
-import { StrategyView } from "./StrategyView";
 
 const NONE = "__none__";
 type StatusFilter = "all" | "active" | "done";
-type Filter = { team: Team | "all"; mine: boolean; priority: string | "all"; status: StatusFilter };
-type View = "kanban" | "gantt" | "estrategia";
+type Filter = { team: Team | "all"; mine: boolean; status: StatusFilter };
+type View = "kanban" | "gantt";
 
 /** Proyecto en blanco recién creado (espejo de los defaults de la tabla). */
 function blankProject(id: string, columnId: string | null, position: number): Project {
@@ -60,7 +57,6 @@ function blankProject(id: string, columnId: string | null, position: number): Pr
     team: null,
     startDate: null,
     endDate: null,
-    priorityIds: [],
     tasks: [],
     docs: [],
   };
@@ -70,25 +66,18 @@ export function ProjectsBoard({
   columns: initialColumns,
   projects: initialProjects,
   members,
-  priorities,
   currentMemberId,
 }: {
   columns: ProjectColumn[];
   projects: Project[];
   members: ProjectOwner[];
-  priorities: StrategicPriority[];
   currentMemberId: string;
 }) {
-  const activePriorities = useMemo(
-    () => priorities.filter((p) => p.isActive).sort((a, b) => b.year - a.year || a.position - b.position),
-    [priorities],
-  );
-  const priorityById = useMemo(() => new Map(priorities.map((p) => [p.id, p])), [priorities]);
   const router = useRouter();
   const [columns, setColumns] = useState(initialColumns);
   const [projects, setProjects] = useState(initialProjects);
   const [openId, setOpenId] = useState<string | null>(null);
-  const [filter, setFilter] = useState<Filter>({ team: "all", mine: false, priority: "all", status: "all" });
+  const [filter, setFilter] = useState<Filter>({ team: "all", mine: false, status: "all" });
   const [view, setViewState] = useState<View>("kanban");
   const [dragId, setDragId] = useState<string | null>(null);
   const [dropCol, setDropCol] = useState<string | null>(null);
@@ -102,7 +91,7 @@ export function ProjectsBoard({
     setViewHydrated(true);
     try {
       const v = localStorage.getItem("hub:proyectos:view");
-      if (v === "gantt" || v === "kanban" || v === "estrategia") setViewState(v);
+      if (v === "gantt" || v === "kanban") setViewState(v);
     } catch {
       // sin localStorage
     }
@@ -159,11 +148,10 @@ export function ProjectsBoard({
         (p) =>
           (filter.team === "all" || p.team === filter.team) &&
           (!filter.mine || p.ownerId === currentMemberId) &&
-          (view !== "gantt" || filter.priority === "all" || p.priorityIds.includes(filter.priority)) &&
           (filter.status === "all" ||
             (filter.status === "done" ? p.health === "done" : p.health !== "done")),
       ),
-    [projects, filter, currentMemberId, view],
+    [projects, filter, currentMemberId],
   );
 
   const byColumn = useMemo(() => {
@@ -413,9 +401,6 @@ export function ProjectsBoard({
           <ViewTab active={view === "gantt"} onClick={() => setView("gantt")}>
             Gantt
           </ViewTab>
-          <ViewTab active={view === "estrategia"} onClick={() => setView("estrategia")}>
-            Estrategia
-          </ViewTab>
         </div>
         <span className="mx-1 h-4 w-px bg-[var(--border)]" />
         <span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">
@@ -453,23 +438,6 @@ export function ProjectsBoard({
             {label}
           </Chip>
         ))}
-        {activePriorities.length > 0 && view === "gantt" && (
-          <>
-            <span className="mx-1 h-4 w-px bg-[var(--border)]" />
-            {activePriorities.map((sp) => (
-              <Chip
-                key={sp.id}
-                active={filter.priority === sp.id}
-                accent={strategicInk(sp.position)}
-                onClick={() =>
-                  setFilter((f) => ({ ...f, priority: f.priority === sp.id ? "all" : sp.id }))
-                }
-              >
-                {sp.shortName || sp.title}
-              </Chip>
-            ))}
-          </>
-        )}
         {view === "kanban" && (
           <button
             type="button"
@@ -482,15 +450,7 @@ export function ProjectsBoard({
       </div>
       </div>
 
-      {view === "estrategia" ? (
-        <StrategyView
-          priorities={priorities}
-          projects={visible}
-          onOpen={setOpenId}
-          onToggleTask={toggleProjectTask}
-          onSetPriorities={(pid, priorityIds) => modalHandlers.patch(pid, { priorityIds })}
-        />
-      ) : view === "gantt" ? (
+      {view === "gantt" ? (
         <div className="card mt-4 flex min-h-0 flex-1 flex-col overflow-hidden">
           <GanttView projects={visible} columns={columns} onOpen={setOpenId} onReschedule={reschedule} />
         </div>
@@ -513,7 +473,6 @@ export function ProjectsBoard({
             onMoveLeft={idx > 0 ? () => shiftColumn(col.id, -1) : undefined}
             onMoveRight={idx < columns.length - 1 ? () => shiftColumn(col.id, 1) : undefined}
             projects={byColumn.get(col.id) ?? []}
-            priorityById={priorityById}
             dragId={dragId}
             isDropTarget={dropCol === col.id}
             onColDragOver={() => setDropCol(col.id)}
@@ -535,7 +494,6 @@ export function ProjectsBoard({
           <Column
             col={{ id: NONE, label: "Sin columna", position: 999 }}
             projects={noColumn}
-            priorityById={priorityById}
             dragId={dragId}
             isDropTarget={dropCol === NONE}
             onColDragOver={() => setDropCol(NONE)}
@@ -557,7 +515,6 @@ export function ProjectsBoard({
         <ProjectModal
           project={openProject}
           members={members}
-          priorities={priorities}
           handlers={modalHandlers}
           onClose={() => setOpenId(null)}
         />
@@ -569,7 +526,6 @@ export function ProjectsBoard({
 function Column({
   col,
   projects,
-  priorityById,
   dragId,
   isDropTarget,
   onColDragOver,
@@ -602,7 +558,6 @@ function Column({
   onMoveRight?: () => void;
   col: ProjectColumn;
   projects: Project[];
-  priorityById: Map<string, StrategicPriority>;
   dragId: string | null;
   isDropTarget: boolean;
   onColDragOver: () => void;
@@ -783,9 +738,6 @@ function Column({
           >
             <ProjectCard
               project={p}
-              priorities={p.priorityIds
-                .map((id) => priorityById.get(id))
-                .filter((x): x is StrategicPriority => !!x)}
               dragging={dragId === p.id}
               onOpen={() => onOpen(p.id)}
               onDragStart={(e) => {

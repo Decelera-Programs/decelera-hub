@@ -15,7 +15,6 @@ import {
   type ProjectPriority,
 } from "@/lib/projects";
 import { TEAMS, TEAM_ACCENT, TEAM_LABEL, type Team } from "@/lib/teams";
-import { strategicInk, type StrategicPriority } from "@/lib/projects";
 import { useWorkspace } from "@/components/WorkspaceContext";
 import { OwnerAvatar } from "./ProjectCard";
 
@@ -63,7 +62,6 @@ export type ProjectFieldPatch = {
   team?: Team | null;
   startDate?: string | null;
   endDate?: string | null;
-  priorityIds?: string[];
 };
 
 /** Callbacks optimistas: el board actualiza su estado y lanza la escritura. */
@@ -84,13 +82,11 @@ export type ModalHandlers = {
 export function ProjectModal({
   project,
   members,
-  priorities,
   handlers,
   onClose,
 }: {
   project: Project;
   members: ProjectOwner[];
-  priorities: StrategicPriority[];
   handlers: ModalHandlers;
   onClose: () => void;
 }) {
@@ -299,47 +295,6 @@ export function ProjectModal({
                   ))}
                 </select>
               </label>
-              {priorities.some((p) => p.isActive) && (
-                <div className="flex flex-col gap-1">
-                  <span className="text-xs text-[var(--text-secondary)]">
-                    Prioridad estratégica
-                  </span>
-                  <div className="flex flex-col gap-1">
-                    {priorities
-                      .filter((p) => p.isActive)
-                      .map((p) => {
-                        const on = project.priorityIds.includes(p.id);
-                        const color = strategicInk(p.position);
-                        return (
-                          <button
-                            key={p.id}
-                            type="button"
-                            title={p.title}
-                            onClick={() =>
-                              handlers.patch(project.id, {
-                                priorityIds: on ? [] : [p.id],
-                              })
-                            }
-                            className="flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-left text-xs font-semibold transition-colors"
-                            style={{
-                              borderColor: on ? color : "var(--border)",
-                              background: on ? `color-mix(in srgb, ${color} 12%, transparent)` : "transparent",
-                              color: on ? color : "var(--text-secondary)",
-                            }}
-                          >
-                            <span
-                              aria-hidden
-                              className="h-2 w-2 shrink-0 rounded-full"
-                              style={{ background: color }}
-                            />
-                            <span className="min-w-0 flex-1 truncate">{p.shortName || p.title}</span>
-                            {on && <span aria-hidden>✓</span>}
-                          </button>
-                        );
-                      })}
-                  </div>
-                </div>
-              )}
               <div className="grid grid-cols-2 gap-2">
                 <label className="flex flex-col gap-1">
                   <span className="text-xs text-[var(--text-secondary)]">Inicio</span>

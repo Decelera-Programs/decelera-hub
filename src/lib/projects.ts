@@ -37,34 +37,6 @@ export const PRIORITY_COLOR: Record<ProjectPriority, string> = {
 
 export type ProjectColumn = { id: string; label: string; position: number };
 
-/** Prioridad estratégica anual (`hub.strategic_priorities`). Inactiva = "Future Horizon". */
-export type StrategicPriority = {
-  id: string;
-  year: number;
-  position: number;
-  title: string;
-  shortName: string;
-  context: string;
-  whyItMatters: string;
-  successMetrics: string;
-  relatedProblemSpace: string;
-  isActive: boolean;
-};
-
-/** Un proyecto puede colgar como máximo de 3 prioridades (regla de UI, no de BD). */
-export const MAX_PROJECT_PRIORITIES = 1;
-
-/** Color por posición de la prioridad: solo paleta de marca (Sea, Sun, Water, Cloud). */
-const STRATEGIC_ACCENTS = ["var(--brand-sea)", "var(--brand-sun)", "var(--brand-water)", "var(--brand-cloud)"];
-export function strategicAccent(position: number): string {
-  return STRATEGIC_ACCENTS[position % STRATEGIC_ACCENTS.length];
-}
-/** Versión para texto: Sun, Water y Cloud se mezclan con el color de texto para que se lean. */
-export function strategicInk(position: number): string {
-  const i = position % STRATEGIC_ACCENTS.length;
-  return i === 0 ? STRATEGIC_ACCENTS[0] : `color-mix(in srgb, ${STRATEGIC_ACCENTS[i]} 55%, var(--text-primary))`;
-}
-
 const PRIORITY_RANK: Record<ProjectPriority, number> = { high: 0, medium: 1, low: 2 };
 /** Comparador: prioridad del proyecto (alta → baja) y luego posición. */
 export function byProjectPriority(a: Project, b: Project): number {
@@ -109,8 +81,6 @@ export type Project = {
   team: Team | null;
   startDate: string | null;
   endDate: string | null;
-  /** Ids de `strategic_priorities` a las que contribuye (máx. 2). */
-  priorityIds: string[];
   tasks: ProjectTask[];
   docs: ProjectDoc[];
 };
