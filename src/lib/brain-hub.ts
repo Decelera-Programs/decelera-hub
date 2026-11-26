@@ -113,7 +113,7 @@ export async function loadProjects(): Promise<{ text: string; items: HubItem[] }
   const prioBlocks = okrTree.map((o, i) => {
     const ref = `S${i + 1}`;
     items.push({ ref, kind: "Hub", name: clip(o.item.title, 80), type: "Objetivo OKR", snippet: clip(o.item.notes || o.item.title, 280) });
-    const lines = [`[${ref}] ${okrLine(o, "")}`];
+    const lines = [`[${ref}] Objetivo ${o.item.code} (prioridad estratégica ${o.item.code}): ${okrLine(o, "").trim()}`];
     for (const kr of o.children) {
       lines.push(okrLine(kr, "  "));
       for (const ini of kr.children) lines.push(okrLine(ini, "    "));
@@ -124,7 +124,9 @@ export async function loadProjects(): Promise<{ text: string; items: HubItem[] }
   return {
     text:
       `Proyectos del hub (${sorted.length}), ordenados por columna del tablero:\n\n${projectBlocks.join("\n\n")}` +
-      `\n\nOKR 2027 (objetivos → KRs → iniciativas; avance frente a la meta anual; "tocaría" depende de la fecha de hoy):\n\n${prioBlocks.join("\n\n")}`,
+      `\n\nOKR 2027 = las prioridades estratégicas de la empresa ("prioridad 2" = objetivo 2). Objetivos → KRs → iniciativas; ` +
+      `el % es el avance frente a la meta anual y sube desde las iniciativas; "0% · aún no toca" significa que no hay datos reales todavía, no que vaya mal; ` +
+      `"tocaría" depende de la fecha de hoy:\n\n${prioBlocks.join("\n\n")}`,
     items,
   };
 }
