@@ -1,0 +1,31 @@
+# Comprueba que el Hub compila antes de que Railway lo despliegue (auditoría 2026-11-26).
+# Las variables son de mentira: la compilación solo necesita que existan. Los valores reales están en Railway.
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SUPABASE_URL: https://dummy.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: dummy
+      SUPABASE_KEY: dummy
+      AUTH_SECRET: dummy-ci-secret-not-used-anywhere-0000000000
+      AUTH_GOOGLE_ID: dummy
+      AUTH_GOOGLE_SECRET: dummy
+      AUTH_TRUST_HOST: "true"
+      ANTHROPIC_API_KEY: dummy
+      VOYAGE_API_KEY: dummy
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npx tsc --noEmit -p .
+      - run: npm run build
