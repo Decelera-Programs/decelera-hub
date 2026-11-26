@@ -38,7 +38,7 @@ export const MAP_AGENTS: { id: MapAgentId; label: string; emoji: string; color: 
     label: "Facturas",
     emoji: "🧾",
     color: "#7a4fd6",
-    what: "Facturas mensuales de SaaS (Gmail + PDFs en #facturas) enviadas a Carmen a fin de mes.",
+    what: "Facturas mensuales de SaaS: las junta del Gmail de Carlos, de #facturas y buscándolas en la web, y se las envía a Carmen (sin borradores).",
   },
 ];
 
@@ -58,7 +58,7 @@ export const NODE_H = 66;
 
 // Izquierda: de dónde entran los datos · centro: dónde se guardan · derecha: dónde se avisa / se actúa.
 export const MAP_SYSTEMS: MapSystem[] = [
-  { id: "gmail", label: "Gmail", sub: "startups@ · events@ · facturas", icon: "✉️", logo: "/logos/gmail.svg", x: 30, y: 100 },
+  { id: "gmail", label: "Gmail", sub: "startups@ · events@", icon: "✉️", logo: "/logos/gmail.svg", x: 30, y: 100 },
   { id: "exa", label: "Exa", sub: "búsqueda web", icon: "🔎", logo: "/logos/exa.png", x: 30, y: 255 },
   { id: "linkedin", label: "LinkedIn", sub: "Sales Navigator", icon: "💼", logo: "/logos/linkedin.svg", x: 30, y: 420 },
   { id: "calendly", label: "Calendly", sub: "calls reservadas", icon: "🗓️", logo: "/logos/calendly.svg", x: 30, y: 545 },
@@ -66,7 +66,12 @@ export const MAP_SYSTEMS: MapSystem[] = [
   { id: "attio", label: "Attio", sub: "CRM · deal flow", icon: "🏢", logo: "/logos/attio.ico", x: 492, y: 480 },
   { id: "gcal", label: "Google Calendar", sub: "invitaciones", icon: "📆", logo: "/logos/gcal.svg", x: 954, y: 30 },
   { id: "slack", label: "Slack", sub: "canales", icon: "💬", logo: "/logos/slack.svg", x: 954, y: 250 },
-  { id: "gmail-out", label: "Gmail", sub: "founders · facturas a Carmen", icon: "📤", logo: "/logos/gmail.svg", x: 954, y: 470 },
+  { id: "gmail-out", label: "Gmail", sub: "respuestas a founders", icon: "📤", logo: "/logos/gmail.svg", x: 954, y: 470 },
+  // Franja de facturas (abajo, separada del resto para que sus flechas no crucen el mapa)
+  { id: "gmail-invoices", label: "Gmail de Carlos", sub: "Railway · Anthropic · Supabase", icon: "✉️", logo: "/logos/gmail.svg", x: 30, y: 700 },
+  { id: "web", label: "Web", sub: "busca las facturas", icon: "🌐", x: 30, y: 830 },
+  { id: "slack-invoices", label: "Slack #facturas", sub: "PDFs subidos · recordatorio", icon: "💬", logo: "/logos/slack.svg", x: 492, y: 940 },
+  { id: "carmen", label: "Carmen", sub: "email desde maru@", icon: "📤", logo: "/logos/gmail.svg", x: 954, y: 765 },
 ];
 
 export type MapFlow = {
@@ -99,11 +104,12 @@ export const MAP_FLOWS: MapFlow[] = [
   { id: "e-rsvp", agent: "events", from: "slack", to: "gcal", label: "Voy → invitación", when: "cada minuto",
     eventTypes: ["event_rsvp_voy", "event_rsvp_no_voy"] },
   // Facturas
-  { id: "f-mail", agent: "invoices", from: "gmail", to: "gmail-out", label: "Facturas a Carmen", when: "último día 19:00",
-    eventTypes: ["factura_enviada", "factura_borrador"] },
-  { id: "f-upload", agent: "invoices", from: "slack", to: "gmail-out", label: "PDFs de #facturas", when: "último día 19:00" },
-  { id: "f-remind", agent: "invoices", from: "gmail", to: "slack", label: "Aviso / recordatorio", when: "día 25 y fin de mes",
-    eventTypes: ["factura_recordatorio", "factura_falta"] },
+  { id: "f-mail", agent: "invoices", from: "gmail-invoices", to: "carmen", label: "Facturas del correo → Carmen", when: "último día 19:00",
+    eventTypes: ["factura_enviada"] },
+  { id: "f-web", agent: "invoices", from: "web", to: "carmen", label: "Busca en la web → Carmen", when: "último día 19:00" },
+  { id: "f-upload", agent: "invoices", from: "slack-invoices", to: "carmen", label: "PDFs de #facturas → Carmen", when: "último día 19:00" },
+  { id: "f-remind", agent: "invoices", from: "slack-invoices", to: "slack-invoices", label: "Recordatorio día 25", when: "día 25",
+    eventTypes: ["factura_recordatorio"] },
   // Maru
   { id: "m-inmail", agent: "main", from: "linkedin", to: "linkedin", label: "InMails a founders", when: "L–V" },
   { id: "m-leads", agent: "main", from: "linkedin", to: "attio", label: "Leads · enriquece stealth", when: "con cada envío" },
@@ -121,4 +127,4 @@ export function flowCount(f: MapFlow, counts: Record<string, Record<string, numb
 }
 
 export const MAP_WIDTH = 1180;
-export const MAP_HEIGHT = 640;
+export const MAP_HEIGHT = 1040;

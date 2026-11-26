@@ -207,7 +207,7 @@ export function SystemsMap({ counts }: { counts: Record<string, Record<string, n
       </div>
 
       <div className="card spotlight overflow-hidden p-2 sm:p-3">
-        <PanZoom width={MAP_WIDTH} height={MAP_HEIGHT} viewportClassName="h-[460px] sm:h-[680px]">
+        <PanZoom width={MAP_WIDTH} height={MAP_HEIGHT} viewportClassName="h-[520px] sm:h-[860px]">
           <div
             className="relative rounded-2xl"
             style={{
@@ -227,6 +227,12 @@ export function SystemsMap({ counts }: { counts: Record<string, Record<string, n
                 {z.label}
               </span>
             ))}
+
+            {/* Separador de la franja de facturas */}
+            <div className="absolute left-4 right-4 border-t border-dashed border-[var(--border)]" style={{ top: 660 }} />
+            <span className="absolute text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]" style={{ left: 16, top: 668 }}>
+              Facturas
+            </span>
 
             <svg width={MAP_WIDTH} height={MAP_HEIGHT} className="absolute inset-0" aria-hidden>
               <defs>
@@ -330,7 +336,7 @@ export function SystemsMap({ counts }: { counts: Record<string, Record<string, n
       </div>
 
       {/* Detalle: qué hace cada agente, flecha a flecha */}
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
         {MAP_AGENTS.map((a) => {
           const flows = visibleFlows.filter((f) => f.agent === a.id);
           const dim = (agent && agent !== a.id) || flows.length === 0;

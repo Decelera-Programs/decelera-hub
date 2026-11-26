@@ -84,8 +84,8 @@ export const KNOWN_AGENTS: { id: string; label: string; emoji: string; descripti
     emoji: "🧾",
     description:
       "El último día de cada mes junta las facturas mensuales de SaaS (Railway, Anthropic y Supabase del " +
-      "Gmail de Carlos; Hostinger, Fillout y Squarespace subidas a #facturas), las renombra y se las envía a " +
-      "Carmen desde maru@. El día 25 recuerda en #facturas qué hay que bajar a mano. Sin LLM.",
+      "Gmail de Carlos, las que se suben a #facturas y las que busca en la web), las renombra y se las envía " +
+      "directamente a Carmen desde maru@ (no deja borradores). El día 25 recuerda en #facturas qué hay que bajar a mano.",
     vpsPath: "/home/maru/.openclaw/agents/invoices",
   },
 ];
@@ -111,7 +111,6 @@ export const EVENT_LABEL: Record<string, string> = {
   event_rsvp_voy: "Alguien va (invitación enviada)",
   event_rsvp_no_voy: "Alguien no va",
   factura_enviada: "Factura enviada a Carmen",
-  factura_borrador: "Factura en borrador para Carmen",
   factura_falta: "Factura que aún no ha llegado",
   factura_patron_aprendido: "Formato de nombre nuevo aprendido",
   factura_recordatorio: "Recordatorio del día 25 en #facturas",
@@ -138,7 +137,6 @@ export const EVENT_ICON: Record<string, string> = {
   event_rsvp_voy: "✅",
   event_rsvp_no_voy: "👋",
   factura_enviada: "📤",
-  factura_borrador: "📝",
   factura_falta: "⏳",
   factura_patron_aprendido: "🧠",
   factura_recordatorio: "🔔",
@@ -234,17 +232,19 @@ export const AGENT_FLOWS: Record<string, { nodes: FlowNode[]; edges: FlowEdge[] 
   invoices: {
     nodes: [
       { id: "remind", label: "Día 25: recordatorio en #facturas", icon: "🔔", tone: "neutral", eventTypes: ["factura_recordatorio"], col: 0, row: 0 },
+      { id: "web", label: "Las busca en la web", icon: "🌐", tone: "neutral", eventTypes: [], col: 1, row: 1 },
       { id: "gmail", label: "Facturas por email (Gmail de Carlos)", icon: "📧", tone: "neutral", eventTypes: [], col: 1, row: 2 },
       { id: "upload", label: "PDFs subidos a #facturas", icon: "📎", tone: "neutral", eventTypes: [], col: 1, row: 0 },
       { id: "learned", label: "Formato de nombre nuevo", icon: "🧠", tone: "info", eventTypes: ["factura_patron_aprendido"], col: 2, row: 0 },
       { id: "collect", label: "Último día: junta y renombra", icon: "🧾", tone: "info", eventTypes: [], col: 2, row: 1 },
-      { id: "sent", label: "Enviadas a Carmen", icon: "📤", tone: "success", eventTypes: ["factura_enviada", "factura_borrador"], col: 3, row: 1 },
+      { id: "sent", label: "Enviadas a Carmen", icon: "📤", tone: "success", eventTypes: ["factura_enviada"], col: 3, row: 1 },
       { id: "missing", label: "Faltan → siguiente envío", icon: "⏳", tone: "warning", eventTypes: ["factura_falta"], col: 3, row: 2 },
     ],
     edges: [
       { from: "remind", to: "upload" },
       { from: "upload", to: "learned" },
       { from: "upload", to: "collect" },
+      { from: "web", to: "collect" },
       { from: "gmail", to: "collect" },
       { from: "collect", to: "sent" },
       { from: "collect", to: "missing" },
