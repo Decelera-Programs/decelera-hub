@@ -88,6 +88,16 @@ export const KNOWN_AGENTS: { id: string; label: string; emoji: string; descripti
       "directamente a Carmen desde maru@ (no deja borradores). El día 25 recuerda en #facturas qué hay que bajar a mano.",
     vpsPath: "/home/maru/.openclaw/agents/invoices",
   },
+  {
+    id: "infra-watch",
+    label: "Actualizaciones",
+    emoji: "🔍",
+    description:
+      "Cada lunes revisa qué hay que actualizar: fallos de seguridad en las librerías de los repos de GitHub " +
+      "(alertas de Dependabot) y versiones del software que tenemos instalado en el VPS (OpenClaw, Node, Chrome, " +
+      "sistema operativo). Manda un DM a Carlos con lo urgente primero. No actualiza nada, solo avisa. Sin IA.",
+    vpsPath: "/home/maru/.openclaw/agents/infra-watch",
+  },
 ];
 
 export const EVENT_LABEL: Record<string, string> = {
@@ -116,6 +126,7 @@ export const EVENT_LABEL: Record<string, string> = {
   factura_falta: "Factura que aún no ha llegado",
   factura_patron_aprendido: "Formato de nombre nuevo aprendido",
   factura_recordatorio: "Recordatorio del día 25 en #facturas",
+  infra_report_sent: "Informe semanal de actualizaciones enviado",
 };
 
 export const EVENT_ICON: Record<string, string> = {
@@ -144,6 +155,7 @@ export const EVENT_ICON: Record<string, string> = {
   factura_falta: "⏳",
   factura_patron_aprendido: "🧠",
   factura_recordatorio: "🔔",
+  infra_report_sent: "🔍",
 };
 
 export function eventLabel(eventType: string): string {
@@ -256,6 +268,17 @@ export const AGENT_FLOWS: Record<string, { nodes: FlowNode[]; edges: FlowEdge[] 
       { from: "gmail", to: "collect" },
       { from: "collect", to: "sent" },
       { from: "collect", to: "missing" },
+    ],
+  },
+  "infra-watch": {
+    nodes: [
+      { id: "github", label: "Alertas de seguridad de GitHub", icon: "🛡️", tone: "neutral", eventTypes: [], col: 0, row: 0 },
+      { id: "vps", label: "Versiones del software del VPS", icon: "🖥️", tone: "neutral", eventTypes: [], col: 0, row: 1 },
+      { id: "report", label: "Lunes 9:00: DM a Carlos", icon: "🔍", tone: "success", eventTypes: ["infra_report_sent"], col: 1, row: 0 },
+    ],
+    edges: [
+      { from: "github", to: "report" },
+      { from: "vps", to: "report" },
     ],
   },
 };

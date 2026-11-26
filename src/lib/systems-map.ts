@@ -9,7 +9,7 @@
  * Brain, así que sus flechas salen sin cifra.
  */
 
-export type MapAgentId = "main" | "inbound-follow-up" | "events" | "invoices";
+export type MapAgentId = "main" | "inbound-follow-up" | "events" | "invoices" | "infra-watch";
 
 export const MAP_AGENTS: { id: MapAgentId; label: string; emoji: string; color: string; what: string }[] = [
   {
@@ -39,6 +39,13 @@ export const MAP_AGENTS: { id: MapAgentId; label: string; emoji: string; color: 
     emoji: "🧾",
     color: "#7a4fd6",
     what: "Facturas mensuales de SaaS: las junta del Gmail de Carlos, de #facturas y buscándolas en la web, y se las envía a Carmen (sin borradores).",
+  },
+  {
+    id: "infra-watch",
+    label: "Actualizaciones",
+    emoji: "🔍",
+    color: "#2f8f6b",
+    what: "Cada lunes: fallos de seguridad en las librerías de los repos y versiones del software del VPS. DM a Carlos, no actualiza nada.",
   },
 ];
 
@@ -72,6 +79,9 @@ export const MAP_SYSTEMS: MapSystem[] = [
   { id: "web", label: "Web", sub: "busca las facturas", icon: "🌐", x: 30, y: 830 },
   { id: "slack-invoices", label: "Slack #facturas", sub: "PDFs subidos · recordatorio", icon: "💬", logo: "/logos/slack.svg", x: 492, y: 940 },
   { id: "carmen", label: "Carmen", sub: "email desde maru@", icon: "📤", logo: "/logos/gmail.svg", x: 954, y: 765 },
+  // Franja de actualizaciones (abajo del todo)
+  { id: "github", label: "GitHub", sub: "alertas de seguridad · VPS", icon: "🛡️", x: 30, y: 1080 },
+  { id: "slack-dm", label: "DM a Carlos", sub: "informe de los lunes", icon: "💬", logo: "/logos/slack.svg", x: 954, y: 1080 },
 ];
 
 export type MapFlow = {
@@ -88,6 +98,9 @@ export type MapFlow = {
 };
 
 export const MAP_FLOWS: MapFlow[] = [
+  // Actualizaciones (infra-watch)
+  { id: "w-report", agent: "infra-watch", from: "github", to: "slack-dm", label: "Qué hay que actualizar", when: "lunes 9:00",
+    eventTypes: ["infra_report_sent"] },
   // Inbound Follow-Up
   { id: "i-lead", agent: "inbound-follow-up", from: "gmail", to: "attio", label: "Registra el lead", when: "cada 5 min",
     eventTypes: ["attio_deal_created", "attio_deal_merged"] },
@@ -129,4 +142,4 @@ export function flowCount(f: MapFlow, counts: Record<string, Record<string, numb
 }
 
 export const MAP_WIDTH = 1180;
-export const MAP_HEIGHT = 1040;
+export const MAP_HEIGHT = 1180;
