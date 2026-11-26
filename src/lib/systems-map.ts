@@ -96,6 +96,8 @@ export const MAP_FLOWS: MapFlow[] = [
   { id: "i-slack", agent: "inbound-follow-up", from: "gmail", to: "slack", label: "Borradores para aprobar", when: "al responder un founder",
     eventTypes: ["reply_drafted", "attio_needs_review", "reply_escalated"] },
   { id: "i-report", agent: "inbound-follow-up", from: "attio", to: "slack", label: "Informe de conversión", when: "lunes 9:30" },
+  { id: "i-outbound", agent: "inbound-follow-up", from: "slack", to: "gmail-out", label: "Correo nuevo a founder (lo pide el equipo)", when: "al aprobar el borrador",
+    eventTypes: ["outbound_drafted", "outbound_sent"] },
   // Events
   { id: "e-mail", agent: "events", from: "gmail", to: "supabase", label: "Eventos reenviados", when: "9:00 y 18:00", source: "email" },
   { id: "e-exa", agent: "events", from: "exa", to: "supabase", label: "VC + tech en Europa", when: "lunes 9:00", source: "exa" },
